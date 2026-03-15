@@ -28,10 +28,11 @@ class ClientDetailScreen extends ConsumerWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.edit),
+            tooltip: 'Modifier le client',
             onPressed: () {
               final client = _findClient(clientsAsync.value, clientId);
               if (client != null) {
-                context.go('/clients/$clientId', extra: client);
+                context.push('/clients/$clientId/edit', extra: client);
               }
             },
           ),

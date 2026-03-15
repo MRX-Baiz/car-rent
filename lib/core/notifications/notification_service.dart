@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
@@ -17,19 +18,33 @@ class NotificationService {
   Future<void> initialize() async {
     if (_initialized) return;
 
-    // Initialize timezone database.
-    tz.initializeTimeZones();
-    tz.setLocalLocation(tz.getLocation('UTC'));
+    try {
+      tz.initializeTimeZones();
+      tz.setLocalLocation(tz.getLocation('UTC'));
 
-    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+      const androidSettings =
+          AndroidInitializationSettings('@mipmap/ic_launcher');
+      const darwinSettings = DarwinInitializationSettings(
+        requestAlertPermission: true,
+        requestSoundPermission: true,
+        requestBadgePermission: true,
+      );
 
-    const initializationSettings = InitializationSettings(
-      android: androidSettings,
-    );
+      const initializationSettings = InitializationSettings(
+        android: androidSettings,
+        iOS: darwinSettings,
+        macOS: darwinSettings,
+      );
 
-    await _flutterLocalNotificationsPlugin.initialize(initializationSettings);
-
-    _initialized = true;
+      await _flutterLocalNotificationsPlugin.initialize(initializationSettings);
+      _initialized = true;
+    } catch (e) {
+      if (kDebugMode) {
+        // On unsupported platforms (e.g. Windows) notifications may not be available.
+        debugPrint('NotificationService.initialize: $e');
+      }
+      _initialized = true; // Prevent repeated init attempts
+    }
   }
 
   int _baseIdForContract(int contractId) => contractId * 1000;
@@ -42,9 +57,16 @@ class NotificationService {
       importance: Importance.max,
       priority: Priority.high,
     );
+    const darwinDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+    );
 
     return const NotificationDetails(
       android: androidDetails,
+      iOS: darwinDetails,
+      macOS: darwinDetails,
     );
   }
 
@@ -57,12 +79,17 @@ class NotificationService {
     required String registrationNumber,
     required DateTime returnDate,
   }) async {
-    await initialize();
+    try {
+      await initialize();
+    } catch (_) {
+      return; // Notifications not supported on this platform
+    }
 
-    final details = _buildNotificationDetails();
-    final now = DateTime.now();
+    try {
+      final details = _buildNotificationDetails();
+      final now = DateTime.now();
 
-    final baseId = _baseIdForContract(contractId);
+      final baseId = _baseIdForContract(contractId);
 
     final tzReturnDate = tz.TZDateTime.from(returnDate, tz.local);
     final tzOneHourBefore =
@@ -111,22 +138,33 @@ class NotificationService {
       uiLocalNotificationDateInterpretation:
           UILocalNotificationDateInterpretation.absoluteTime,
     );
+    } catch (e) {
+      if (kDebugMode) debugPrint('scheduleReturnReminder: $e');
+    }
   }
 
   /// Cancels all notifications associated with a contract.
   Future<void> cancelContractNotifications(int contractId) async {
-    await initialize();
-    final baseId = _baseIdForContract(contractId);
-    await _flutterLocalNotificationsPlugin.cancel(baseId);
-    await _flutterLocalNotificationsPlugin.cancel(baseId + 1);
-    await _flutterLocalNotificationsPlugin.cancel(baseId + 2);
+    try {
+      await initialize();
+      final baseId = _baseIdForContract(contractId);
+      await _flutterLocalNotificationsPlugin.cancel(baseId);
+      await _flutterLocalNotificationsPlugin.cancel(baseId + 1);
+      await _flutterLocalNotificationsPlugin.cancel(baseId + 2);
+    } catch (e) {
+      if (kDebugMode) debugPrint('cancelContractNotifications: $e');
+    }
   }
 
   /// Checks for late vehicles and sends an immediate notification for each.
   ///
   /// This is designed to be called periodically (e.g. at app startup).
   Future<void> checkAndNotifyLateVehicles() async {
-    await initialize();
+    try {
+      await initialize();
+    } catch (_) {
+      return;
+    }
     final db = await DatabaseHelper.instance.database;
 
     final nowIso = DateTime.now().toIso8601String();

@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,6 +8,8 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../core/constants/app_strings.dart';
+import '../../../core/document/document_text_service.dart';
+import '../../../core/ocr/ocr_service.dart';
 import '../../../data/models/client_model.dart';
 import '../../providers/client_provider.dart';
 import '../../widgets/common/app_button.dart';
@@ -44,6 +47,11 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
 
   ClientFormMode _mode = ClientFormMode.manual;
   bool _isSubmitting = false;
+  bool _isLoadingOcr = false;
+
+  final DocumentTextService _documentTextService = DocumentTextService.instance;
+  final OcrService _ocrService = OcrService();
+  static const _imageExtensions = ['jpg', 'jpeg', 'png', 'bmp', 'gif', 'webp'];
 
   @override
   void initState() {
@@ -78,11 +86,8 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
       source: kIsWeb ? ImageSource.gallery : ImageSource.camera,
     );
     if (picked != null) {
-      setState(() {
-        _cinImageFile = File(picked.path);
-      });
-      // Placeholder for OCR integration: the OCR service can be called here
-      // to extract CIN information and pre-fill fields.
+      setState(() => _cinImageFile = File(picked.path));
+      await _runOcrOnCinFile(File(picked.path));
     }
   }
 
@@ -92,10 +97,135 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
       source: kIsWeb ? ImageSource.gallery : ImageSource.camera,
     );
     if (picked != null) {
-      setState(() {
-        _licenseImageFile = File(picked.path);
-      });
-      // Placeholder for OCR integration for license data.
+      setState(() => _licenseImageFile = File(picked.path));
+      await _runOcrOnLicenseFile(File(picked.path));
+    }
+  }
+
+  Future<void> _importFileForCin() async {
+    final path = await _pickDocumentFile();
+    if (path == null) return;
+    final file = File(path);
+    if (!await file.exists()) return;
+    final ext = path.split('.').last.toLowerCase();
+    if (_imageExtensions.contains(ext)) {
+      setState(() => _cinImageFile = file);
+    }
+    await _runOcrOnCinFile(file);
+  }
+
+  Future<void> _importFileForPermis() async {
+    final path = await _pickDocumentFile();
+    if (path == null) return;
+    final file = File(path);
+    if (!await file.exists()) return;
+    final ext = path.split('.').last.toLowerCase();
+    if (_imageExtensions.contains(ext)) {
+      setState(() => _licenseImageFile = file);
+    }
+    await _runOcrOnLicenseFile(file);
+  }
+
+  Future<String?> _pickDocumentFile() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: _documentTextService.allowedExtensions,
+      allowMultiple: false,
+    );
+    if (result == null || result.files.isEmpty) return null;
+    return result.files.single.path;
+  }
+
+  Future<void> _runOcrOnCinFile(File file) async {
+    setState(() => _isLoadingOcr = true);
+    try {
+      final text = await _documentTextService.extractTextFromFile(file);
+      if (text.trim().isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Aucun texte extrait. Essayez une image plus nette ou un autre fichier.',
+              ),
+            ),
+          );
+        }
+        return;
+      }
+      final clientData = await _ocrService.extractCINData(text);
+      if (clientData != null && mounted) {
+        setState(() {
+          _firstNameController.text = clientData.firstName;
+          _lastNameController.text = clientData.lastName;
+          _cinController.text = clientData.cin;
+          if (clientData.address != null) _addressController.text = clientData.address!;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Informations CIN remplies automatiquement.')),
+        );
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Texte extrait mais format CIN non reconnu. Vérifiez et complétez.')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur extraction: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoadingOcr = false);
+    }
+  }
+
+  Future<void> _runOcrOnLicenseFile(File file) async {
+    setState(() => _isLoadingOcr = true);
+    try {
+      final text = await _documentTextService.extractTextFromFile(file);
+      if (text.trim().isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Aucun texte extrait. Essayez une image plus nette ou un autre fichier.',
+              ),
+            ),
+          );
+        }
+        return;
+      }
+      final licenseData = await _ocrService.extractLicenseData(text);
+      if (mounted) {
+        setState(() {
+          if (licenseData['license_number'] != null) {
+            _licenseNumberController.text = licenseData['license_number']!;
+          }
+          if (licenseData['first_name'] != null) {
+            _firstNameController.text = licenseData['first_name']!;
+          }
+          if (licenseData['last_name'] != null) {
+            _lastNameController.text = licenseData['last_name']!;
+          }
+        });
+        if (licenseData.isNotEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Informations permis remplies automatiquement.')),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Texte extrait mais format permis non reconnu.')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur extraction: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoadingOcr = false);
     }
   }
 
@@ -331,12 +461,24 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
                                           )),
                               ),
                               const SizedBox(height: 4),
-                              TextButton.icon(
-                                onPressed: _mode == ClientFormMode.ocr
-                                    ? _pickCinImage
-                                    : null,
-                                icon: const Icon(Icons.document_scanner),
-                                label: const Text('Scanner'),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  TextButton.icon(
+                                    onPressed: _isLoadingOcr
+                                        ? null
+                                        : _pickCinImage,
+                                    icon: const Icon(Icons.camera_alt),
+                                    label: const Text('Appareil'),
+                                  ),
+                                  TextButton.icon(
+                                    onPressed: _isLoadingOcr
+                                        ? null
+                                        : _importFileForCin,
+                                    icon: const Icon(Icons.upload_file),
+                                    label: const Text('Importer'),
+                                  ),
+                                ],
                               ),
                               const SizedBox(height: 16),
                               Text(
@@ -370,17 +512,34 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
                                           )),
                               ),
                               const SizedBox(height: 4),
-                              TextButton.icon(
-                                onPressed: _mode == ClientFormMode.ocr
-                                    ? _pickLicenseImage
-                                    : null,
-                                icon: const Icon(Icons.document_scanner),
-                                label: const Text('Scanner'),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  TextButton.icon(
+                                    onPressed: _isLoadingOcr
+                                        ? null
+                                        : _pickLicenseImage,
+                                    icon: const Icon(Icons.camera_alt),
+                                    label: const Text('Appareil'),
+                                  ),
+                                  TextButton.icon(
+                                    onPressed: _isLoadingOcr
+                                        ? null
+                                        : _importFileForPermis,
+                                    icon: const Icon(Icons.upload_file),
+                                    label: const Text('Importer'),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
                         ],
                       ),
+                      if (_isLoadingOcr)
+                        const Padding(
+                          padding: EdgeInsets.only(top: 12),
+                          child: LinearProgressIndicator(),
+                        ),
                       const SizedBox(height: 24),
                       AppButton(
                         label: isEditing ? 'Enregistrer' : 'Créer',

@@ -32,8 +32,8 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
   ClientModel? _secondaryDriver;
 
   DateTime _startDate = DateTime.now();
-  DateTime _expectedReturnDate =
-      DateTime.now().add(const Duration(days: 1));
+  DateTime _expectedReturnDate = DateTime.now().add(const Duration(days: 1));
+  int _durationDays = 1;
 
   double _amountPaid = 0;
   bool _isSubmitting = false;
@@ -108,6 +108,9 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
         time.hour,
         time.minute,
       );
+      // Keep duration in sync when the end date is adjusted manually.
+      final diff = _expectedReturnDate.difference(_startDate).inDays;
+      _durationDays = diff <= 0 ? 1 : diff;
     });
   }
 
@@ -285,6 +288,9 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
                             onChanged: (c) {
                               setState(() {
                                 _primaryDriver = c;
+                                if (c != null && _secondaryDriver?.id == c.id) {
+                                  _secondaryDriver = null;
+                                }
                               });
                             },
                             decoration: const InputDecoration(
@@ -298,23 +304,31 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
                                 ?.copyWith(fontWeight: FontWeight.bold),
                           ),
                           const SizedBox(height: 8),
-                          DropdownButtonFormField<ClientModel>(
-                            value: _secondaryDriver,
+                          DropdownButtonFormField<ClientModel?>(
+                            value: _secondaryDriver != null &&
+                                    _primaryDriver != null &&
+                                    _secondaryDriver!.id == _primaryDriver!.id
+                                ? null
+                                : _secondaryDriver,
                             items: [
                               const DropdownMenuItem<ClientModel?>(
                                 value: null,
                                 child: Text('Aucun'),
                               ),
-                              ...clients.map(
-                                (c) => DropdownMenuItem<ClientModel?>(
-                                  value: c,
-                                  child: Text(
-                                    '${c.fullName} (${c.cin})',
+                              ...clients
+                                  .where((c) =>
+                                      _primaryDriver == null ||
+                                      c.id != _primaryDriver!.id)
+                                  .map(
+                                    (c) => DropdownMenuItem<ClientModel?>(
+                                      value: c,
+                                      child: Text(
+                                        '${c.fullName} (${c.cin})',
+                                      ),
+                                    ),
                                   ),
-                                ),
-                              ),
-                            ].cast<DropdownMenuItem<ClientModel>>(),
-                            onChanged: (c) {
+                            ],
+                            onChanged: (ClientModel? c) {
                               setState(() {
                                 _secondaryDriver = c;
                               });
@@ -341,7 +355,8 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
                                   ),
                                   trailing:
                                       const Icon(Icons.date_range_outlined),
-                                  onTap: _pickStartDate,
+                                  // Start date is always "now" and not editable.
+                                  onTap: null,
                                 ),
                               ),
                               const SizedBox(width: 8),
@@ -356,6 +371,43 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
                                       const Icon(Icons.date_range_outlined),
                                   onTap: _pickExpectedReturnDate,
                                 ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              const Text('Durée:'),
+                              const SizedBox(width: 8),
+                              DropdownButton<int>(
+                                value: _durationDays,
+                                items: const [
+                                  1,
+                                  2,
+                                  3,
+                                  4,
+                                  5,
+                                  6,
+                                  7,
+                                  10,
+                                  15,
+                                  30,
+                                ]
+                                    .map(
+                                      (d) => DropdownMenuItem<int>(
+                                        value: d,
+                                        child: Text('$d jours'),
+                                      ),
+                                    )
+                                    .toList(),
+                                onChanged: (value) {
+                                  if (value == null) return;
+                                  setState(() {
+                                    _durationDays = value;
+                                    _expectedReturnDate =
+                                        _startDate.add(Duration(days: value));
+                                  });
+                                },
                               ),
                             ],
                           ),

@@ -30,11 +30,17 @@ dependencies:
   flutter_local_notifications: ^17.0.0
   timezone: ^0.9.2
 
-  # Image Picker
+  # Image Picker & File Picker
   image_picker: ^1.0.7
+  file_picker: ^8.0.0+1
 
-  # OCR - Android
+  # OCR: Android = ML Kit; Windows / iOS / macOS = platform_ocr (native OS)
   google_mlkit_text_recognition: ^0.13.0
+  platform_ocr: ^1.0.0
+
+  # Document text extraction
+  pdf_text_extract: ^0.0.1
+  docx_to_text: ^1.0.0
 
   # Crypto for License
   crypto: ^3.0.7

@@ -1,28 +1,36 @@
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
+import 'package:platform_ocr/platform_ocr.dart';
 
 import '../../data/models/client_model.dart';
 
 /// OCR service for extracting text from CIN and license images.
-/// On Android uses Google ML Kit; on Windows/other platforms uses file picker
-/// and placeholder parsing until ML Kit or another engine is available.
+/// - Android: Google ML Kit.
+/// - Windows / iOS / macOS: platform_ocr (native OS API).
 class OcrService {
   /// Extracts raw text from [imageFile].
-  /// On Android: uses ML Kit text recognition.
-  /// On other platforms: returns empty string (caller can use file picker and manual entry).
+  /// Uses ML Kit on Android; platform_ocr (native) on Windows, iOS, macOS.
   Future<String> extractTextFromImage(File imageFile) async {
     if (!await imageFile.exists()) return '';
     if (kIsWeb) return '';
-    // Android: use google_mlkit_text_recognition when available.
-    // if (Platform.isAndroid) {
-    //   final input = InputImage.fromFilePath(imageFile.path);
-    //   final recognizer = TextRecognizer(script: TextRecognitionScript.latin);
-    //   final result = await recognizer.processImage(input);
-    //   await recognizer.close();
-    //   return result.text;
-    // }
-    return '';
+    try {
+      if (Platform.isAndroid) {
+        final input = InputImage.fromFilePath(imageFile.path);
+        final recognizer = TextRecognizer(script: TextRecognitionScript.latin);
+        final result = await recognizer.processImage(input);
+        await recognizer.close();
+        return result.text;
+      }
+      // Windows, iOS, macOS: native OS OCR
+      final ocr = PlatformOcr();
+      final text = await ocr.recognizeText(OcrSource.file(imageFile));
+      return text != null ? text.toString() : '';
+    } catch (e) {
+      if (kDebugMode) debugPrint('OcrService.extractTextFromImage: $e');
+      return '';
+    }
   }
 
   /// Tries to parse Moroccan CIN format from [ocrText].

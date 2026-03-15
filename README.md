@@ -1,17 +1,27 @@
-# car_rent_manager
+# CarRent Manager
 
-A new Flutter project.
+Vehicle rental management app (Flutter). Runs on **Windows**, **Android**, **macOS**, and **iOS**.
+
+## Features
+
+- Vehicles, clients, contracts, payments
+- License activation
+- PDF contract generation and printing
+- Local notifications (return reminders)
+- Company settings
 
 ## Getting Started
 
-This project is a starting point for a Flutter application.
+1. Install [Flutter](https://flutter.dev).
+2. Clone the project and run:
+   ```bash
+   flutter pub get
+   ```
+3. Run on your target device (see [DEPLOY.md](DEPLOY.md)):
+   - **Windows**: `flutter run -d windows --release`
+   - **Android**: `flutter run -d android`
+   - **macOS / iOS**: on a Mac, `flutter run -d macos` or `flutter run -d ios`
 
-A few resources to get you started if this is your first Flutter project:
+## Multi-Platform Deployment
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+See **[DEPLOY.md](DEPLOY.md)** for run and build commands for each platform (Windows, Android, macOS, iOS) and how to deliver the app.
