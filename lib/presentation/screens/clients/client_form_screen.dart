@@ -9,6 +9,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../core/constants/app_strings.dart';
 import '../../../core/document/document_text_service.dart';
+import '../../../core/ocr/ocr_scan_widget.dart';
 import '../../../core/ocr/ocr_service.dart';
 import '../../../data/models/client_model.dart';
 import '../../providers/client_provider.dart';
@@ -139,7 +140,7 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
   Future<void> _runOcrOnCinFile(File file) async {
     setState(() => _isLoadingOcr = true);
     try {
-      final text = await _documentTextService.extractTextFromFile(file);
+      final text = await _ocrService.extractText(file.path);
       if (text.trim().isEmpty) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -152,20 +153,23 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
         }
         return;
       }
-      final clientData = await _ocrService.extractCINData(text);
-      if (clientData != null && mounted) {
+      final data = _ocrService.parseCINData(text);
+      final hasData = (data['firstName'] ?? '').isNotEmpty ||
+          (data['lastName'] ?? '').isNotEmpty ||
+          (data['cin'] ?? '').isNotEmpty;
+      if (mounted) {
         setState(() {
-          _firstNameController.text = clientData.firstName;
-          _lastNameController.text = clientData.lastName;
-          _cinController.text = clientData.cin;
-          if (clientData.address != null) _addressController.text = clientData.address!;
+          if ((data['firstName'] ?? '').isNotEmpty) _firstNameController.text = data['firstName']!;
+          if ((data['lastName'] ?? '').isNotEmpty) _lastNameController.text = data['lastName']!;
+          if ((data['cin'] ?? '').isNotEmpty) _cinController.text = data['cin']!;
+          if ((data['address'] ?? '').isNotEmpty) _addressController.text = data['address']!;
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Informations CIN remplies automatiquement.')),
-        );
-      } else if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Texte extrait mais format CIN non reconnu. Vérifiez et complétez.')),
+          SnackBar(
+            content: Text(hasData
+                ? 'Informations extraites avec succès.'
+                : 'Texte extrait mais format CIN non reconnu. Vérifiez et complétez.'),
+          ),
         );
       }
     } catch (e) {
@@ -182,7 +186,7 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
   Future<void> _runOcrOnLicenseFile(File file) async {
     setState(() => _isLoadingOcr = true);
     try {
-      final text = await _documentTextService.extractTextFromFile(file);
+      final text = await _ocrService.extractText(file.path);
       if (text.trim().isEmpty) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -195,28 +199,29 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
         }
         return;
       }
-      final licenseData = await _ocrService.extractLicenseData(text);
+      final data = _ocrService.parseLicenseData(text);
+      final hasData = (data['licenseNumber'] ?? '').isNotEmpty ||
+          (data['firstName'] ?? '').isNotEmpty ||
+          (data['lastName'] ?? '').isNotEmpty;
       if (mounted) {
         setState(() {
-          if (licenseData['license_number'] != null) {
-            _licenseNumberController.text = licenseData['license_number']!;
+          if ((data['licenseNumber'] ?? '').isNotEmpty) {
+            _licenseNumberController.text = data['licenseNumber']!;
           }
-          if (licenseData['first_name'] != null) {
-            _firstNameController.text = licenseData['first_name']!;
+          if ((data['firstName'] ?? '').isNotEmpty && _firstNameController.text.trim().isEmpty) {
+            _firstNameController.text = data['firstName']!;
           }
-          if (licenseData['last_name'] != null) {
-            _lastNameController.text = licenseData['last_name']!;
+          if ((data['lastName'] ?? '').isNotEmpty && _lastNameController.text.trim().isEmpty) {
+            _lastNameController.text = data['lastName']!;
           }
         });
-        if (licenseData.isNotEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Informations permis remplies automatiquement.')),
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Texte extrait mais format permis non reconnu.')),
-          );
-        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(hasData
+                ? 'Informations extraites avec succès.'
+                : 'Texte extrait mais format permis non reconnu. Vérifiez et complétez.'),
+          ),
+        );
       }
     } catch (e) {
       if (mounted) {
@@ -308,6 +313,65 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                OcrScanWidget(
+                  ocrService: _ocrService,
+                  onCINScanned: (data) {
+                    setState(() {
+                      if ((data['firstName'] ?? '').isNotEmpty) {
+                        _firstNameController.text = data['firstName']!;
+                      }
+                      if ((data['lastName'] ?? '').isNotEmpty) {
+                        _lastNameController.text = data['lastName']!;
+                      }
+                      if ((data['cin'] ?? '').isNotEmpty) {
+                        _cinController.text = data['cin']!;
+                      }
+                      if ((data['address'] ?? '').isNotEmpty) {
+                        _addressController.text = data['address']!;
+                      }
+                    });
+                  },
+                  onLicenseScanned: (data) {
+                    setState(() {
+                      if ((data['licenseNumber'] ?? '').isNotEmpty) {
+                        _licenseNumberController.text = data['licenseNumber']!;
+                      }
+                      if ((data['firstName'] ?? '').isNotEmpty && _firstNameController.text.trim().isEmpty) {
+                        _firstNameController.text = data['firstName']!;
+                      }
+                      if ((data['lastName'] ?? '').isNotEmpty && _lastNameController.text.trim().isEmpty) {
+                        _lastNameController.text = data['lastName']!;
+                      }
+                    });
+                  },
+                  isEnabled: !_isLoadingOcr,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Importer un document',
+                  style: theme.textTheme.titleSmall,
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: _isLoadingOcr ? null : _importFileForCin,
+                        icon: const Icon(Icons.badge_outlined),
+                        label: const Text('Importer CIN'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: _isLoadingOcr ? null : _importFileForPermis,
+                        icon: const Icon(Icons.credit_card),
+                        label: const Text('Importer Permis'),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
                 ToggleButtons(
                   isSelected: [
                     _mode == ClientFormMode.manual,
