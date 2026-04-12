@@ -1,6 +1,6 @@
 # CarRent Manager
 
-Vehicle rental management app (Flutter). Runs on **Windows**, **Android**, **macOS**, and **iOS**.
+Vehicle rental management app (Flutter). **Desktop-only**: runs on **Windows** and **macOS**.
 
 ## Features
 
@@ -9,6 +9,7 @@ Vehicle rental management app (Flutter). Runs on **Windows**, **Android**, **mac
 - PDF contract generation and printing
 - Local notifications (return reminders)
 - Company settings
+- OCR document scanning via local **EasyOCR** server (optional)
 
 ## Getting Started
 
@@ -19,9 +20,13 @@ Vehicle rental management app (Flutter). Runs on **Windows**, **Android**, **mac
    ```
 3. Run on your target device (see [DEPLOY.md](DEPLOY.md)):
    - **Windows**: `flutter run -d windows --release`
-   - **Android**: `flutter run -d android`
-   - **macOS / iOS**: on a Mac, `flutter run -d macos` or `flutter run -d ios`
+   - **macOS**: on a Mac, `flutter run -d macos`
+
+4. **Hot reload** (while the app is running in the terminal):
+   - Press **`r`** for hot reload (fast, keeps state).
+   - Press **`R`** for hot restart (full restart, resets state).
+   - No need to stop and rebuild unless you change native code or dependencies.
 
 ## Multi-Platform Deployment
 
-See **[DEPLOY.md](DEPLOY.md)** for run and build commands for each platform (Windows, Android, macOS, iOS) and how to deliver the app.
+See **[DEPLOY.md](DEPLOY.md)** for run and build commands for Windows/macOS and how to deliver the app.
