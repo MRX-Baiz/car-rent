@@ -32,6 +32,7 @@ class MigrationV1 {
       email TEXT,
       cin_image_path TEXT,
       license_image_path TEXT,
+      is_archived INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );

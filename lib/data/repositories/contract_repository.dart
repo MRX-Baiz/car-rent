@@ -124,6 +124,15 @@ class ContractRepository {
           conflictAlgorithm: ConflictAlgorithm.abort,
         );
 
+        // Record initial payment if any
+        if (contract.amountPaid > 0) {
+          final nowString = DateTime.now().toIso8601String();
+          await txn.rawInsert(
+            'INSERT INTO payments (contract_id, amount, payment_date, payment_method, created_at) VALUES (?, ?, ?, ?, ?)',
+            [id, contract.amountPaid, nowString, 'cash', nowString],
+          );
+        }
+
         // Update vehicle status to 'rented'
         await txn.update(
           'vehicles',
@@ -166,6 +175,62 @@ class ContractRepository {
     } catch (e) {
       throw Exception('Failed to update contract: $e');
     }
+  }
+
+  /// Atomically inserts a payment row AND increments amount_paid on the contract.
+  Future<void> addPaymentAndUpdateContract(int contractId, double amount) async {
+    final db = await _dbHelper.database;
+    await db.transaction((txn) async {
+      // Insert payment record
+      final now = DateTime.now().toIso8601String();
+      await txn.rawInsert(
+        'INSERT INTO payments (contract_id, amount, payment_date, payment_method, created_at) VALUES (?, ?, ?, ?, ?)',
+        [contractId, amount, now, 'cash', now],
+      );
+      // Increment amount_paid on the contract
+      await txn.rawUpdate(
+        'UPDATE contracts SET amount_paid = amount_paid + ?, updated_at = ? WHERE id = ?',
+        [amount, now, contractId],
+      );
+    });
+  }
+
+  Future<void> deleteContract(int id) async {
+    final db = await _dbHelper.database;
+    await db.transaction((txn) async {
+      final rows = await txn.query(
+        'contracts',
+        columns: ['vehicle_id', 'status'],
+        where: 'id = ?',
+        whereArgs: [id],
+        limit: 1,
+      );
+
+      await txn.delete(
+        'payments',
+        where: 'contract_id = ?',
+        whereArgs: [id],
+      );
+      await txn.delete(
+        'contracts',
+        where: 'id = ?',
+        whereArgs: [id],
+      );
+
+      // Deleting an active contract must free up the vehicle, otherwise it
+      // stays 'rented' forever and can never be rented out again.
+      if (rows.isNotEmpty && rows.first['status'] == 'active') {
+        await txn.update(
+          'vehicles',
+          {
+            'status': 'available',
+            'updated_at': DateTime.now().toIso8601String(),
+          },
+          where: 'id = ?',
+          whereArgs: [rows.first['vehicle_id']],
+        );
+      }
+    });
   }
 
   Future<void> closeContract(int id, DateTime returnDate) async {
@@ -256,6 +321,21 @@ class ContractRepository {
       return 0;
     } catch (e) {
       throw Exception('Failed to get active contracts count: $e');
+    }
+  }
+
+  Future<List<ContractModel>> searchContracts(String query) async {
+    try {
+      final db = await _dbHelper.database;
+      final result = await db.query(
+        'contracts',
+        where: 'contract_number LIKE ?',
+        whereArgs: ['%$query%'],
+        orderBy: 'created_at DESC',
+      );
+      return result.map(ContractModel.fromMap).toList();
+    } catch (e) {
+      throw Exception('Failed to search contracts: $e');
     }
   }
 }

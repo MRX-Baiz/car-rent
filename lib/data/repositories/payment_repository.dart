@@ -111,5 +111,37 @@ class PaymentRepository {
       throw Exception('Failed to calculate monthly revenue: $e');
     }
   }
+
+  /// Returns daily revenue sums for each day in the range [start, end).
+  Future<Map<DateTime, double>> getDailyRevenue(
+    DateTime start,
+    DateTime end,
+  ) async {
+    try {
+      final db = await _dbHelper.database;
+      final result = await db.rawQuery(
+        '''
+        SELECT 
+          strftime('%Y-%m-%d', payment_date) as day, 
+          SUM(amount) as total 
+        FROM payments 
+        WHERE payment_date >= ? AND payment_date < ? 
+        GROUP BY day 
+        ORDER BY day ASC
+        ''',
+        [start.toIso8601String(), end.toIso8601String()],
+      );
+
+      final Map<DateTime, double> revenueMap = {};
+      for (final row in result) {
+        final dayStr = row['day'] as String;
+        final total = (row['total'] as num).toDouble();
+        revenueMap[DateTime.parse(dayStr)] = total;
+      }
+      return revenueMap;
+    } catch (e) {
+      throw Exception('Failed to fetch daily revenue: $e');
+    }
+  }
 }
 

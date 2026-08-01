@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 class VehicleModel {
   final int? id;
   final String brand;
@@ -5,8 +7,8 @@ class VehicleModel {
   final String registrationNumber;
   final int year;
   final String status; // 'available', 'rented', 'maintenance'
-  final double dailyPrice;
   final String? imagePath;
+  final Uint8List? imageBytes;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -17,8 +19,8 @@ class VehicleModel {
     required this.registrationNumber,
     required this.year,
     required this.status,
-    required this.dailyPrice,
     this.imagePath,
+    this.imageBytes,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -30,8 +32,8 @@ class VehicleModel {
     String? registrationNumber,
     int? year,
     String? status,
-    double? dailyPrice,
     String? imagePath,
+    Uint8List? imageBytes,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -42,8 +44,8 @@ class VehicleModel {
       registrationNumber: registrationNumber ?? this.registrationNumber,
       year: year ?? this.year,
       status: status ?? this.status,
-      dailyPrice: dailyPrice ?? this.dailyPrice,
       imagePath: imagePath ?? this.imagePath,
+      imageBytes: imageBytes ?? this.imageBytes,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -57,8 +59,8 @@ class VehicleModel {
       'registration_number': registrationNumber,
       'year': year,
       'status': status,
-      'daily_price': dailyPrice,
       'image_path': imagePath,
+      'image_blob': imageBytes,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
     };
@@ -72,8 +74,8 @@ class VehicleModel {
       registrationNumber: map['registration_number'] as String,
       year: map['year'] as int,
       status: map['status'] as String,
-      dailyPrice: (map['daily_price'] as num).toDouble(),
       imagePath: map['image_path'] as String?,
+      imageBytes: map['image_blob'] != null ? map['image_blob'] as Uint8List : null,
       createdAt: DateTime.parse(map['created_at'] as String),
       updatedAt: DateTime.parse(map['updated_at'] as String),
     );
@@ -81,7 +83,7 @@ class VehicleModel {
 
   @override
   String toString() {
-    return 'VehicleModel(id: $id, brand: $brand, model: $model, registrationNumber: $registrationNumber, year: $year, status: $status, dailyPrice: $dailyPrice)';
+    return 'VehicleModel(id: $id, brand: $brand, model: $model, registrationNumber: $registrationNumber, year: $year, status: $status)';
   }
 }
 

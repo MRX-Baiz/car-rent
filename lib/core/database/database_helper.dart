@@ -10,7 +10,7 @@ import 'package:sqflite/sqflite.dart';
 /// - Applies schema migrations on creation / upgrade
 class DatabaseHelper {
   static const _databaseName = 'car_rent_manager.db';
-  static const _databaseVersion = 1;
+  static const _databaseVersion = 5;
 
   DatabaseHelper._internal();
 
@@ -56,6 +56,7 @@ class DatabaseHelper {
         status TEXT NOT NULL DEFAULT 'available',
         daily_price REAL NOT NULL DEFAULT 0,
         image_path TEXT,
+        image_blob BLOB,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
       );
@@ -74,10 +75,15 @@ class DatabaseHelper {
         email TEXT,
         cin_image_path TEXT,
         license_image_path TEXT,
+        is_archived INTEGER NOT NULL DEFAULT 0,
+        license_expiry_date TEXT,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
       );
     ''');
+    batch.execute(
+      'CREATE UNIQUE INDEX IF NOT EXISTS idx_clients_license_unique ON clients(license_number)',
+    );
 
     // contracts table
     batch.execute('''
@@ -144,7 +150,46 @@ class DatabaseHelper {
   /// Currently only version 1 exists, so this is a no-op, but the method
   /// is implemented for forward compatibility.
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    // Place future migration logic here, using transactions/batches as needed.
+    if (oldVersion < 2) {
+      // Soft-delete support for clients.
+      await db.execute(
+        "ALTER TABLE clients ADD COLUMN is_archived INTEGER NOT NULL DEFAULT 0",
+      );
+      // Backfill existing rows (SQLite may set NULL for existing records).
+      await db.execute(
+        "UPDATE clients SET is_archived = 0 WHERE is_archived IS NULL",
+      );
+    }
+    if (oldVersion < 3) {
+      // Enforce unique license numbers (best-effort; may fail if duplicates exist).
+      try {
+        await db.execute(
+          'CREATE UNIQUE INDEX IF NOT EXISTS idx_clients_license_unique ON clients(license_number)',
+        );
+      } catch (_) {
+        // If existing data contains duplicates, keep running; app-layer checks will handle.
+      }
+    }
+    if (oldVersion < 4) {
+      // Add image_blob column to vehicles table if it doesn't exist.
+      try {
+        await db.execute(
+          "ALTER TABLE vehicles ADD COLUMN image_blob BLOB",
+        );
+      } catch (e) {
+        // Column might already exist if migration partially ran.
+      }
+    }
+    if (oldVersion < 5) {
+      // Add license_expiry_date support for clients.
+      try {
+        await db.execute(
+          "ALTER TABLE clients ADD COLUMN license_expiry_date TEXT",
+        );
+      } catch (e) {
+        // Column might already exist.
+      }
+    }
   }
 
   /// Closes the database if it is open.

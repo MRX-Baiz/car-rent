@@ -9,6 +9,8 @@ class ClientModel {
   final String? email;
   final String? cinImagePath;
   final String? licenseImagePath;
+  final DateTime? licenseExpiryDate;
+  final bool isArchived;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -23,6 +25,8 @@ class ClientModel {
     this.email,
     this.cinImagePath,
     this.licenseImagePath,
+    this.licenseExpiryDate,
+    this.isArchived = false,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -40,6 +44,8 @@ class ClientModel {
     String? email,
     String? cinImagePath,
     String? licenseImagePath,
+    DateTime? licenseExpiryDate,
+    bool? isArchived,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -54,6 +60,8 @@ class ClientModel {
       email: email ?? this.email,
       cinImagePath: cinImagePath ?? this.cinImagePath,
       licenseImagePath: licenseImagePath ?? this.licenseImagePath,
+      licenseExpiryDate: licenseExpiryDate ?? this.licenseExpiryDate,
+      isArchived: isArchived ?? this.isArchived,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -71,6 +79,8 @@ class ClientModel {
       'email': email,
       'cin_image_path': cinImagePath,
       'license_image_path': licenseImagePath,
+      'license_expiry_date': licenseExpiryDate?.toIso8601String(),
+      'is_archived': isArchived ? 1 : 0,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
     };
@@ -88,6 +98,10 @@ class ClientModel {
       email: map['email'] as String?,
       cinImagePath: map['cin_image_path'] as String?,
       licenseImagePath: map['license_image_path'] as String?,
+      licenseExpiryDate: map['license_expiry_date'] != null
+          ? DateTime.parse(map['license_expiry_date'] as String)
+          : null,
+      isArchived: (map['is_archived'] as int? ?? 0) == 1,
       createdAt: DateTime.parse(map['created_at'] as String),
       updatedAt: DateTime.parse(map['updated_at'] as String),
     );

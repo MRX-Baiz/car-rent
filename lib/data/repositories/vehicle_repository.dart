@@ -19,7 +19,9 @@ class VehicleRepository {
         orderBy: 'created_at DESC',
       );
       return result.map((e) => VehicleModel.fromMap(e)).toList();
-    } catch (e) {
+    } catch (e, stackTrace) {
+      print('DB_ERROR: Error loading vehicles: $e');
+      print('DB_ERROR: Stacktrace: $stackTrace');
       throw Exception('Failed to load vehicles: $e');
     }
   }
@@ -152,6 +154,21 @@ class VehicleRepository {
       return value;
     } catch (e) {
       throw Exception('Failed to get rented vehicles count: $e');
+    }
+  }
+
+  Future<List<VehicleModel>> searchVehicles(String query) async {
+    try {
+      final db = await _dbHelper.database;
+      final result = await db.query(
+        'vehicles',
+        where: 'brand LIKE ? OR model LIKE ? OR registration_number LIKE ?',
+        whereArgs: ['%$query%', '%$query%', '%$query%'],
+        orderBy: 'brand ASC',
+      );
+      return result.map((e) => VehicleModel.fromMap(e)).toList();
+    } catch (e) {
+      throw Exception('Failed to search vehicles: $e');
     }
   }
 }
