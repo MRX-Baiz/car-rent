@@ -5,6 +5,21 @@
          fallback, so the app must install on devices without a sensor. -->
     <uses-permission android:name="android.permission.USE_BIOMETRIC"/>
     <uses-feature android:name="android.hardware.fingerprint" android:required="false"/>
+
+    <!-- Scheduled reminders. POST_NOTIFICATIONS and VIBRATE arrive through the
+         flutter_local_notifications manifest; since plugin v16 everything below
+         is the app's responsibility.
+
+         Without RECEIVE_BOOT_COMPLETED and the receivers in <application>, an
+         alarm is registered but has no component to deliver to, so a scheduled
+         notification silently never appears. -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+    <!-- A return deadline has to fire at the stated minute, so the reminders are
+         scheduled as exact alarms. SCHEDULE_EXACT_ALARM is the variant the user
+         grants: USE_EXACT_ALARM needs no prompt but is audited by the stores and
+         only meant for alarm-clock and calendar apps. -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
+
     <application
         android:label="car_rent_manager"
         android:name="${applicationName}"
@@ -31,6 +46,26 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <!-- Delivers a scheduled notification when its alarm fires. -->
+        <receiver
+            android:exported="false"
+            android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />
+        <!-- Alarms do not survive a reboot; this re-registers them. -->
+        <receiver
+            android:exported="false"
+            android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED"/>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON"/>
+            </intent-filter>
+        </receiver>
+        <!-- Handles taps on notification action buttons. -->
+        <receiver
+            android:exported="false"
+            android:name="com.dexterous.flutterlocalnotifications.ActionBroadcastReceiver" />
+
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data
