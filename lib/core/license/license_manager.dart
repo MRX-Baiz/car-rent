@@ -1,247 +1,195 @@
+import 'dart:io';
 import 'dart:convert';
-
-import 'package:sqflite/sqflite.dart' as sqflite;
-
-import 'package:crypto/crypto.dart';
-
-import '../database/database_helper.dart';
-
-class LicenseResult {
-  final bool isValid;
-  final DateTime? expiryDate;
-  final String? companyId;
-  final String? errorMessage;
-
-  const LicenseResult({
-    required this.isValid,
-    this.expiryDate,
-    this.companyId,
-    this.errorMessage,
-  });
-}
+import 'package:path_provider/path_provider.dart';
+import 'package:android_id/android_id.dart';
+import 'package:device_info_plus/device_info_plus.dart';
+import '../../data/models/license_model.dart';
+import 'asymmetric_crypto_helper.dart';
 
 class LicenseManager {
-  static const String _secretKey = 'YOUR_SECRET_KEY_HERE_32CHARS';
+  static const String _licenseFileName = '.app_license.bin';
+  static const String _internalSalt = 'car_rent_manager_secure_2026_file_salt';
 
-  final DatabaseHelper _dbHelper = DatabaseHelper.instance;
+  final _deviceInfo = DeviceInfoPlugin();
 
-  /// Validates a license key and persists its state to the database.
-  ///
-  /// Steps:
-  /// 1. Parse key into components.
-  /// 2. Validate HMAC-SHA256 signature.
-  /// 3. Ensure expiry date is in the future.
-  /// 4. Enforce anti-rollback using last_verified_date.
-  /// 5. Save/refresh license row on success.
-  Future<LicenseResult> validateLicense(String licenseKey) async {
-    try {
-      final parsed = _parseLicenseKey(licenseKey);
-      if (parsed == null) {
-        return const LicenseResult(
-          isValid: false,
-          errorMessage: 'Invalid license format.',
-        );
-      }
-
-      final companyId = parsed['companyId'] as String;
-      final expiryDate = parsed['expiryDate'] as DateTime;
-      final signature = parsed['signature'] as String;
-
-      final expectedSignature = _computeSignature(companyId, expiryDate);
-      if (!_constantTimeEquals(
-        expectedSignature.toLowerCase(),
-        signature.toLowerCase(),
-      )) {
-        return const LicenseResult(
-          isValid: false,
-          errorMessage: 'Invalid license signature.',
-        );
-      }
-
-      final today = DateTime.now();
-      final todayDateOnly = DateTime(today.year, today.month, today.day);
-      final expiryDateOnly =
-          DateTime(expiryDate.year, expiryDate.month, expiryDate.day);
-
-      if (!expiryDateOnly.isAfter(todayDateOnly)) {
-        return LicenseResult(
-          isValid: false,
-          expiryDate: expiryDate,
-          companyId: companyId,
-          errorMessage: 'License has expired.',
-        );
-      }
-
-      final db = await _dbHelper.database;
-
-      // Anti-rollback: ensure stored last_verified_date <= today.
-      final existingRows = await db.query(
-        'license_data',
-        where: 'id = ?',
-        whereArgs: [1],
-        limit: 1,
-      );
-
-      if (existingRows.isNotEmpty) {
-        final existing = existingRows.first;
-        final storedLastVerified =
-            DateTime.parse(existing['last_verified_date'] as String);
-        final storedDateOnly = DateTime(
-          storedLastVerified.year,
-          storedLastVerified.month,
-          storedLastVerified.day,
-        );
-        if (todayDateOnly.isBefore(storedDateOnly)) {
-          return const LicenseResult(
-            isValid: false,
-            errorMessage:
-                'System date appears to be earlier than the last verification date.',
-          );
-        }
-      }
-
-      // Upsert license record with current verification date.
-      final nowIso = today.toIso8601String();
-      final expiryIso = expiryDate.toIso8601String();
-
-      await db.insert(
-        'license_data',
-        {
-          'id': 1,
-          'license_key': licenseKey,
-          'company_id': companyId,
-          'expiry_date': expiryIso,
-          'last_verified_date': nowIso,
-          'is_valid': 1,
-        },
-        conflictAlgorithm: sqflite.ConflictAlgorithm.replace,
-      );
-
-      return LicenseResult(
-        isValid: true,
-        expiryDate: expiryDate,
-        companyId: companyId,
-        errorMessage: null,
-      );
-    } catch (e) {
-      return LicenseResult(
-        isValid: false,
-        errorMessage: 'License validation failed: $e',
-      );
-    }
+  /// Gets the path to the license file.
+  Future<File> _getStorageFile() async {
+    final dir = await getApplicationSupportDirectory();
+    return File('${dir.path}/$_licenseFileName');
   }
 
-  /// Saves a license key after validating it. Throws if invalid.
-  Future<void> saveLicense(String licenseKey) async {
-    final result = await validateLicense(licenseKey);
-    if (!result.isValid) {
-      throw Exception(result.errorMessage ?? 'Invalid license key.');
-    }
-  }
-
-  /// Returns whether a valid, non-expired license is currently active.
-  Future<bool> isLicenseActive() async {
-    try {
-      final db = await _dbHelper.database;
-      final rows = await db.query(
-        'license_data',
-        where: 'id = ?',
-        whereArgs: [1],
-        limit: 1,
-      );
-      if (rows.isEmpty) return false;
-
-      final row = rows.first;
-      final isValid = (row['is_valid'] as int? ?? 0) == 1;
-      if (!isValid) return false;
-
-      final expiryDate = DateTime.parse(row['expiry_date'] as String);
-      final lastVerified = DateTime.parse(row['last_verified_date'] as String);
-
-      final today = DateTime.now();
-      final todayDateOnly = DateTime(today.year, today.month, today.day);
-      final expiryDateOnly =
-          DateTime(expiryDate.year, expiryDate.month, expiryDate.day);
-      final lastVerifiedDateOnly = DateTime(
-        lastVerified.year,
-        lastVerified.month,
-        lastVerified.day,
-      );
-
-      if (!expiryDateOnly.isAfter(todayDateOnly)) {
-        return false;
-      }
-      if (todayDateOnly.isBefore(lastVerifiedDateOnly)) {
-        return false;
-      }
-      return true;
-    } catch (_) {
-      return false;
-    }
-  }
-
-  /// Generates a license key from a company id and expiry date.
-  String generateLicenseKey(String companyId, DateTime expiryDate) {
-    final signature = _computeSignature(companyId, expiryDate);
-    final yyyy = expiryDate.year.toString().padLeft(4, '0');
-    final mm = expiryDate.month.toString().padLeft(2, '0');
-    final dd = expiryDate.day.toString().padLeft(2, '0');
-    return '$companyId-$yyyy-$mm-$dd-$signature';
-  }
-
-  Map<String, Object?>? _parseLicenseKey(String licenseKey) {
-    final parts = licenseKey.split('-');
-    // Expected: COMPANYID-YYYY-MM-DD-SIGNATURE  => at least 5 parts
-    if (parts.length < 5) {
-      return null;
-    }
-
-    final companyId = parts.first;
-    final yearStr = parts[1];
-    final monthStr = parts[2];
-    final dayStr = parts[3];
-    final signature = parts.sublist(4).join('-');
-
-    final year = int.tryParse(yearStr);
-    final month = int.tryParse(monthStr);
-    final day = int.tryParse(dayStr);
-
-    if (year == null || month == null || day == null) {
-      return null;
-    }
-
-    try {
-      final expiryDate = DateTime(year, month, day);
-      return {
-        'companyId': companyId,
-        'expiryDate': expiryDate,
-        'signature': signature,
-      };
-    } catch (_) {
-      return null;
-    }
-  }
-
-  String _computeSignature(String companyId, DateTime expiryDate) {
-    final yyyy = expiryDate.year.toString().padLeft(4, '0');
-    final mm = expiryDate.month.toString().padLeft(2, '0');
-    final dd = expiryDate.day.toString().padLeft(2, '0');
-    final data = '$companyId-$yyyy-$mm-$dd';
-
-    final key = utf8.encode(_secretKey);
+  /// Simple encryption/obfuscation using DeviceID as key.
+  Future<String> _secureData(String data) async {
+    final key = await getDeviceId();
     final bytes = utf8.encode(data);
-    final hmacSha256 = Hmac(sha256, key);
-    final digest = hmacSha256.convert(bytes);
-    return digest.bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+    final keyBytes = utf8.encode(key);
+    final result = List<int>.filled(bytes.length, 0);
+    for (var i = 0; i < bytes.length; i++) {
+      result[i] = bytes[i] ^ keyBytes[i % keyBytes.length];
+    }
+    return base64.encode(result);
   }
 
-  bool _constantTimeEquals(String a, String b) {
-    if (a.length != b.length) return false;
-    var result = 0;
-    for (var i = 0; i < a.length; i++) {
-      result |= a.codeUnitAt(i) ^ b.codeUnitAt(i);
+  /// Simple decryption/de-obfuscation using DeviceID as key.
+  Future<String> _unsecureData(String secured) async {
+    try {
+      final key = await getDeviceId();
+      final bytes = base64.decode(secured);
+      final keyBytes = utf8.encode(key);
+      final result = List<int>.filled(bytes.length, 0);
+      for (var i = 0; i < bytes.length; i++) {
+        result[i] = bytes[i] ^ keyBytes[i % keyBytes.length];
+      }
+      return utf8.decode(result);
+    } catch (_) {
+      return '';
     }
-    return result == 0;
+  }
+
+  /// Saves data to the encrypted local file.
+  Future<void> _writeToStorage(Map<String, String> data) async {
+    final file = await _getStorageFile();
+    final jsonStr = json.encode(data);
+    final secured = await _secureData(jsonStr);
+    await file.writeAsString(secured);
+  }
+
+  /// Reads data from the encrypted local file.
+  Future<Map<String, String>> _readFromStorage() async {
+    final file = await _getStorageFile();
+    if (!await file.exists()) return {};
+    try {
+      final secured = await file.readAsString();
+      final jsonStr = await _unsecureData(secured);
+      return Map<String, String>.from(json.decode(jsonStr) as Map);
+    } catch (_) {
+      return {};
+    }
+  }
+
+  /// Gets a unique ID for the current hardware.
+  Future<String> getDeviceId() async {
+    if (Platform.isMacOS) {
+      final macInfo = await _deviceInfo.macOsInfo;
+      return macInfo.systemGUID ?? 'macos_id';
+    } else if (Platform.isWindows) {
+      final winInfo = await _deviceInfo.windowsInfo;
+      return winInfo.deviceId;
+    } else if (Platform.isAndroid) {
+      // Settings.Secure.ANDROID_ID: unique per device+app-signing-key and
+      // stable across reinstalls. AndroidDeviceInfo exposes no per-device
+      // identifier — its `id` is Build.ID, the OS build label, which every
+      // device on the same Android build shares.
+      final androidId = await const AndroidId().getId();
+      return androidId ?? 'android_id';
+    } else if (Platform.isIOS) {
+      final iosInfo = await _deviceInfo.iosInfo;
+      return iosInfo.identifierForVendor ?? 'ios_id';
+    }
+    return 'unknown_device';
+  }
+
+  /// Saves a new license after verifying it.
+  Future<void> saveLicense(String licenseString) async {
+    final validation = await verifyLicense(licenseString);
+    if (!validation.isValid) {
+      throw Exception(validation.error);
+    }
+    
+    final storage = await _readFromStorage();
+    storage['license'] = licenseString;
+    await _writeToStorage(storage);
+    
+    // Initialize last run on activation
+    await _updateLastRunDate();
+  }
+
+  /// Verifies the digital signature and device binding of a license string.
+  Future<LicenseValidationResult> verifyLicense(String licenseString) async {
+    try {
+      final package = LicensePackage.decode(licenseString);
+      
+      // 1. Verify Digital Signature
+      final isSignatureValid = await AsymmetricCryptoHelper.verify(
+        package.data.toJson(),
+        package.signature,
+        AsymmetricCryptoHelper.publicKeyPem,
+      );
+      if (!isSignatureValid) {
+        return LicenseValidationResult.invalid('Signature de licence invalide.');
+      }
+
+      // 2. Hardware Binding
+      final currentDevice = await getDeviceId();
+      if (package.data.deviceId != currentDevice) {
+        return LicenseValidationResult.invalid('Cette licence n\'est pas destinée à cet appareil.');
+      }
+
+      // 3. Expiry Date
+      if (package.data.expiryDate.isBefore(DateTime.now())) {
+        return LicenseValidationResult.invalid('La licence a expiré le ${package.data.expiryDate.toString().split(' ').first}.');
+      }
+
+      return LicenseValidationResult.valid(package.data);
+    } catch (e) {
+      return LicenseValidationResult.invalid('Format de licence corrompu.');
+    }
+  }
+
+  /// Validates the license and checks for clock tampering (rollback).
+  Future<LicenseValidationResult> validateRuntime() async {
+    final storage = await _readFromStorage();
+    final licenseString = storage['license'];
+    
+    if (licenseString == null) {
+      return LicenseValidationResult.invalid('Aucune licence trouvée.');
+    }
+
+    final verification = await verifyLicense(licenseString);
+    if (!verification.isValid) return verification;
+
+    // 4. Time Tampering (Rollback check)
+    final storedDateStr = storage['last_run'];
+    final storedHash = storage['last_run_hash'];
+
+    if (storedDateStr != null && storedHash != null) {
+      final expectedHash = AsymmetricCryptoHelper.hashData(storedDateStr, _internalSalt);
+      if (storedHash != expectedHash) {
+        return LicenseValidationResult.invalid('Détection d\'altération du système de sécurité.');
+      }
+
+      final lastRun = DateTime.parse(storedDateStr);
+      if (DateTime.now().isBefore(lastRun)) {
+        return LicenseValidationResult.invalid('Détection d\'un changement d\'heure système (Clock Rollback).');
+      }
+    }
+
+    // Update last run date for next launch
+    await _updateLastRunDate();
+    return verification;
+  }
+
+  Future<void> _updateLastRunDate() async {
+    final storage = await _readFromStorage();
+    final nowStr = DateTime.now().toIso8601String();
+    final hash = AsymmetricCryptoHelper.hashData(nowStr, _internalSalt);
+    
+    storage['last_run'] = nowStr;
+    storage['last_run_hash'] = hash;
+    await _writeToStorage(storage);
+  }
+
+  Future<bool> isLicenseActive() async {
+    final result = await validateRuntime();
+    return result.isValid;
   }
 }
 
+class LicenseValidationResult {
+  final bool isValid;
+  final LicenseData? data;
+  final String? error;
+
+  LicenseValidationResult.valid(this.data) : isValid = true, error = null;
+  LicenseValidationResult.invalid(this.error) : isValid = false, data = null;
+}
