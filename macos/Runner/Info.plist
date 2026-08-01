@@ -28,5 +28,9 @@
 	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Used to capture document photos for OCR import.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Audio is requested by the native camera library during initialization.</string>
 </dict>
 </plist>

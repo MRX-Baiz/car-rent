@@ -1,0 +1,59 @@
+PODS:
+  - camera_macos (0.0.1):
+    - FlutterMacOS
+  - fast_rsa (0.6.0):
+    - FlutterMacOS
+  - flutter_local_notifications (0.0.1):
+    - FlutterMacOS
+  - flutter_ocr_native (0.0.7):
+    - FlutterMacOS
+  - FlutterMacOS (1.0.0)
+  - printing (1.0.0):
+    - FlutterMacOS
+  - share_plus (0.0.1):
+    - FlutterMacOS
+  - sqflite (0.0.3):
+    - Flutter
+    - FlutterMacOS
+
+DEPENDENCIES:
+  - camera_macos (from `Flutter/ephemeral/.symlinks/plugins/camera_macos/macos`)
+  - fast_rsa (from `Flutter/ephemeral/.symlinks/plugins/fast_rsa/macos`)
+  - flutter_local_notifications (from `Flutter/ephemeral/.symlinks/plugins/flutter_local_notifications/macos`)
+  - flutter_ocr_native (from `Flutter/ephemeral/.symlinks/plugins/flutter_ocr_native/macos`)
+  - FlutterMacOS (from `Flutter/ephemeral`)
+  - printing (from `Flutter/ephemeral/.symlinks/plugins/printing/macos`)
+  - share_plus (from `Flutter/ephemeral/.symlinks/plugins/share_plus/macos`)
+  - sqflite (from `Flutter/ephemeral/.symlinks/plugins/sqflite/darwin`)
+
+EXTERNAL SOURCES:
+  camera_macos:
+    :path: Flutter/ephemeral/.symlinks/plugins/camera_macos/macos
+  fast_rsa:
+    :path: Flutter/ephemeral/.symlinks/plugins/fast_rsa/macos
+  flutter_local_notifications:
+    :path: Flutter/ephemeral/.symlinks/plugins/flutter_local_notifications/macos
+  flutter_ocr_native:
+    :path: Flutter/ephemeral/.symlinks/plugins/flutter_ocr_native/macos
+  FlutterMacOS:
+    :path: Flutter/ephemeral
+  printing:
+    :path: Flutter/ephemeral/.symlinks/plugins/printing/macos
+  share_plus:
+    :path: Flutter/ephemeral/.symlinks/plugins/share_plus/macos
+  sqflite:
+    :path: Flutter/ephemeral/.symlinks/plugins/sqflite/darwin
+
+SPEC CHECKSUMS:
+  camera_macos: c2603f5eed16f05076cf17e12030d2ce55a77839
+  fast_rsa: 47a50bec1042c8c01726007dc0590a078418f997
+  flutter_local_notifications: 4b427ffabf278fc6ea9484c97505e231166927a5
+  flutter_ocr_native: 0d8586e3b76312854dd645ea2559d293b69ea06f
+  FlutterMacOS: d0db08ddef1a9af05a5ec4b724367152bb0500b1
+  printing: 1dd6a1fce2209ec240698e2439a4adbb9b427637
+  share_plus: 76dd39142738f7a68dd57b05093b5e8193f220f7
+  sqflite: 673a0e54cc04b7d6dba8d24fb8095b31c3a99eec
+
+PODFILE CHECKSUM: 9ebaf0ce3d369aaa26a9ea0e159195ed94724cf3
+
+COCOAPODS: 1.15.2

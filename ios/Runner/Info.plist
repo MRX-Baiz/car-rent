@@ -26,6 +26,10 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>CarRent Manager uses the camera to scan client ID cards and driver's licenses.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>CarRent Manager needs access to your photo library to import scanned documents.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
