@@ -7,6 +7,7 @@ list(APPEND FLUTTER_PLUGIN_LIST
   fast_rsa
   file_selector_windows
   flutter_ocr_native
+  flutter_timezone
   local_auth_windows
   printing
   share_plus
