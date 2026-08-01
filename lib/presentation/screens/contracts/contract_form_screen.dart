@@ -10,7 +10,6 @@ import 'package:intl/intl.dart';
 import '../../../core/document/document_text_service.dart';
 import '../../../core/ocr/ocr_service.dart';
 import '../../../core/constants/app_strings.dart';
-import '../../../core/notifications/notification_service.dart';
 import '../../widgets/common/camera_capture_dialog.dart';
 import '../../../data/models/contract_model.dart';
 import '../../../data/models/vehicle_model.dart';
@@ -702,11 +701,11 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
       await ref.read(contractsProvider.notifier).loadContracts();
       await ref.read(dashboardProvider.notifier).refresh();
 
-      await NotificationService.instance.scheduleReturnReminder(
-        contractId: newId,
-        registrationNumber: _selectedVehicle!.registrationNumber,
-        returnDate: _expectedReturnDate,
-      );
+      // Reminders are armed by the contracts notifier, so every path that
+      // creates or edits a contract gets them, not just this screen.
+      await ref
+          .read(contractsProvider.notifier)
+          .syncReminders(contract.copyWith(id: newId));
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/constants/app_strings.dart';
-import '../../../core/notifications/notification_service.dart';
 import '../../../core/pdf/contract_pdf_generator.dart';
 import '../../../data/models/client_model.dart';
 import '../../../data/models/contract_model.dart';
@@ -208,8 +207,6 @@ class _ContractDetailScreenState
       await ref
           .read(contractsProvider.notifier)
           .closeContract(contract.id!, date);
-      await NotificationService.instance
-          .cancelContractNotifications(contract.id!);
       await ref.read(dashboardProvider.notifier).refresh();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

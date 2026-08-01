@@ -20,8 +20,10 @@ Future<void> main() async {
     databaseFactory = databaseFactoryFfi;
   }
 
-  // Initialize local notifications early.
+  // Initialize local notifications early, then pick up the tap that launched
+  // the app, if any — a cold start never reaches the tap callback.
   await NotificationService.instance.initialize();
+  await NotificationService.instance.consumeLaunchNotification();
 
   // Attachments resolve synchronously during build, so the directory has to be
   // known before the first frame.

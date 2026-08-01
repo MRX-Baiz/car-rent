@@ -10,11 +10,14 @@ import 'package:intl/intl.dart';
 
 import '../../../core/constants/app_strings.dart';
 import '../../../core/license/license_manager.dart';
+import '../../../core/notifications/notification_preferences.dart';
+import '../../../core/notifications/notification_service.dart';
 import '../../../data/models/license_model.dart';
 import '../../../core/storage/media_store.dart';
 import '../../../data/repositories/app_settings_repository.dart';
 import '../../../data/repositories/auth_repository.dart';
 import '../../providers/app_settings_provider.dart';
+import '../../providers/contract_provider.dart';
 import '../../providers/auth_provider.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -45,12 +48,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _biometricEnabled = false;
   int _autoLockMinutes = AuthRepository.defaultAutoLockMinutes;
 
+  NotificationPreferences _notifications = const NotificationPreferences();
+  bool _notificationsGranted = false;
+
   @override
   void initState() {
     super.initState();
     _loadLicenseInfo();
     _loadCompanySettings();
     _loadAuthSettings();
+    _loadNotificationSettings();
   }
 
   Future<void> _loadAuthSettings() async {
@@ -91,6 +98,197 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     if (!mounted) return;
     setState(() => _biometricEnabled = value);
     await ref.read(authProvider.notifier).refresh();
+  }
+
+  Future<void> _loadNotificationSettings() async {
+    final preferences = await NotificationPreferencesRepository.instance.load();
+    final granted = await NotificationService.instance.hasPermission();
+    if (!mounted) return;
+    setState(() {
+      _notifications = preferences;
+      _notificationsGranted = granted;
+    });
+  }
+
+  Future<void> _updateNotifications(NotificationPreferences updated) async {
+    // Turning reminders on is worthless if the OS is dropping them, so ask for
+    // the permission at the moment the user shows they want them.
+    if (updated.enabled && !_notificationsGranted) {
+      final granted = await NotificationService.instance.requestPermission();
+      if (!mounted) return;
+      setState(() => _notificationsGranted = granted);
+      if (!granted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Les notifications sont bloquées pour cette application. '
+              'Activez-les dans les réglages Android.',
+            ),
+          ),
+        );
+        return;
+      }
+    }
+
+    await NotificationPreferencesRepository.instance.save(updated);
+    if (!mounted) return;
+    setState(() => _notifications = updated);
+
+    // Turning everything off should silence what is already scheduled, not
+    // just stop new reminders being added.
+    if (!updated.enabled) {
+      await NotificationService.instance.cancelAll();
+    } else {
+      await _rearmAllReminders();
+    }
+  }
+
+  /// Re-schedules every active contract under the new preferences.
+  Future<void> _rearmAllReminders() async {
+    final contracts = ref.read(contractsProvider).value ?? const [];
+    final notifier = ref.read(contractsProvider.notifier);
+    for (final contract in contracts.where((c) => c.status == 'active')) {
+      await notifier.syncReminders(contract);
+    }
+  }
+
+  Future<void> _pickLeadTime() async {
+    final picked = await showDialog<int>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: const Text('Prévenir avant l\'échéance'),
+        children: [
+          for (final minutes in NotificationPreferencesRepository.leadChoices)
+            RadioListTile<int>(
+              value: minutes,
+              groupValue: _notifications.leadMinutes,
+              title: Text(_leadLabel(minutes)),
+              onChanged: (value) => Navigator.pop(context, value),
+            ),
+        ],
+      ),
+    );
+    if (picked == null) return;
+    await _updateNotifications(_notifications.copyWith(leadMinutes: picked));
+  }
+
+  static String _leadLabel(int minutes) {
+    if (minutes >= 1440) return '1 jour avant';
+    if (minutes >= 60) {
+      final hours = minutes ~/ 60;
+      return '$hours heure${hours > 1 ? 's' : ''} avant';
+    }
+    return '$minutes minutes avant';
+  }
+
+  Future<void> _pickQuietHour({required bool isStart}) async {
+    final current = isStart
+        ? _notifications.quietStartHour
+        : _notifications.quietEndHour;
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay(hour: current, minute: 0),
+      helpText: isStart ? 'Début du silence' : 'Fin du silence',
+    );
+    if (picked == null) return;
+    await _updateNotifications(
+      isStart
+          ? _notifications.copyWith(quietStartHour: picked.hour)
+          : _notifications.copyWith(quietEndHour: picked.hour),
+    );
+  }
+
+  static String _formatHour(int hour) =>
+      '${hour.toString().padLeft(2, '0')}:00';
+
+  Widget _buildNotificationSettings(ThemeData theme) {
+    final enabled = _notifications.enabled;
+
+    return Card(
+      child: Column(
+        children: [
+          SwitchListTile(
+            secondary: const Icon(Icons.notifications_active_outlined),
+            title: const Text('Rappels de retour'),
+            subtitle: Text(
+              enabled && !_notificationsGranted
+                  ? 'Bloqués par Android — activez-les dans les réglages système.'
+                  : 'Retours prévus, véhicules en retard, paiements.',
+              style: enabled && !_notificationsGranted
+                  ? TextStyle(color: theme.colorScheme.error)
+                  : null,
+            ),
+            value: enabled,
+            onChanged: (value) =>
+                _updateNotifications(_notifications.copyWith(enabled: value)),
+          ),
+          if (enabled) ...[
+            const Divider(height: 1),
+            ListTile(
+              leading: const Icon(Icons.schedule),
+              title: const Text('Prévenir avant l\'échéance'),
+              subtitle: Text(_leadLabel(_notifications.leadMinutes)),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: _pickLeadTime,
+            ),
+            const Divider(height: 1),
+            SwitchListTile(
+              secondary: const Icon(Icons.payments_outlined),
+              title: const Text('Rappels de paiement'),
+              subtitle: const Text('Quand un solde reste dû à l\'échéance.'),
+              value: _notifications.paymentReminders,
+              onChanged: (value) => _updateNotifications(
+                _notifications.copyWith(paymentReminders: value),
+              ),
+            ),
+            const Divider(height: 1),
+            SwitchListTile(
+              secondary: const Icon(Icons.vpn_key_outlined),
+              title: const Text('Expiration de la licence'),
+              subtitle: const Text('Alertes à 30, 7 et 1 jour.'),
+              value: _notifications.licenseAlerts,
+              onChanged: (value) => _updateNotifications(
+                _notifications.copyWith(licenseAlerts: value),
+              ),
+            ),
+            const Divider(height: 1),
+            SwitchListTile(
+              secondary: const Icon(Icons.bedtime_outlined),
+              title: const Text('Heures silencieuses'),
+              subtitle: Text(
+                _notifications.quietHoursEnabled
+                    ? 'Reporté à ${_formatHour(_notifications.quietEndHour)}'
+                    : 'Les rappels peuvent sonner la nuit.',
+              ),
+              value: _notifications.quietHoursEnabled,
+              onChanged: (value) => _updateNotifications(
+                _notifications.copyWith(quietHoursEnabled: value),
+              ),
+            ),
+            if (_notifications.quietHoursEnabled)
+              Row(
+                children: [
+                  Expanded(
+                    child: ListTile(
+                      title: const Text('De'),
+                      subtitle:
+                          Text(_formatHour(_notifications.quietStartHour)),
+                      onTap: () => _pickQuietHour(isStart: true),
+                    ),
+                  ),
+                  Expanded(
+                    child: ListTile(
+                      title: const Text('À'),
+                      subtitle: Text(_formatHour(_notifications.quietEndHour)),
+                      onTap: () => _pickQuietHour(isStart: false),
+                    ),
+                  ),
+                ],
+              ),
+          ],
+        ],
+      ),
+    );
   }
 
   static String _autoLockLabel(int minutes) {
@@ -521,6 +719,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   label: const Text('Appliquer la nouvelle clé'),
                 ),
 
+
+                const SizedBox(height: 32),
+                Text(
+                  'Rappels',
+                  style: theme.textTheme.titleMedium
+                      ?.copyWith(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                _buildNotificationSettings(theme),
 
                 const SizedBox(height: 32),
                 Text(

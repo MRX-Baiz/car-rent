@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import 'core/constants/app_theme.dart';
 import 'core/navigation/tab_back_button_dispatcher.dart';
+import 'core/notifications/notification_service.dart';
 import 'data/models/client_model.dart';
 import 'data/models/vehicle_model.dart';
 import 'presentation/screens/contracts/contract_detail_screen.dart';
@@ -202,12 +203,30 @@ class _CarRentAppState extends ConsumerState<CarRentApp> with WidgetsBindingObse
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    pendingNotificationRoute.addListener(_openPendingNotification);
+    // Also on unlock: a tap that arrived while locked has to wait for the PIN,
+    // and nothing else would wake it afterwards.
+    lockSignal.addListener(_openPendingNotification);
   }
 
   @override
   void dispose() {
+    lockSignal.removeListener(_openPendingNotification);
+    pendingNotificationRoute.removeListener(_openPendingNotification);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  /// A notification tap cannot navigate on its own: with the app locked the
+  /// guard would bounce it to /lock and the destination would be lost. The
+  /// route is parked until the app is unlocked, then replayed.
+  void _openPendingNotification() {
+    final route = pendingNotificationRoute.value;
+    if (route == null) return;
+    if (lockSignal.value != LockStatus.unlocked) return;
+
+    pendingNotificationRoute.value = null;
+    _router.go(route);
   }
 
   @override
@@ -222,6 +241,9 @@ class _CarRentAppState extends ConsumerState<CarRentApp> with WidgetsBindingObse
         auth.noteBackgrounded();
       case AppLifecycleState.resumed:
         auth.noteResumed();
+        // Cheap, and catches a vehicle that went overdue while the app was
+        // in the background with no alarm scheduled for it.
+        NotificationService.instance.notifyLateVehicles();
       case AppLifecycleState.inactive:
       case AppLifecycleState.detached:
         break;
