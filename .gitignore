@@ -28,11 +28,19 @@ migrate_working_dir/
 **/doc/api/
 **/ios/Flutter/.last_build_id
 .dart_tool/
+.flutter-plugins
 .flutter-plugins-dependencies
 .pub-cache/
 .pub/
 /build/
 /coverage/
+# Gradle writes here too; /build/ above only covers the project root.
+/android/build/
+/android/.gradle/
+
+# Local run artefacts
+crash_log.txt
+flutter_jank_metrics_*.json
 
 # Symbolication related
 app.*.symbols
@@ -44,3 +52,11 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# License signing keys - never commit, these sign every generated license
+*.pem
+license_out.txt
+
+# Python OCR server virtualenv
+ocr_server/.venv/
+ocr_server/venv/
