@@ -1,86 +1,56 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:docx_to_text/docx_to_text.dart';
 import 'package:flutter/foundation.dart';
-import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
-import 'package:http/http.dart' as http;
-import 'package:platform_ocr/platform_ocr.dart';
-import 'package:syncfusion_flutter_pdf/pdf.dart';
+import 'package:flutter_ocr_native/flutter_ocr_native.dart';
+import 'package:syncfusion_flutter_pdf/pdf.dart' hide TextLine;
 
 import '../../data/models/client_model.dart';
 
-/// Default port for the local EasyOCR Python server.
-const int kEasyOcrServerPort = 8765;
-
-/// OCR service: dual ML Kit + EasyOCR server.
-/// - Android: ML Kit first, EasyOCR server as fallback.
-/// - Windows: EasyOCR server first, platform_ocr as fallback when server offline.
-/// - iOS/macOS: EasyOCR server first, platform_ocr as fallback when server offline.
+/// OCR service backed by each platform's built-in text recognition engine:
+/// ML Kit on Android, Apple Vision on iOS/macOS, WinRT OCR on Windows.
+///
+/// Runs fully on-device with no server, no network and no model downloads,
+/// so the app ships as a single self-contained binary on every platform.
 class OcrService {
-  static String get _serverHost {
-    if (kIsWeb) return '';
-    if (Platform.isAndroid) return '10.0.2.2'; // Emulator host machine
-    return '127.0.0.1';
-  }
+  /// Aadhaar masking is deliberately disabled: it rewrites digit groups and
+  /// would corrupt Moroccan CIN / permit numbers.
+  final OcrReader _reader = OcrReader(
+    validateDocument: false,
+    maskAadhaar: false,
+  );
 
-  String get serverBaseUrl => 'http://$_serverHost:$kEasyOcrServerPort';
-  bool _serverActive = false;
-  DateTime? _lastServerCheck;
-  static const _serverCheckCacheSeconds = 30;
+  /// Native OCR is unavailable only on web, where there is no platform engine.
+  bool get isOcrAvailable => !kIsWeb;
 
-  /// Whether the EasyOCR server is currently reachable (green dot).
-  bool get serverActive => _serverActive;
-
-  /// Check if the EasyOCR server is active. Result cached briefly.
-  Future<bool> checkServerActive() async {
-    if (kIsWeb) return false;
-    if (_lastServerCheck != null &&
-        DateTime.now().difference(_lastServerCheck!).inSeconds <
-            _serverCheckCacheSeconds) {
-      return _serverActive;
-    }
-    try {
-      final r = await http
-          .get(Uri.parse('$serverBaseUrl/health'))
-          .timeout(const Duration(seconds: 2));
-      _serverActive = r.statusCode == 200;
-      _lastServerCheck = DateTime.now();
-      return _serverActive;
-    } catch (_) {
-      _serverActive = false;
-      _lastServerCheck = DateTime.now();
-      return false;
-    }
-  }
-
-  /// Extract text from image via EasyOCR server (POST multipart).
-  /// EasyOCR first request can take 60–90s (model load); timeout 2 minutes.
-  static const _ocrRequestTimeout = Duration(seconds: 120);
-
-  Future<String> _extractViaEasyOcrServer(File imageFile) async {
+  Future<String> _extractViaNativeOcr(File imageFile) async {
     if (!await imageFile.exists()) return '';
     try {
-      final request = http.MultipartRequest(
-        'POST',
-        Uri.parse('$serverBaseUrl/ocr'),
-      );
-      request.files.add(await http.MultipartFile.fromPath(
-        'file',
-        imageFile.path,
-      ));
-      final streamed = await request.send().timeout(_ocrRequestTimeout);
-      final response = await http.Response.fromStream(streamed)
-          .timeout(_ocrRequestTimeout);
-      if (response.statusCode != 200) return '';
-      final body = jsonDecode(response.body) as Map<String, dynamic>?;
-      final text = body?['text'] as String?;
-      return text ?? '';
+      final result = await _reader.readFromFile(imageFile);
+      return result.text;
     } catch (e) {
-      if (kDebugMode) debugPrint('OcrService EasyOCR server: $e');
+      if (kDebugMode) debugPrint('OcrService native OCR: $e');
       return '';
     }
   }
+
+  /// Recognized text lines with their positions on the image, ordered
+  /// top-to-bottom. Bounding boxes enable field localization on the fixed
+  /// CIN / permis layouts, which flat text alone cannot support.
+  Future<List<TextLine>> extractLines(File imageFile) async {
+    if (kIsWeb || !await imageFile.exists()) return const [];
+    try {
+      final result = await _reader.readFromFile(imageFile);
+      final lines = result.blocks.expand((b) => b.lines).toList()
+        ..sort((a, b) => a.boundingBox.top.compareTo(b.boundingBox.top));
+      return lines;
+    } catch (e) {
+      if (kDebugMode) debugPrint('OcrService.extractLines: $e');
+      return const [];
+    }
+  }
+
+  Future<void> dispose() => _reader.dispose();
   /// Extracts text from any supported file (image, PDF, Word).
   /// [filePath] must be a local path. Throws on unsupported type.
   Future<String> extractText(String filePath) async {
@@ -114,6 +84,7 @@ class OcrService {
       final document = PdfDocument(inputBytes: bytes);
       try {
         final text = PdfTextExtractor(document).extractText();
+        // ignore: dead_null_aware_expression - syncfusion API may return null at runtime
         return text ?? '';
       } finally {
         document.dispose();
@@ -134,43 +105,10 @@ class OcrService {
     }
   }
 
-  /// Extracts raw text from [imageFile].
-  /// Android: ML Kit first, EasyOCR server as fallback.
-  /// Windows/iOS/macOS: EasyOCR server first, platform_ocr as fallback when offline.
+  /// Extracts raw text from [imageFile] using the platform's native OCR engine.
   Future<String> extractTextFromImage(File imageFile) async {
-    if (!await imageFile.exists()) return '';
     if (kIsWeb) return '';
-    try {
-      if (Platform.isAndroid) {
-        // ML Kit first
-        String text = '';
-        try {
-          final input = InputImage.fromFilePath(imageFile.path);
-          final recognizer = TextRecognizer(script: TextRecognitionScript.latin);
-          final result = await recognizer.processImage(input);
-          await recognizer.close();
-          text = result.text;
-        } catch (e) {
-          if (kDebugMode) debugPrint('OcrService ML Kit: $e');
-        }
-        // Fallback to EasyOCR server if ML Kit returned nothing
-        if (text.trim().isEmpty && await checkServerActive()) {
-          text = await _extractViaEasyOcrServer(imageFile);
-        }
-        return text;
-      }
-      // Windows, iOS, macOS: EasyOCR server first, then platform_ocr
-      if (await checkServerActive()) {
-        final text = await _extractViaEasyOcrServer(imageFile);
-        if (text.trim().isNotEmpty) return text;
-      }
-      final ocr = PlatformOcr();
-      final text = await ocr.recognizeText(OcrSource.file(imageFile));
-      return text != null ? text.toString() : '';
-    } catch (e) {
-      if (kDebugMode) debugPrint('OcrService.extractTextFromImage: $e');
-      return '';
-    }
+    return _extractViaNativeOcr(imageFile);
   }
 
   /// Tries to parse Moroccan CIN format from [ocrText].
@@ -182,7 +120,6 @@ class OcrService {
     String? lastName;
     String? cin;
     String? address;
-    String? birthDate;
 
     for (final line in lines) {
       // CIN number often matches pattern like 1 letter + 6 digits or similar
@@ -200,9 +137,6 @@ class OcrService {
       if (line.toLowerCase().contains('adresse') || line.toLowerCase().contains('address')) {
         final idx = line.indexOf(RegExp(r'[:\s]'));
         address = idx >= 0 ? line.substring(idx + 1).trim() : line;
-      }
-      if (line.contains(RegExp(r'\d{2}[/\-]\d{2}[/\-]\d{4}'))) {
-        birthDate = RegExp(r'\d{2}[/\-]\d{2}[/\-]\d{4}').firstMatch(line)?.group(0);
       }
     }
 
@@ -259,6 +193,7 @@ class OcrService {
       'cin': '',
       'address': '',
       'birthDate': '',
+      'expiryDate': '',
     };
 
     final lines = text
@@ -267,18 +202,30 @@ class OcrService {
         .where((l) => l.isNotEmpty)
         .toList();
 
-    // 1. Extract CIN number (ex: A123456, BE123456, BJ123456)
-    final cinRegex = RegExp(r'\b[A-Z]{1,2}\d{5,6}\b');
+    // 1. Extract CIN number (commonly 1–2 letters + 5–10 digits, case-insensitive).
+    // Examples: D123356, T482916, BE123456.
+    final cinRegex = RegExp(r'\b[A-Z]{1,2}\d{5,10}\b', caseSensitive: false);
     final cinMatch = cinRegex.firstMatch(text);
     if (cinMatch != null) {
-      result['cin'] = cinMatch.group(0)!;
+      final value = (cinMatch.group(0) ?? '').trim();
+      // Guard against OCR returning labels like "CIN".
+      if (value.isNotEmpty && value.toUpperCase() != 'CIN') {
+        result['cin'] = value.toUpperCase();
+      }
     }
 
-    // 2. Extract birth date (ex: 01/01/1990 or 01-01-1990)
-    final dateRegex = RegExp(r'\b\d{2}[\/\-]\d{2}[\/\-]\d{4}\b');
-    final dateMatch = dateRegex.firstMatch(text);
-    if (dateMatch != null) {
-      result['birthDate'] = dateMatch.group(0)!;
+    // 2. Extract dates (ex: 01/01/1990 or 01-01-1990 or 01.01.1990)
+    final dateRegex = RegExp(r'\b\d{2}[\/\-.]\d{2}[\/\-.]\d{4}\b');
+    final dateMatches = dateRegex.allMatches(text).map((m) => m.group(0)!).toList();
+    
+    if (dateMatches.isNotEmpty) {
+      // Heuristic: On a CIN, the first date is usually birthDate, second is expiryDate
+      result['birthDate'] = dateMatches[0];
+      if (dateMatches.length >= 2) {
+        // Expiry date is usually the later one if they are both in the future/past mix, 
+        // but on CIN it's simply the second one found.
+        result['expiryDate'] = dateMatches[1];
+      }
     }
 
     // 3. Lines to skip (not names)
@@ -305,7 +252,7 @@ class OcrService {
       return RegExp(r'^[A-ZÀ-Ÿ\s\-]+$').hasMatch(line) && line.length >= 3;
     }
 
-    // 4. Find name lines — on Moroccan CIN: lastName first, then firstName
+    // 4. Find name lines. On Moroccan CIN, the order varies depending on OCR output.
     final latinNames = <String>[];
     final arabicNames = <String>[];
 
@@ -318,18 +265,20 @@ class OcrService {
       }
     }
 
+    // On the Moroccan CIN the given name is printed above the surname, and
+    // neither carries a label. Multi-word given names stay on one line.
     if (latinNames.isNotEmpty) {
-      result['lastName'] = latinNames[0];
+      result['firstName'] = latinNames[0];
     }
     if (latinNames.length >= 2) {
-      result['firstName'] = latinNames[1];
+      result['lastName'] = latinNames[1];
     }
 
-    if (arabicNames.isNotEmpty && (result['lastName'] ?? '').isEmpty) {
-      result['lastName'] = arabicNames[0];
+    if (arabicNames.isNotEmpty && (result['firstName'] ?? '').isEmpty) {
+      result['firstName'] = arabicNames[0];
     }
-    if (arabicNames.length >= 2 && (result['firstName'] ?? '').isEmpty) {
-      result['firstName'] = arabicNames[1];
+    if (arabicNames.length >= 2 && (result['lastName'] ?? '').isEmpty) {
+      result['lastName'] = arabicNames[1];
     }
 
     // 5. Extract address (usually after birth info)
@@ -350,27 +299,170 @@ class OcrService {
     return result;
   }
 
-  /// Parse driving license data from extracted text.
-  /// Returns map with: licenseNumber, firstName, lastName.
+  /// Parse contract-like document text for client (CIN, names), dates and amount.
+  /// Returns map with: cin, firstName, lastName, startDate (dd/MM/yyyy), endDate, amount (string).
+  Map<String, String> parseContractDocument(String text) {
+    final result = <String, String>{
+      'cin': '',
+      'firstName': '',
+      'lastName': '',
+      'startDate': '',
+      'endDate': '',
+      'amount': '',
+    };
+    if (text.trim().isEmpty) return result;
+    final cinData = parseCINData(text);
+    result['cin'] = cinData['cin'] ?? '';
+    result['firstName'] = cinData['firstName'] ?? '';
+    result['lastName'] = cinData['lastName'] ?? '';
+    final dateRegex = RegExp(r'\b(\d{2}[\/\-]\d{2}[\/\-]\d{4}|\d{4}[\/\-]\d{2}[\/\-]\d{2})\b');
+    final dates = dateRegex.allMatches(text).map((m) => m.group(0)!).toList();
+    if (dates.isNotEmpty) result['startDate'] = dates[0];
+    if (dates.length >= 2) result['endDate'] = dates[1];
+    final madRegex = RegExp(r'(\d+(?:[.,]\d+)?)\s*(?:MAD|DH|د\.م\.ج)?', caseSensitive: false);
+    final madMatch = madRegex.firstMatch(text);
+    if (madMatch != null) result['amount'] = madMatch.group(1)!.replaceAll(',', '.');
+    return result;
+  }
+
   Map<String, String> parseLicenseData(String text) {
     final result = <String, String>{
       'licenseNumber': '',
       'firstName': '',
       'lastName': '',
+      'cin': '',
+      'expiryDate': '',
     };
     if (text.trim().isEmpty) return result;
     final lines = text.split(RegExp(r'\n')).map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
-    for (final line in lines) {
-      if (line.toLowerCase().contains('permis') || line.toLowerCase().contains('license') || line.toLowerCase().contains('numero')) {
-        final numMatch = RegExp(r'[\dA-Z]{5,15}').firstMatch(line);
-        if (numMatch != null && result['licenseNumber']!.isEmpty) result['licenseNumber'] = numMatch.group(0)!;
-      }
-      if (line.toLowerCase().contains('nom') || line.toLowerCase().contains('name')) {
-        final parts = line.split(RegExp(r'[\s:]+'));
-        if (parts.length >= 2) {
-          result['lastName'] = parts.last;
-          if (parts.length >= 3) result['firstName'] = parts[parts.length - 2];
+
+    final dateRegex = RegExp(r'\b\d{2}[\/\-.]\d{2}[\/\-.]\d{4}\b');
+
+    // Only accept a date the card explicitly labels as an expiry. The permis
+    // prints an ISSUE date ("délivré à Settat / Le 09/06/2019"); reading
+    // that as the expiry makes a valid licence look expired and raises a false
+    // warning on every scan. An empty field is safer than a wrong one.
+    final expiryLabel =
+        RegExp(r'valable|jusqu|expir|validit', caseSensitive: false);
+    // Wording that marks a date as the date of ISSUE, never an expiry.
+    final issueLabel =
+        RegExp(r'd[ée]livr|deliver|issued|^\s*le\b', caseSensitive: false);
+
+    for (var i = 0; i < lines.length; i++) {
+      if (!expiryLabel.hasMatch(lines[i])) continue;
+      for (var j = i; j < lines.length && j <= i + 1; j++) {
+        // Never harvest a date sitting on, or directly after, an issue label.
+        if (issueLabel.hasMatch(lines[j])) continue;
+        if (j > 0 && issueLabel.hasMatch(lines[j - 1])) continue;
+        final m = dateRegex.firstMatch(lines[j]);
+        if (m != null) {
+          result['expiryDate'] = m.group(0)!;
+          break;
         }
+      }
+      if (result['expiryDate']!.isNotEmpty) break;
+    }
+
+    // Permit numbers look like 12/345678 — at least five digits after the
+    // separator. Requiring five rules out the four-digit year in a date such
+    // as 14/03/1990, whose "03/1990" fragment otherwise looks like a match.
+    // The lookarounds stop the match starting or ending mid-date.
+    final licenseRegex =
+        RegExp(r'(?<![\d/.\-])\d{1,3}\s*[/\-]\s*\d{5,10}(?![\d/.\-])');
+
+    // Prefer a number on a line that names the field, wherever it appears in
+    // the recognised text, since OCR line order is not guaranteed.
+    for (final line in lines) {
+      final low = line.toLowerCase();
+      if (low.contains('permis') || low.contains('license') || low.contains('n°')) {
+        final match = licenseRegex.firstMatch(line);
+        if (match != null) {
+          result['licenseNumber'] = match.group(0)!.replaceAll(RegExp(r'\s'), '');
+          break;
+        }
+      }
+    }
+
+    // Otherwise fall back to the first well-formed permit number anywhere.
+    if (result['licenseNumber']!.isEmpty) {
+      final match = licenseRegex.firstMatch(text);
+      if (match != null) {
+        result['licenseNumber'] = match.group(0)!.replaceAll(RegExp(r'\s'), '');
+      }
+    }
+
+    // The permis also prints the holder's CIN under N.C.N.I.E. — a reliable
+    // cross-check against the identity card.
+    final cinMatch =
+        RegExp(r'\b[A-Z]{1,2}\d{5,10}\b', caseSensitive: false).firstMatch(text);
+    if (cinMatch != null) {
+      result['cin'] = cinMatch.group(0)!.toUpperCase();
+    }
+
+    // Names on the permis carry French labels, but OCR may keep the value on
+    // the label line or push it to the line below, so both are checked.
+    final arabic = RegExp(r'[\u0600-\u06FF]');
+    final latinName = RegExp(r"^[A-ZÀ-Ÿ][A-ZÀ-Ÿ\s\-']+$");
+    // Pre-printed wording on the card. ML Kit groups text by position rather
+    // than reading order, so a label can end up next to the document title -
+    // without this guard 'PERMIS DE CONDUIRE' gets taken as the given name.
+    final heading = RegExp(
+      r'ROYAUME|MAROC|PERMIS|CONDUIRE|LICENCE|LICENSE|DRIVING|AGENCE|'
+      r'NATIONALE|SECURITE|ROUTIERE|DIRECTEUR|CARTE|IDENTITE',
+      caseSensitive: false,
+    );
+
+    bool isNameCandidate(String s) =>
+        latinName.hasMatch(s) && !heading.hasMatch(s);
+
+    String valueForLabelAt(int index) {
+      final sameLine = lines[index]
+          .replaceAll(arabic, '')
+          .replaceAll(RegExp(r'pr[ée]nom|nom|name', caseSensitive: false), '')
+          .replaceAll(RegExp(r'^[\s:/\\-]+'), '')
+          .trim();
+      if (isNameCandidate(sameLine)) return sameLine;
+
+      for (var j = index + 1; j < lines.length && j <= index + 2; j++) {
+        final candidate = lines[j].replaceAll(arabic, '').trim();
+        if (isNameCandidate(candidate)) return candidate;
+      }
+      return '';
+    }
+
+    for (var i = 0; i < lines.length; i++) {
+      final low = lines[i].toLowerCase();
+      // 'prénom' contains 'nom', so the given-name label must win first.
+      final isGivenName = low.contains('prénom') || low.contains('prenom');
+      final isSurname = !isGivenName && RegExp(r'\bnom\b').hasMatch(low);
+
+      if (isGivenName && result['firstName']!.isEmpty) {
+        result['firstName'] = valueForLabelAt(i);
+      } else if (isSurname && result['lastName']!.isEmpty) {
+        result['lastName'] = valueForLabelAt(i);
+      }
+    }
+
+    // The field labels are printed very small and are routinely dropped
+    // entirely from a phone photo - the 'Nom' label especially - so labels
+    // cannot be relied on. Fall back to the card's fixed structure: the given
+    // name and surname are the uppercase Latin lines above the birth date,
+    // while the birthplace is the line below it.
+    if (result['firstName']!.isEmpty || result['lastName']!.isEmpty) {
+      final firstDateLine = lines.indexWhere(dateRegex.hasMatch);
+      final beforeDate = firstDateLine == -1 ? lines.length : firstDateLine;
+
+      final candidates = <String>[];
+      for (var i = 0; i < beforeDate; i++) {
+        final candidate = lines[i].replaceAll(arabic, '').trim();
+        if (isNameCandidate(candidate)) candidates.add(candidate);
+      }
+
+      if (result['firstName']!.isEmpty && candidates.isNotEmpty) {
+        result['firstName'] = candidates[0];
+      }
+      if (result['lastName']!.isEmpty && candidates.length >= 2) {
+        result['lastName'] = candidates[1];
       }
     }
     return result;

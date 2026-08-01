@@ -5,8 +5,8 @@ import 'package:flutter/material.dart';
 
 import 'ocr_service.dart';
 
-/// Widget with EasyOCR server status dot and "Importer CIN" / "Importer Permis" buttons.
-/// Runs OCR (ML Kit + EasyOCR fallback), parses data, then calls [onCINScanned] or [onLicenseScanned].
+/// "Importer CIN" / "Importer Permis" buttons backed by on-device OCR.
+/// Parses the recognized text, then calls [onCINScanned] or [onLicenseScanned].
 class OcrScanWidget extends StatefulWidget {
   const OcrScanWidget({
     super.key,
@@ -26,23 +26,9 @@ class OcrScanWidget extends StatefulWidget {
 }
 
 class _OcrScanWidgetState extends State<OcrScanWidget> {
-  bool _serverActive = false;
   bool _isLoading = false;
 
-  static const _allowedExtensions = ['jpg', 'jpeg', 'png', 'pdf'];
-
-  @override
-  void initState() {
-    super.initState();
-    _checkServer();
-  }
-
-  Future<void> _checkServer() async {
-    final active = await widget.ocrService.checkServerActive();
-    if (mounted && active != _serverActive) {
-      setState(() => _serverActive = active);
-    }
-  }
+  static const _allowedExtensions = ['jpg', 'jpeg', 'png', 'pdf', 'docx', 'doc'];
 
   Future<String?> _pickFile() async {
     final result = await FilePicker.platform.pickFiles(
@@ -61,7 +47,6 @@ class _OcrScanWidgetState extends State<OcrScanWidget> {
     final file = File(path);
     if (!await file.exists()) return;
     setState(() => _isLoading = true);
-    await _checkServer();
     try {
       String text;
       try {
@@ -104,7 +89,6 @@ class _OcrScanWidgetState extends State<OcrScanWidget> {
     final file = File(path);
     if (!await file.exists()) return;
     setState(() => _isLoading = true);
-    await _checkServer();
     try {
       String text;
       try {
@@ -151,22 +135,14 @@ class _OcrScanWidgetState extends State<OcrScanWidget> {
       children: [
         Row(
           children: [
-            Container(
-              width: 12,
-              height: 12,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: _serverActive ? Colors.green : Colors.orange,
-                border: Border.all(
-                  color: theme.colorScheme.outline.withOpacity(0.5),
-                ),
-              ),
+            Icon(
+              Icons.offline_bolt_outlined,
+              size: 16,
+              color: theme.colorScheme.primary,
             ),
             const SizedBox(width: 8),
             Text(
-              _serverActive
-                  ? 'Serveur OCR actif'
-                  : 'Serveur OCR hors ligne',
+              'OCR intégré · fonctionne hors ligne',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),

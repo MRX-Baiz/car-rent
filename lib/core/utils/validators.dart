@@ -31,6 +31,9 @@ class Validators {
     final err = required(value, 'Le téléphone est requis.');
     if (err != null) return err;
     final v = value!.trim();
+    if (!RegExp(r'^\d+$').hasMatch(v)) {
+      return 'Le téléphone doit contenir uniquement des chiffres.';
+    }
     if (v.length < 8) return 'Numéro de téléphone trop court.';
     if (v.length > 20) return 'Numéro de téléphone trop long.';
     return null;

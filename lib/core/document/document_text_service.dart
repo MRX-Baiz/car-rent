@@ -2,7 +2,6 @@ import 'dart:io';
 
 import 'package:docx_to_text/docx_to_text.dart';
 import 'package:flutter/foundation.dart';
-import 'package:pdf_text_extract/pdf_text_extract.dart';
 
 import '../ocr/ocr_service.dart';
 
@@ -18,8 +17,8 @@ class DocumentTextService {
   static const _docxExtensions = ['docx', 'doc'];
 
   /// Extracts raw text from [file] based on its extension.
-  /// - Image: OCR (ML Kit on Android/iOS).
-  /// - PDF: pdf_text_extract (Android/iOS); may fail on Windows.
+  /// - Image: the platform's native OCR engine.
+  /// - PDF: syncfusion_flutter_pdf (all platforms).
   /// - Word: docx_to_text (all platforms).
   /// Returns empty string on failure or unsupported type.
   Future<String> extractTextFromFile(File file) async {
@@ -43,16 +42,11 @@ class DocumentTextService {
     return path.substring(i + 1);
   }
 
-  Future<String> _extractTextFromPdf(File file) async {
-    try {
-      final doc = await PDFDoc.fromFile(file);
-      final text = await doc.text;
-      return text ?? '';
-    } catch (e) {
-      if (kDebugMode) debugPrint('DocumentTextService PDF: $e');
-      return '';
-    }
-  }
+  /// Delegates to [OcrService], which reads PDFs with syncfusion_flutter_pdf.
+  /// The previous pdf_text_extract package was unmaintained at 0.0.1, declared
+  /// no Android namespace (rejected by AGP 8) and did not work on Windows.
+  Future<String> _extractTextFromPdf(File file) =>
+      _ocrService.extractText(file.path);
 
   Future<String> _extractTextFromDocx(File file) async {
     try {
