@@ -1,6 +1,6 @@
 # CarRent Manager
 
-Vehicle rental management app (Flutter). **Desktop-only**: runs on **Windows** and **macOS**.
+Vehicle rental management app (Flutter). Runs on **Android**, **iOS**, **Windows** and **macOS** from a single codebase.
 
 ## Features
 
@@ -9,7 +9,7 @@ Vehicle rental management app (Flutter). **Desktop-only**: runs on **Windows** a
 - PDF contract generation and printing
 - Local notifications (return reminders)
 - Company settings
-- OCR document scanning via local **EasyOCR** server (optional)
+- On-device OCR scanning of CIN / driving licences (works offline, no server)
 
 ## Getting Started
 
