@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/license/license_manager.dart';
@@ -18,11 +19,32 @@ class _LicenseScreenState extends ConsumerState<LicenseScreen> {
 
   bool _isSubmitting = false;
   String? _errorMessage;
+  String? _deviceId;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDeviceId();
+  }
+
+  Future<void> _loadDeviceId() async {
+    final id = await _licenseManager.getDeviceId();
+    if (mounted) setState(() => _deviceId = id);
+  }
 
   @override
   void dispose() {
     _licenseController.dispose();
     super.dispose();
+  }
+
+  void _copyDeviceId() {
+    if (_deviceId != null) {
+      Clipboard.setData(ClipboardData(text: _deviceId!));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('ID de l\'appareil copié !')),
+      );
+    }
   }
 
   Future<void> _submit() async {
@@ -39,29 +61,23 @@ class _LicenseScreenState extends ConsumerState<LicenseScreen> {
     final licenseKey = _licenseController.text.trim();
 
     try {
-      final result = await _licenseManager.validateLicense(licenseKey);
+      await _licenseManager.saveLicense(licenseKey);
       if (!mounted) return;
 
-      if (result.isValid) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Licence activée avec succès.\nتم تفعيل الرخصة بنجاح.\nLicense activated successfully.',
-            ),
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Licence activée avec succès.\nتم تفعيل الرخصة بنجاح.\nLicense activated successfully.',
           ),
-        );
-        context.go('/dashboard');
-      } else {
-        setState(() {
-          _errorMessage = result.errorMessage ??
-              'Clé de licence invalide.\nمفتاح الترخيص غير صالح.\nInvalid license key.';
-        });
-      }
+        ),
+      );
+      // The lock guard turns this into the PIN setup on a first activation,
+      // or the lock screen if a PIN already exists.
+      context.go('/dashboard');
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _errorMessage =
-            'Erreur lors de la validation de la licence.\nحدث خطأ أثناء التحقق من الرخصة.\nLicense validation error: $e';
+        _errorMessage = e.toString().replaceFirst('Exception: ', '');
       });
     } finally {
       if (mounted) {
@@ -81,10 +97,10 @@ class _LicenseScreenState extends ConsumerState<LicenseScreen> {
         title: const Text('Activation de la licence'),
       ),
       body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 460),
-          child: Padding(
-            padding: const EdgeInsets.all(24),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 460),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               mainAxisSize: MainAxisSize.min,
@@ -98,32 +114,61 @@ class _LicenseScreenState extends ConsumerState<LicenseScreen> {
                 Text(
                   'Entrez votre clé de licence pour activer CarRent Manager.',
                   textAlign: TextAlign.center,
-                  style: theme.textTheme.bodyMedium,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'الرجاء إدخال مفتاح الترخيص لتفعيل النظام.',
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.bodyMedium,
+                  style: theme.textTheme.titleMedium,
                 ),
                 const SizedBox(height: 24),
+                
+                // Device ID Section
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primaryContainer.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: theme.colorScheme.primary.withValues(alpha: 0.2)),
+                  ),
+                  child: Column(
+                    children: [
+                      const Text(
+                        'ID DE CET APPAREIL (Obligatoire pour la licence):',
+                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              _deviceId ?? 'Chargement...',
+                              style: const TextStyle(fontFamily: 'Courier', fontWeight: FontWeight.bold),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.copy, size: 20),
+                            onPressed: _copyDeviceId,
+                            tooltip: 'Copier l\'ID',
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+
                 Form(
                   key: _formKey,
                   child: TextFormField(
                     controller: _licenseController,
+                    maxLines: 4,
                     decoration: const InputDecoration(
-                      labelText: 'Clé de licence / License key',
-                      hintText: 'AUTO123-2026-05-13-XXXXXXXX',
+                      labelText: 'Code de licence / License Key',
+                      hintText: 'Collez ici votre code de licence Base64...',
                       border: OutlineInputBorder(),
                     ),
                     textInputAction: TextInputAction.done,
                     onFieldSubmitted: (_) => _submit(),
                     validator: (value) {
                       if (value == null || value.trim().isEmpty) {
-                        return 'La clé de licence est requise.\nمطلوب مفتاح الترخيص.\nLicense key is required.';
-                      }
-                      if (!value.contains('-')) {
-                        return 'Format de clé invalide.\nتنسيق المفتاح غير صالح.\nInvalid key format.';
+                        return 'La clé de licence est requise.';
                       }
                       return null;
                     },
@@ -131,14 +176,22 @@ class _LicenseScreenState extends ConsumerState<LicenseScreen> {
                 ),
                 const SizedBox(height: 16),
                 if (_errorMessage != null) ...[
-                  Text(
-                    _errorMessage!,
-                    style: TextStyle(
-                      color: theme.colorScheme.error,
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.errorContainer.withValues(alpha: 0.5),
+                      borderRadius: BorderRadius.circular(8),
                     ),
-                    textAlign: TextAlign.center,
+                    child: Text(
+                      _errorMessage!,
+                      style: TextStyle(
+                        color: theme.colorScheme.error,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 16),
                 ],
                 SizedBox(
                   width: double.infinity,

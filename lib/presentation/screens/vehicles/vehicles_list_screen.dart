@@ -3,10 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/app_strings.dart';
+import '../../../core/storage/media_store.dart';
 import '../../providers/vehicle_provider.dart';
 import '../../widgets/common/adaptive_layout.dart';
 import '../../widgets/common/empty_state_widget.dart';
 import '../../widgets/common/status_badge.dart';
+import '../../widgets/common/app_shimmer.dart';
 
 class VehiclesListScreen extends ConsumerStatefulWidget {
   const VehiclesListScreen({super.key});
@@ -36,71 +38,80 @@ class _VehiclesListScreenState extends ConsumerState<VehiclesListScreen> {
     return AdaptiveLayout(
       child: Scaffold(
         appBar: AppBar(
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () =>
+              context.canPop() ? context.pop() : context.go('/dashboard'),
+            tooltip: 'Retour',
+          ),
           title: const Text('Véhicules'),
         ),
         body: Column(
           children: [
             Padding(
               padding: const EdgeInsets.all(12),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      decoration: const InputDecoration(
-                        prefixIcon: Icon(Icons.search),
-                        hintText:
-                            'Rechercher par marque, modèle ou immatriculation',
-                      ),
-                      onChanged: (value) {
-                        setState(() {
-                          _searchQuery = value.toLowerCase();
-                        });
-                      },
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final searchField = TextField(
+                    decoration: const InputDecoration(
+                      prefixIcon: Icon(Icons.search),
+                      hintText:
+                          'Rechercher par marque, modèle ou immatriculation',
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Wrap(
-                    spacing: 4,
+                    onChanged: (value) {
+                      setState(() {
+                        _searchQuery = value.toLowerCase();
+                      });
+                    },
+                  );
+
+                  // Scrolls sideways when the chips are wider than the screen,
+                  // instead of overflowing and squeezing the search field.
+                  final filterChips = SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        for (final filter in const [
+                          ('Tous', 'all'),
+                          ('Disponibles', 'available'),
+                          ('Loués', 'rented'),
+                          ('Maintenance', 'maintenance'),
+                        ])
+                          Padding(
+                            padding: const EdgeInsets.only(right: 4),
+                            child: ChoiceChip(
+                              label: Text(filter.$1),
+                              selected: _statusFilter == filter.$2,
+                              onSelected: (_) {
+                                setState(() {
+                                  _statusFilter = filter.$2;
+                                });
+                              },
+                            ),
+                          ),
+                      ],
+                    ),
+                  );
+
+                  // Side by side only when there is room for both.
+                  if (constraints.maxWidth > 700) {
+                    return Row(
+                      children: [
+                        Expanded(child: searchField),
+                        const SizedBox(width: 8),
+                        Flexible(child: filterChips),
+                      ],
+                    );
+                  }
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      ChoiceChip(
-                        label: const Text('Tous'),
-                        selected: _statusFilter == 'all',
-                        onSelected: (_) {
-                          setState(() {
-                            _statusFilter = 'all';
-                          });
-                        },
-                      ),
-                      ChoiceChip(
-                        label: const Text('Disponibles'),
-                        selected: _statusFilter == 'available',
-                        onSelected: (_) {
-                          setState(() {
-                            _statusFilter = 'available';
-                          });
-                        },
-                      ),
-                      ChoiceChip(
-                        label: const Text('Loués'),
-                        selected: _statusFilter == 'rented',
-                        onSelected: (_) {
-                          setState(() {
-                            _statusFilter = 'rented';
-                          });
-                        },
-                      ),
-                      ChoiceChip(
-                        label: const Text('Maintenance'),
-                        selected: _statusFilter == 'maintenance',
-                        onSelected: (_) {
-                          setState(() {
-                            _statusFilter = 'maintenance';
-                          });
-                        },
-                      ),
+                      searchField,
+                      const SizedBox(height: 8),
+                      filterChips,
                     ],
-                  ),
-                ],
+                  );
+                },
               ),
             ),
             Expanded(
@@ -205,15 +216,36 @@ class _VehiclesListScreenState extends ConsumerState<VehiclesListScreen> {
                             child: ListTile(
                               onTap: () {
                                 if (vehicle.id != null) {
-                                  context.go('/vehicles/${vehicle.id}');
+                                  context.push('/vehicles/${vehicle.id}');
                                 }
                               },
-                              leading: CircleAvatar(
-                                backgroundColor:
-                                    theme.colorScheme.primary.withOpacity(0.1),
-                                child: Icon(
-                                  Icons.directions_car_filled,
-                                  color: theme.colorScheme.primary,
+                              leading: Hero(
+                                tag: 'vehicle_${vehicle.id}',
+                                child: Container(
+                                  width: 56,
+                                  height: 56,
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(8),
+                                    color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                                  ),
+                                  clipBehavior: Clip.antiAlias,
+                                  child: vehicle.imageBytes != null
+                                      ? Image.memory(
+                                          vehicle.imageBytes!,
+                                          fit: BoxFit.cover,
+                                        )
+                                      : (MediaStore.instance
+                                                  .resolveFile(vehicle.imagePath) !=
+                                              null
+                                          ? Image.file(
+                                              MediaStore.instance
+                                                  .resolveFile(vehicle.imagePath)!,
+                                              fit: BoxFit.cover,
+                                            )
+                                          : Icon(
+                                              Icons.directions_car_filled,
+                                              color: theme.colorScheme.primary,
+                                            )),
                                 ),
                               ),
                               title: Text('${vehicle.brand} ${vehicle.model}'),
@@ -222,11 +254,6 @@ class _VehiclesListScreenState extends ConsumerState<VehiclesListScreen> {
                                 children: [
                                   Text(
                                     vehicle.registrationNumber,
-                                    style: theme.textTheme.bodySmall,
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    '${vehicle.dailyPrice.toStringAsFixed(2)} MAD / jour',
                                     style: theme.textTheme.bodySmall,
                                   ),
                                 ],
@@ -239,8 +266,7 @@ class _VehiclesListScreenState extends ConsumerState<VehiclesListScreen> {
                     ),
                   );
                 },
-                loading: () =>
-                    const Center(child: CircularProgressIndicator()),
+                loading: () => AppShimmer.listLayer(),
                 error: (error, _) => Center(
                   child: Text(
                     'Erreur lors du chargement des véhicules.\n'
@@ -254,7 +280,7 @@ class _VehiclesListScreenState extends ConsumerState<VehiclesListScreen> {
           ],
         ),
         floatingActionButton: FloatingActionButton(
-          onPressed: () => context.go('/vehicles/add'),
+          onPressed: () => context.push('/vehicles/add'),
           child: const Icon(Icons.add),
         ),
       ),

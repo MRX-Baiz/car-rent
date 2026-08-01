@@ -17,3 +17,11 @@ final companyAddressProvider = FutureProvider<String>((ref) async {
 final companyPhoneProvider = FutureProvider<String>((ref) async {
   return ref.read(appSettingsRepositoryProvider).getCompanyPhone();
 });
+
+final companyLogoProvider = FutureProvider<String>((ref) async {
+  return ref.read(appSettingsRepositoryProvider).getCompanyLogo();
+});
+
+final companySignatureProvider = FutureProvider<String>((ref) async {
+  return ref.read(appSettingsRepositoryProvider).getCompanySignature();
+});

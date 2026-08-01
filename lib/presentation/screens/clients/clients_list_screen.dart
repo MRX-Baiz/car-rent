@@ -6,6 +6,7 @@ import '../../../core/constants/app_strings.dart';
 import '../../providers/client_provider.dart';
 import '../../widgets/common/adaptive_layout.dart';
 import '../../widgets/common/empty_state_widget.dart';
+import '../../widgets/common/app_shimmer.dart';
 
 class ClientsListScreen extends ConsumerStatefulWidget {
   const ClientsListScreen({super.key});
@@ -33,6 +34,12 @@ class _ClientsListScreenState extends ConsumerState<ClientsListScreen> {
     return AdaptiveLayout(
       child: Scaffold(
         appBar: AppBar(
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () =>
+              context.canPop() ? context.pop() : context.go('/dashboard'),
+            tooltip: 'Retour',
+          ),
           title: const Text('Clients'),
         ),
         body: Column(
@@ -151,11 +158,14 @@ class _ClientsListScreenState extends ConsumerState<ClientsListScreen> {
                             child: ListTile(
                               onTap: () {
                                 if (client.id != null) {
-                                  context.go('/clients/${client.id}');
+                                  context.push('/clients/${client.id}');
                                 }
                               },
-                              leading: CircleAvatar(
-                                child: Text(initials),
+                              leading: Hero(
+                                tag: 'client_${client.id}',
+                                child: CircleAvatar(
+                                  child: Text(initials),
+                                ),
                               ),
                               title: Text(client.fullName),
                               subtitle: Column(
@@ -179,8 +189,7 @@ class _ClientsListScreenState extends ConsumerState<ClientsListScreen> {
                     ),
                   );
                 },
-                loading: () =>
-                    const Center(child: CircularProgressIndicator()),
+                loading: () => AppShimmer.listLayer(),
                 error: (error, _) => Center(
                   child: Text(
                     'Erreur lors du chargement des clients.\n'
@@ -193,40 +202,11 @@ class _ClientsListScreenState extends ConsumerState<ClientsListScreen> {
             ),
           ],
         ),
-        floatingActionButton: FloatingActionButton(
-          onPressed: () async {
-            // Two options: manual entry or scan document
-            final mode = await showModalBottomSheet<String>(
-              context: context,
-              builder: (context) => SafeArea(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    ListTile(
-                      leading: const Icon(Icons.edit),
-                      title: const Text('Saisie manuelle'),
-                      onTap: () => Navigator.of(context).pop('manual'),
-                    ),
-                    ListTile(
-                      leading: const Icon(Icons.document_scanner),
-                      title: const Text('Scanner document'),
-                      onTap: () => Navigator.of(context).pop('scan'),
-                    ),
-                  ],
-                ),
-              ),
-            );
-
-            if (mode == null) return;
-
-            if (!mounted) return;
-            if (mode == 'manual') {
-              context.go('/clients/add');
-            } else {
-              context.go('/clients/add', extra: {'mode': 'scan'});
-            }
-          },
-          child: const Icon(Icons.add),
+        floatingActionButton: FloatingActionButton.extended(
+          onPressed: () => context.push('/clients/add'),
+          icon: const Icon(Icons.person_add_outlined),
+          label: const Text('Nouveau client'),
+          tooltip: 'Ajouter un client',
         ),
       ),
     );

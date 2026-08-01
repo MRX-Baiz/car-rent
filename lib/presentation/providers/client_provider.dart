@@ -36,6 +36,11 @@ class ClientNotifier extends AsyncNotifier<List<ClientModel>> {
       final inserted = toInsert.copyWith(id: id);
       return [inserted, ...current];
     });
+    // Propagate errors so the form can catch them and show the right message.
+    if (state is AsyncError) {
+      final err = (state as AsyncError).error;
+      throw err is Exception ? err : Exception(err.toString());
+    }
   }
 
   Future<void> updateClient(ClientModel client) async {
@@ -50,15 +55,25 @@ class ClientNotifier extends AsyncNotifier<List<ClientModel>> {
           )
           .toList();
     });
+    // Propagate errors so the form can catch them and show the right message.
+    if (state is AsyncError) {
+      final err = (state as AsyncError).error;
+      // Restore previous list so the UI isn't stuck on an error state.
+      state = AsyncValue.data(current);
+      throw err is Exception ? err : Exception(err.toString());
+    }
   }
 
   Future<void> deleteClient(int id) async {
     final current = state.value ?? const <ClientModel>[];
-    state = const AsyncLoading();
-    state = await AsyncValue.guard(() async {
+    // Keep current list visible; update only on success.
+    try {
       await _repository.deleteClient(id);
-      return current.where((c) => c.id != id).toList();
-    });
+      state = AsyncValue.data(current.where((c) => c.id != id).toList());
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+      rethrow;
+    }
   }
 
   Future<void> search(String query) async {

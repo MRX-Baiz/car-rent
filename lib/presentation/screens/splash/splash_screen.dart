@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/license/license_manager.dart';
+import '../../../data/repositories/app_settings_repository.dart';
+import '../../providers/auth_provider.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
@@ -22,13 +24,26 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
 
   Future<void> _checkLicense() async {
     try {
-      final isActive = await _licenseManager.isLicenseActive();
+      // 1. The licence decides whether the app may run at all.
+      final isLicenseActive = await _licenseManager.isLicenseActive();
       if (!mounted) return;
-      if (isActive) {
-        context.go('/dashboard');
-      } else {
+
+      if (!isLicenseActive) {
         context.go('/license');
+        return;
       }
+
+      // One-time cleanup of the token left by the old login screen, which
+      // granted access without checking anything.
+      await AppSettingsRepository.instance.clearLegacyAuthSession();
+
+      // 2. Read the lock state. This never unlocks — it only decides between
+      // creating a PIN and asking for it — so the router's redirect takes it
+      // from here.
+      await ref.read(authProvider.notifier).refresh();
+      if (!mounted) return;
+
+      context.go('/dashboard');
     } catch (_) {
       if (!mounted) return;
       context.go('/license');
@@ -40,23 +55,18 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      backgroundColor: theme.colorScheme.background,
+      backgroundColor: theme.colorScheme.surface,
       body: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              width: 96,
-              height: 96,
-              decoration: BoxDecoration(
-                color: theme.colorScheme.primary,
-                borderRadius: BorderRadius.circular(24),
-              ),
-              alignment: Alignment.center,
-              child: Icon(
-                Icons.directions_car_filled_rounded,
-                size: 56,
-                color: theme.colorScheme.onPrimary,
+            ClipRRect(
+              borderRadius: BorderRadius.circular(24),
+              child: Image.asset(
+                'assets/images/logo_new.png',
+                width: 112,
+                height: 112,
+                fit: BoxFit.cover,
               ),
             ),
             const SizedBox(height: 24),

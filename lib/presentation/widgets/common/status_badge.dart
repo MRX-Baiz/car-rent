@@ -13,19 +13,19 @@ class StatusBadge extends StatelessWidget {
   Color _backgroundColor() {
     switch (text) {
       case 'available':
-        return AppColors.statusAvailable.withOpacity(0.12);
+        return AppColors.statusAvailable.withValues(alpha: 0.12);
       case 'rented':
-        return AppColors.statusRented.withOpacity(0.12);
+        return AppColors.statusRented.withValues(alpha: 0.12);
       case 'maintenance':
-        return AppColors.statusMaintenance.withOpacity(0.12);
+        return AppColors.statusMaintenance.withValues(alpha: 0.12);
       case 'late':
-        return AppColors.statusLate.withOpacity(0.12);
+        return AppColors.statusLate.withValues(alpha: 0.12);
       case 'active':
-        return AppColors.statusActive.withOpacity(0.12);
+        return AppColors.statusActive.withValues(alpha: 0.12);
       case 'completed':
-        return AppColors.statusCompleted.withOpacity(0.12);
+        return AppColors.statusCompleted.withValues(alpha: 0.12);
       default:
-        return Colors.grey.withOpacity(0.12);
+        return Colors.grey.withValues(alpha: 0.12);
     }
   }
 

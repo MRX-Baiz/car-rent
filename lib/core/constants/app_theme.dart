@@ -16,9 +16,16 @@ ThemeData buildAppTheme() {
   return base.copyWith(
     scaffoldBackgroundColor: AppColors.background,
     appBarTheme: base.appBarTheme.copyWith(
-      backgroundColor: AppColors.primary,
-      foregroundColor: Colors.white,
-      elevation: 1,
+      backgroundColor: const Color(0xFFB9AFA6),
+      foregroundColor: Colors.black87,
+      elevation: 0,
+      centerTitle: true,
+      titleTextStyle: const TextStyle(
+        color: Colors.black87,
+        fontSize: 20,
+        fontWeight: FontWeight.bold,
+      ),
+      iconTheme: const IconThemeData(color: Colors.black87),
     ),
     cardTheme: base.cardTheme.copyWith(
       color: AppColors.cardBackground,

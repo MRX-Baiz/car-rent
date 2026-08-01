@@ -5,9 +5,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/app_strings.dart';
+import '../../../core/storage/media_store.dart';
 import '../../../data/models/client_model.dart';
 import '../../providers/client_provider.dart';
 import '../../widgets/common/empty_state_widget.dart';
+import '../../widgets/common/app_shimmer.dart';
+import '../../widgets/common/document_viewer.dart';
 
 class ClientDetailScreen extends ConsumerWidget {
   const ClientDetailScreen({
@@ -65,11 +68,14 @@ class ClientDetailScreen extends ConsumerWidget {
                   children: [
                     Row(
                       children: [
-                        CircleAvatar(
-                          radius: 32,
-                          child: Text(
-                            initials,
-                            style: const TextStyle(fontSize: 20),
+                        Hero(
+                          tag: 'client_${client.id}',
+                          child: CircleAvatar(
+                            radius: 32,
+                            child: Text(
+                              initials,
+                              style: const TextStyle(fontSize: 20),
+                            ),
                           ),
                         ),
                         const SizedBox(width: 16),
@@ -132,23 +138,10 @@ class ClientDetailScreen extends ConsumerWidget {
                                 style: theme.textTheme.bodyMedium,
                               ),
                               const SizedBox(height: 4),
-                              Container(
-                                height: 90,
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(8),
-                                  color: theme.colorScheme.surfaceVariant,
-                                ),
-                                clipBehavior: Clip.antiAlias,
-                                child: client.cinImagePath != null
-                                    ? Image.file(
-                                        File(client.cinImagePath!),
-                                        fit: BoxFit.cover,
-                                      )
-                                    : Icon(
-                                        Icons.badge_outlined,
-                                        color: theme
-                                            .colorScheme.onSurfaceVariant,
-                                      ),
+                              _DocumentThumbnail(
+                                imagePath: client.cinImagePath,
+                                title: 'CIN',
+                                placeholder: Icons.badge_outlined,
                               ),
                             ],
                           ),
@@ -163,23 +156,10 @@ class ClientDetailScreen extends ConsumerWidget {
                                 style: theme.textTheme.bodyMedium,
                               ),
                               const SizedBox(height: 4),
-                              Container(
-                                height: 90,
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(8),
-                                  color: theme.colorScheme.surfaceVariant,
-                                ),
-                                clipBehavior: Clip.antiAlias,
-                                child: client.licenseImagePath != null
-                                    ? Image.file(
-                                        File(client.licenseImagePath!),
-                                        fit: BoxFit.cover,
-                                      )
-                                    : Icon(
-                                        Icons.credit_card,
-                                        color: theme
-                                            .colorScheme.onSurfaceVariant,
-                                      ),
+                              _DocumentThumbnail(
+                                imagePath: client.licenseImagePath,
+                                title: 'Permis',
+                                placeholder: Icons.credit_card,
                               ),
                             ],
                           ),
@@ -252,7 +232,7 @@ class ClientDetailScreen extends ConsumerWidget {
             ),
           );
         },
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => AppShimmer.detailLayer(),
         error: (error, _) => Center(
           child: Text(
             'Erreur lors du chargement du client.\n'
@@ -275,3 +255,76 @@ class ClientDetailScreen extends ConsumerWidget {
   }
 }
 
+
+/// Tappable document thumbnail that opens the full-screen zoomable viewer.
+class _DocumentThumbnail extends StatelessWidget {
+  const _DocumentThumbnail({
+    required this.imagePath,
+    required this.title,
+    required this.placeholder,
+  });
+
+  final String? imagePath;
+  final String title;
+  final IconData placeholder;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    // imagePath is a media-store name, and resolves to null when the file is
+    // gone — which is the case for anything attached by a build that saved the
+    // picker's temporary path. Those fall back to the placeholder icon.
+    final resolved = MediaStore.instance.resolveSync(imagePath);
+    final hasImage = resolved != null;
+
+    final thumbnail = Container(
+      height: 90,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(8),
+        color: theme.colorScheme.surfaceContainerHighest,
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: hasImage
+          ? Stack(
+              fit: StackFit.expand,
+              children: [
+                Image.file(File(resolved), fit: BoxFit.cover),
+                // Hint that the thumbnail opens a larger view.
+                Positioned(
+                  right: 4,
+                  bottom: 4,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: Colors.black54,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: const Icon(
+                      Icons.zoom_in,
+                      size: 16,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ],
+            )
+          : Icon(placeholder, color: theme.colorScheme.onSurfaceVariant),
+    );
+
+    if (!hasImage) return thumbnail;
+
+    return Semantics(
+      button: true,
+      label: 'Agrandir $title',
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: () => DocumentViewer.open(
+          context,
+          imagePath: resolved,
+          title: title,
+        ),
+        child: Hero(tag: 'document-$resolved', child: thumbnail),
+      ),
+    );
+  }
+}

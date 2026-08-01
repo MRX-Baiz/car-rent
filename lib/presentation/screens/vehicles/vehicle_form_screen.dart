@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/app_strings.dart';
+import '../../../core/storage/media_store.dart';
 import '../../../data/models/vehicle_model.dart';
 import '../../providers/vehicle_provider.dart';
 import '../../widgets/common/app_button.dart';
@@ -31,7 +32,6 @@ class _VehicleFormScreenState extends ConsumerState<VehicleFormScreen> {
   late final TextEditingController _modelController;
   late final TextEditingController _registrationController;
   late final TextEditingController _yearController;
-  late final TextEditingController _dailyPriceController;
 
   String _status = 'available';
   File? _imageFile;
@@ -48,9 +48,6 @@ class _VehicleFormScreenState extends ConsumerState<VehicleFormScreen> {
         TextEditingController(text: v?.registrationNumber ?? '');
     _yearController =
         TextEditingController(text: v?.year.toString() ?? '');
-    _dailyPriceController = TextEditingController(
-      text: v?.dailyPrice.toStringAsFixed(2) ?? '',
-    );
     _status = v?.status ?? 'available';
   }
 
@@ -60,7 +57,6 @@ class _VehicleFormScreenState extends ConsumerState<VehicleFormScreen> {
     _modelController.dispose();
     _registrationController.dispose();
     _yearController.dispose();
-    _dailyPriceController.dispose();
     super.dispose();
   }
 
@@ -84,8 +80,11 @@ class _VehicleFormScreenState extends ConsumerState<VehicleFormScreen> {
 
     try {
       final year = int.parse(_yearController.text.trim());
-      final price = double.parse(_dailyPriceController.text.trim());
       final now = DateTime.now();
+
+      final imageBytes = _imageFile != null 
+          ? await _imageFile!.readAsBytes() 
+          : widget.vehicle?.imageBytes;
 
       final vehicle = VehicleModel(
         id: widget.vehicle?.id,
@@ -94,8 +93,13 @@ class _VehicleFormScreenState extends ConsumerState<VehicleFormScreen> {
         registrationNumber: _registrationController.text.trim(),
         year: year,
         status: _status,
-        dailyPrice: price,
-        imagePath: _imageFile?.path ?? widget.vehicle?.imagePath,
+        // The photo itself lives in image_blob, so a vehicle survived the
+        // temp-path bug. Route the path through the media store anyway: it is
+        // the display fallback, and a dangling one shows a broken thumbnail.
+        imagePath: _imageFile == null
+            ? widget.vehicle?.imagePath
+            : await MediaStore.instance.save(_imageFile!, prefix: 'vehicule'),
+        imageBytes: imageBytes,
         createdAt: widget.vehicle?.createdAt ?? now,
         updatedAt: now,
       );
@@ -143,7 +147,10 @@ class _VehicleFormScreenState extends ConsumerState<VehicleFormScreen> {
         title: Text(isEditing ? 'Modifier un véhicule' : 'Nouveau véhicule'),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        // Pad past the system navigation bar so the last control is
+        // not trapped under the phone's back/home buttons.
+        padding: EdgeInsets.fromLTRB(
+            16, 16, 16, 16 + MediaQuery.viewPaddingOf(context).bottom),
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 600),
@@ -152,124 +159,118 @@ class _VehicleFormScreenState extends ConsumerState<VehicleFormScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: Column(
-                          children: [
-                            AppTextField(
-                              controller: _brandController,
-                              label: 'Marque',
-                              prefixIcon: Icons.directions_car,
-                              validator: (value) {
-                                if (value == null || value.trim().isEmpty) {
-                                  return 'La marque est requise.';
-                                }
-                                return null;
-                              },
-                            ),
-                            const SizedBox(height: 12),
-                            AppTextField(
-                              controller: _modelController,
-                              label: 'Modèle',
-                              prefixIcon: Icons.directions_car_filled,
-                              validator: (value) {
-                                if (value == null || value.trim().isEmpty) {
-                                  return 'Le modèle est requis.';
-                                }
-                                return null;
-                              },
-                            ),
-                            const SizedBox(height: 12),
-                            AppTextField(
-                              controller: _registrationController,
-                              label: 'Immatriculation',
-                              prefixIcon: Icons.numbers,
-                              validator: (value) {
-                                if (value == null || value.trim().isEmpty) {
-                                  return 'L’immatriculation est requise.';
-                                }
-                                return null;
-                              },
-                            ),
-                            const SizedBox(height: 12),
-                            AppTextField(
-                              controller: _yearController,
-                              label: 'Année',
-                              keyboardType: TextInputType.number,
-                              prefixIcon: Icons.calendar_today,
-                              validator: (value) {
-                                if (value == null || value.trim().isEmpty) {
-                                  return 'L’année est requise.';
-                                }
-                                final year = int.tryParse(value);
-                                if (year == null || year < 1980 || year > 2100) {
-                                  return 'Année invalide.';
-                                }
-                                return null;
-                              },
-                            ),
-                            const SizedBox(height: 12),
-                            AppTextField(
-                              controller: _dailyPriceController,
-                              label: 'Prix journalier (MAD)',
-                              keyboardType:
-                                  const TextInputType.numberWithOptions(
-                                decimal: true,
-                              ),
-                              prefixIcon: Icons.price_change,
-                              validator: (value) {
-                                if (value == null || value.trim().isEmpty) {
-                                  return 'Le prix journalier est requis.';
-                                }
-                                final price = double.tryParse(value);
-                                if (price == null || price <= 0) {
-                                  return 'Prix invalide.';
-                                }
-                                return null;
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Column(
-                        children: [
-                          Container(
-                            width: 120,
-                            height: 120,
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(12),
-                              color: theme.colorScheme.surfaceVariant,
-                            ),
-                            clipBehavior: Clip.antiAlias,
-                            child: _imageFile != null
-                                ? Image.file(
-                                    _imageFile!,
-                                    fit: BoxFit.cover,
-                                  )
-                                : (widget.vehicle?.imagePath != null
-                                    ? Image.file(
-                                        File(widget.vehicle!.imagePath!),
-                                        fit: BoxFit.cover,
-                                      )
-                                    : Icon(
-                                        Icons.directions_car_filled,
-                                        size: 48,
-                                        color: theme.colorScheme.onSurface
-                                            .withOpacity(0.4),
-                                      )),
-                          ),
-                          const SizedBox(height: 8),
-                          TextButton.icon(
-                            onPressed: _pickImage,
-                            icon: const Icon(Icons.photo_library),
-                            label: const Text('Photo'),
-                          ),
-                        ],
-                      ),
-                    ],
+                  Container(
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      color: theme.colorScheme.surfaceContainerHighest,
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: AspectRatio(
+                      aspectRatio: 16 / 9,
+                      child: _imageFile != null
+                          ? Image.file(
+                              _imageFile!,
+                              fit: BoxFit.cover,
+                            )
+                          : (widget.vehicle?.imageBytes != null
+                              ? Image.memory(
+                                  widget.vehicle!.imageBytes!,
+                                  fit: BoxFit.cover,
+                                )
+                              : (MediaStore.instance
+                                          .resolveFile(widget.vehicle?.imagePath) !=
+                                      null
+                                  ? Image.file(
+                                      MediaStore.instance.resolveFile(
+                                          widget.vehicle?.imagePath)!,
+                                      fit: BoxFit.cover,
+                                    )
+                                  : Center(
+                                      child: Column(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          Icon(
+                                            Icons.directions_car_filled,
+                                            size: 48,
+                                            color: theme.colorScheme.onSurface
+                                                .withValues(alpha: 0.4),
+                                          ),
+                                          const SizedBox(height: 8),
+                                          Text(
+                                            'Aucune photo',
+                                            style: theme.textTheme.bodySmall?.copyWith(
+                                              color: theme.colorScheme.onSurface
+                                                  .withValues(alpha: 0.4),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ))),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Center(
+                    child: TextButton.icon(
+                      onPressed: _pickImage,
+                      icon: const Icon(Icons.add_a_photo),
+                      label: Text(_imageFile == null && widget.vehicle?.imagePath == null
+                          ? 'Ajouter une photo'
+                          : 'Modifier la photo'),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  AppTextField(
+                    controller: _brandController,
+                    label: 'Marque',
+                    prefixIcon: Icons.directions_car,
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'La marque est requise.';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  AppTextField(
+                    controller: _modelController,
+                    label: 'Modèle',
+                    prefixIcon: Icons.directions_car_filled,
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Le modèle est requis.';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  AppTextField(
+                    controller: _registrationController,
+                    label: 'Immatriculation',
+                    prefixIcon: Icons.numbers,
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'L’immatriculation est requise.';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  AppTextField(
+                    controller: _yearController,
+                    label: 'Année',
+                    keyboardType: TextInputType.number,
+                    prefixIcon: Icons.calendar_today,
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'L’année est requise.';
+                      }
+                      final year = int.tryParse(value);
+                      if (year == null || year < 1920 || year > 2100) {
+                        return 'Année invalide.';
+                      }
+                      return null;
+                    },
                   ),
                   const SizedBox(height: 16),
                   DropdownButtonFormField<String>(

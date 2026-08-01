@@ -8,12 +8,15 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../storage/media_store.dart';
 import '../../data/models/client_model.dart';
 import '../../data/models/contract_model.dart';
 import '../../data/models/vehicle_model.dart';
+import '../../data/repositories/app_settings_repository.dart';
 
 class ContractPdfGenerator {
   final DateFormat _dateFormatter = DateFormat('dd/MM/yyyy');
+  final DateFormat _dateTimeFormatter = DateFormat('dd/MM/yyyy HH:mm');
 
   Future<File> generateContract({
     required ContractModel contract,
@@ -25,30 +28,64 @@ class ContractPdfGenerator {
 
     final creationDate = contract.createdAt;
 
+    final repo = AppSettingsRepository.instance;
+    final companyName = await repo.getCompanyName();
+    final companyAddress = await repo.getCompanyAddress();
+    final logoPath = await repo.getCompanyLogo();
+    final signaturePath = await repo.getCompanySignature();
+
+    // Both settings hold a media-store name; resolveSync also returns null for
+    // a file that no longer exists, which the null checks below already handle.
+    final logoFile = MediaStore.instance.resolveFile(logoPath);
+    final signatureFile = MediaStore.instance.resolveFile(signaturePath);
+
+    pw.MemoryImage? logoImage;
+    if (logoFile != null) {
+      try {
+        logoImage = pw.MemoryImage(logoFile.readAsBytesSync());
+      } catch (_) {}
+    }
+
+    pw.MemoryImage? signatureImage;
+    if (signatureFile != null) {
+      try {
+        signatureImage = pw.MemoryImage(signatureFile.readAsBytesSync());
+      } catch (_) {}
+    }
+
     doc.addPage(
-      pw.MultiPage(
-        pageTheme: pw.PageTheme(
-          margin: pw.EdgeInsets.all(24),
-          theme: pw.ThemeData.withFont(
-            base: await PdfGoogleFonts.openSansRegular(),
-            bold: await PdfGoogleFonts.openSansBold(),
-          ),
+      pw.Page(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(16),
+        theme: pw.ThemeData.withFont(
+          base: await PdfGoogleFonts.openSansRegular(),
+          bold: await PdfGoogleFonts.openSansBold(),
         ),
-        build: (context) => [
-          _buildHeader(contract, creationDate),
-          pw.SizedBox(height: 16),
-          _buildVehicleSection(vehicle),
-          pw.SizedBox(height: 16),
-          _buildClientSection(primaryDriver, secondaryDriver),
-          pw.SizedBox(height: 16),
-          _buildRentalSection(contract, vehicle),
-          pw.SizedBox(height: 16),
-          _buildPaymentSummary(contract),
-          pw.SizedBox(height: 24),
-          _buildTermsAndConditions(),
-          pw.SizedBox(height: 32),
-          _buildSignaturesSection(),
-        ],
+        build: (context) => pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            _buildHeader(contract, creationDate, logoImage, companyName),
+            pw.SizedBox(height: 4),
+            pw.Row(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Expanded(child: _buildVehicleSection(vehicle)),
+                pw.SizedBox(width: 10),
+                pw.Expanded(child: _buildClientSection(primaryDriver, secondaryDriver)),
+              ],
+            ),
+            pw.SizedBox(height: 4),
+            _buildRentalSection(contract, vehicle),
+            pw.SizedBox(height: 4),
+            _buildPaymentSummary(contract),
+            pw.Spacer(),
+            _buildSignaturesSection(signatureImage),
+            pw.SizedBox(height: 20),
+            _buildCompanyAddressSection(companyAddress),
+            pw.SizedBox(height: 8),
+            _buildTermsAndConditions(),
+          ],
+        ),
       ),
     );
 
@@ -65,6 +102,16 @@ class ContractPdfGenerator {
     );
   }
 
+  /// Saves the PDF to the user's Documents folder and returns the saved path.
+  Future<String> downloadContract(File pdfFile) async {
+    final docsDir = await getApplicationDocumentsDirectory();
+    final contractsDir = Directory(p.join(docsDir.path, 'CarRent_Contracts'));
+    if (!await contractsDir.exists()) await contractsDir.create(recursive: true);
+    final dest = File(p.join(contractsDir.path, p.basename(pdfFile.path)));
+    await pdfFile.copy(dest.path);
+    return dest.path;
+  }
+
   Future<void> printContract(File pdfFile) async {
     final bytes = await pdfFile.readAsBytes();
     await Printing.layoutPdf(
@@ -72,7 +119,18 @@ class ContractPdfGenerator {
     );
   }
 
-  pw.Widget _buildHeader(ContractModel contract, DateTime creationDate) {
+  DateTime _standardizeTime(DateTime date) {
+    if (date.hour >= 18) {
+      return DateTime(date.year, date.month, date.day, 18, 0);
+    } else if (date.hour < 8) {
+      final prev = date.subtract(const Duration(days: 1));
+      return DateTime(prev.year, prev.month, prev.day, 18, 0);
+    }
+    return date;
+  }
+
+  pw.Widget _buildHeader(ContractModel contract, DateTime creationDate, pw.MemoryImage? logoImage, String companyName) {
+    final standardizedDate = _standardizeTime(creationDate);
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
       children: [
@@ -83,53 +141,34 @@ class ContractPdfGenerator {
             pw.Column(
               crossAxisAlignment: pw.CrossAxisAlignment.start,
               children: [
+                if (logoImage != null)
+                  pw.Image(logoImage, height: 40),
+                pw.SizedBox(height: 4),
                 pw.Text(
-                  'CarRent Manager',
+                  companyName.isNotEmpty ? companyName : 'CarRent Manager',
                   style: pw.TextStyle(
-                    fontSize: 20,
+                    fontSize: 14,
                     fontWeight: pw.FontWeight.bold,
                     color: PdfColor.fromInt(0xFF1A237E),
                   ),
                 ),
-                pw.SizedBox(height: 4),
-                pw.Text(
-                  'Contrat de location de véhicule',
-                  style: pw.TextStyle(fontSize: 12),
-                ),
               ],
             ),
-            pw.Container(
-              width: 80,
-              height: 40,
-              decoration: pw.BoxDecoration(
-                border: pw.Border.all(color: PdfColors.grey),
-              ),
-              alignment: pw.Alignment.center,
-              child: pw.Text(
-                'LOGO',
-                style: pw.TextStyle(fontSize: 10),
-              ),
+            pw.Text(
+              'Contrat n°: ${contract.contractNumber}',
+              style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
             ),
           ],
         ),
-        pw.SizedBox(height: 12),
         pw.Row(
           mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
           children: [
-            pw.Text(
-              'Contrat n°: ${contract.contractNumber}',
-              style: pw.TextStyle(
-                fontWeight: pw.FontWeight.bold,
-                fontSize: 12,
-              ),
-            ),
-            pw.Text(
-              'Date: ${_dateFormatter.format(creationDate)}',
-              style: pw.TextStyle(fontSize: 12),
-            ),
+            pw.Text('Location de véhicule', style: const pw.TextStyle(fontSize: 10)),
+            pw.Text('Date: ${_dateTimeFormatter.format(standardizedDate)}', style: const pw.TextStyle(fontSize: 10)),
           ],
         ),
-        pw.Divider(),
+        pw.SizedBox(height: 2),
+        pw.Container(height: 1, color: PdfColors.grey300),
       ],
     );
   }
@@ -138,8 +177,8 @@ class ContractPdfGenerator {
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
       children: [
-        _sectionTitle('Détails du véhicule'),
-        pw.SizedBox(height: 8),
+        _sectionTitle('Véhicule'),
+        pw.SizedBox(height: 2),
         pw.Table(
           border: pw.TableBorder.all(color: PdfColors.grey300),
           columnWidths: {
@@ -147,11 +186,10 @@ class ContractPdfGenerator {
             1: pw.FlexColumnWidth(2),
           },
           children: [
-            _tableRow('Marque', vehicle.brand),
-            _tableRow('Modèle', vehicle.model),
-            _tableRow('Immatriculation', vehicle.registrationNumber),
-            _tableRow('Année', vehicle.year.toString()),
-            _tableRow('Tarif journalier', '${vehicle.dailyPrice.toStringAsFixed(2)} MAD'),
+            _tableRow('Marque', vehicle.brand, compact: true),
+            _tableRow('Modèle', vehicle.model, compact: true),
+            _tableRow('Immat.', vehicle.registrationNumber, compact: true),
+            _tableRow('Année', vehicle.year.toString(), compact: true),
           ],
         ),
       ],
@@ -163,27 +201,25 @@ class ContractPdfGenerator {
     ClientModel? secondaryDriver,
   ) {
     final rows = <pw.TableRow>[
-      _tableRow('Nom complet', primaryDriver.fullName),
-      _tableRow('CIN', primaryDriver.cin),
-      _tableRow('Permis', primaryDriver.licenseNumber),
-      _tableRow('Adresse', primaryDriver.address ?? '-'),
-      _tableRow('Téléphone', primaryDriver.phone),
-      _tableRow('Email', primaryDriver.email ?? '-'),
+      _tableRow('Nom', primaryDriver.fullName, compact: true),
+      _tableRow('CIN', primaryDriver.cin, compact: true),
+      _tableRow('Permis', primaryDriver.licenseNumber, compact: true),
+      _tableRow('Tél.', primaryDriver.phone, compact: true),
     ];
 
     if (secondaryDriver != null) {
       rows.addAll([
-        _tableRow('Second conducteur', secondaryDriver.fullName),
-        _tableRow('CIN (2ème)', secondaryDriver.cin),
-        _tableRow('Permis (2ème)', secondaryDriver.licenseNumber),
+        _tableRow('Cond. 2', secondaryDriver.fullName, compact: true),
+        _tableRow('CIN 2', secondaryDriver.cin, compact: true),
+        _tableRow('Permis 2', secondaryDriver.licenseNumber, compact: true),
       ]);
     }
 
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
       children: [
-        _sectionTitle('Détails du ou des client(s)'),
-        pw.SizedBox(height: 8),
+        _sectionTitle('Client'),
+        pw.SizedBox(height: 2),
         pw.Table(
           border: pw.TableBorder.all(color: PdfColors.grey300),
           columnWidths: {
@@ -200,15 +236,15 @@ class ContractPdfGenerator {
     ContractModel contract,
     VehicleModel vehicle,
   ) {
-    final start = _dateFormatter.format(contract.startDate);
-    final end = _dateFormatter.format(contract.expectedReturnDate);
+    final start = _dateTimeFormatter.format(_standardizeTime(contract.startDate));
+    final end = _dateTimeFormatter.format(_standardizeTime(contract.expectedReturnDate));
     final days = contract.rentalDays <= 0 ? 1 : contract.rentalDays;
 
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
       children: [
-        _sectionTitle('Période et tarification'),
-        pw.SizedBox(height: 8),
+        _sectionTitle('Période & Tarifs'),
+        pw.SizedBox(height: 2),
         pw.Table(
           border: pw.TableBorder.all(color: PdfColors.grey300),
           columnWidths:  {
@@ -216,19 +252,17 @@ class ContractPdfGenerator {
             1: pw.FlexColumnWidth(2),
           },
           children: [
-            _tableRow('Date de début', start),
-            _tableRow('Date de retour prévue', end),
-            _tableRow('Nombre de jours', days.toString()),
+            _tableRow('Début', start, compact: true),
+            _tableRow('Fin', end, compact: true),
+            _tableRow('Durée', '$days jours', compact: true),
           ],
         ),
-        pw.SizedBox(height: 8),
+        pw.SizedBox(height: 3),
         pw.Table(
           border: pw.TableBorder.all(color: PdfColors.grey300),
           columnWidths: {
             0: pw.FlexColumnWidth(3),
             1: pw.FlexColumnWidth(1),
-            2: pw.FlexColumnWidth(1),
-            3: pw.FlexColumnWidth(1),
           },
           children: [
             pw.TableRow(
@@ -242,34 +276,17 @@ class ContractPdfGenerator {
                   padding: pw.EdgeInsets.all(6),
                   child: pw.Text('Jours', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
                 ),
-                pw.Padding(
-                  padding: pw.EdgeInsets.all(6),
-                  child:
-                      pw.Text('Tarif / jour', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
-                ),
-                pw.Padding(
-                  padding: pw.EdgeInsets.all(6),
-                  child: pw.Text('Total', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
-                ),
               ],
             ),
             pw.TableRow(
               children: [
                  pw.Padding(
-                  padding: pw.EdgeInsets.all(6),
-                  child: pw.Text('Location véhicule'),
+                  padding: const pw.EdgeInsets.all(4),
+                  child: pw.Text('Location', style: const pw.TextStyle(fontSize: 9)),
                 ),
                 pw.Padding(
-                  padding:  pw.EdgeInsets.all(6),
-                  child: pw.Text(days.toString()),
-                ),
-                pw.Padding(
-                  padding:  pw.EdgeInsets.all(6),
-                  child: pw.Text('${vehicle.dailyPrice.toStringAsFixed(2)} MAD'),
-                ),
-                pw.Padding(
-                  padding: pw.EdgeInsets.all(6),
-                  child: pw.Text('${contract.totalPrice.toStringAsFixed(2)} MAD'),
+                  padding: const pw.EdgeInsets.all(4),
+                  child: pw.Text('$days j', style: const pw.TextStyle(fontSize: 9)),
                 ),
               ],
             ),
@@ -281,52 +298,81 @@ class ContractPdfGenerator {
 
   pw.Widget _buildPaymentSummary(ContractModel contract) {
     final remaining = contract.remainingAmount;
+    final isFullyPaid = remaining <= 0;
 
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
       children: [
-        _sectionTitle('Récapitulatif des paiements'),
-        pw.SizedBox(height: 8),
-        pw.Table(
-          border: pw.TableBorder.all(color: PdfColors.grey300),
-          columnWidths:  {
-            0: pw.FlexColumnWidth(1),
-            1: pw.FlexColumnWidth(1),
-          },
+        _sectionTitle('Paiement'),
+        pw.SizedBox(height: 6),
+        pw.Row(
+          crossAxisAlignment: pw.CrossAxisAlignment.center,
           children: [
-            _tableRow('Total contrat', '${contract.totalPrice.toStringAsFixed(2)} MAD'),
-            _tableRow('Montant payé', '${contract.amountPaid.toStringAsFixed(2)} MAD'),
-            _tableRow('Reste à payer', '${remaining.toStringAsFixed(2)} MAD'),
+            pw.Container(
+              width: 12,
+              height: 12,
+              decoration: pw.BoxDecoration(
+                border: pw.Border.all(color: PdfColors.black),
+              ),
+              child: isFullyPaid
+                  ? pw.Center(
+                      child: pw.Text(
+                        'X',
+                        style: pw.TextStyle(
+                          fontWeight: pw.FontWeight.bold,
+                          fontSize: 9,
+                        ),
+                      ),
+                    )
+                  : null,
+            ),
+            pw.SizedBox(width: 6),
+            pw.Text(
+              'Payé',
+              style: pw.TextStyle(
+                fontWeight: pw.FontWeight.bold,
+                fontSize: 10,
+              ),
+            ),
+            if (remaining > 0) ...[
+              pw.SizedBox(width: 30),
+              pw.Text(
+                'Reste à payer : ${remaining.toStringAsFixed(2)} MAD',
+                style: pw.TextStyle(
+                  fontWeight: pw.FontWeight.bold,
+                  fontSize: 10,
+                ),
+              ),
+            ],
           ],
         ),
       ],
     );
   }
 
-  pw.Widget _buildTermsAndConditions() {
-    return pw.Column(
-      crossAxisAlignment: pw.CrossAxisAlignment.start,
-      children: [
-        _sectionTitle('Conditions générales'),
-        pw.SizedBox(height: 8),
-        pw.Text(
-          'Ce contrat est établi entre l’agence de location de véhicules et le(s) client(s) '
-          'désigné(s) ci-dessus. Le client reconnaît avoir pris connaissance et accepter les '
-          'conditions générales de location de véhicules de l’agence, notamment en ce qui '
-          'concerne :\n'
-          '- L’état du véhicule et l’usage qui en est fait.\n'
-          '- Les assurances et franchises applicables.\n'
-          '- Les modalités de paiement, les dépôts de garantie et les pénalités de retard.\n'
-          '- Les règles de conduite, d’entretien et de restitution du véhicule.\n\n'
-          'Les conditions complètes sont disponibles à l’agence et peuvent être annexées à '
-          'ce contrat selon les besoins de l’entreprise.',
-          style: pw.TextStyle(fontSize: 10),
-        ),
-      ],
+  pw.Widget _buildCompanyAddressSection(String address) {
+    if (address.isEmpty) return pw.SizedBox();
+    return pw.Center(
+      child: pw.Text(
+        address,
+        style: pw.TextStyle(fontSize: 8, fontStyle: pw.FontStyle.italic),
+        textAlign: pw.TextAlign.center,
+      ),
     );
   }
 
-  pw.Widget _buildSignaturesSection() {
+  pw.Widget _buildTermsAndConditions() {
+    return pw.Container(
+      alignment: pw.Alignment.center,
+      child: pw.Text(
+        'Conditions: Le client accepte l\'état du véhicule, les assurances, franchises et modalités de paiement.',
+        style: const pw.TextStyle(fontSize: 7),
+        textAlign: pw.TextAlign.center,
+      ),
+    );
+  }
+
+  pw.Widget _buildSignaturesSection(pw.MemoryImage? signatureImage) {
     return pw.Row(
       mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
       crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -335,12 +381,12 @@ class ContractPdfGenerator {
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
             pw.Text(
-              'Signature du client',
-              style:  pw.TextStyle(fontSize: 11),
+              'Signature Client',
+              style:  const pw.TextStyle(fontSize: 9),
             ),
             pw.SizedBox(height: 40),
             pw.Container(
-              width: 180,
+              width: 140,
               decoration:  pw.BoxDecoration(
                 border: pw.Border(
                   top: pw.BorderSide(color: PdfColors.grey),
@@ -353,12 +399,19 @@ class ContractPdfGenerator {
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
             pw.Text(
-              'Signature de l’agent',
-              style:  pw.TextStyle(fontSize: 11),
+              'Signature Agence',
+              style:  const pw.TextStyle(fontSize: 9),
             ),
-            pw.SizedBox(height: 40),
+            pw.SizedBox(height: 5),
+            if (signatureImage != null)
+              pw.Container(
+                height: 35,
+                child: pw.Image(signatureImage),
+              )
+            else
+              pw.SizedBox(height: 35),
             pw.Container(
-              width: 180,
+              width: 140,
               decoration: pw.BoxDecoration(
                 border: pw.Border(
                   top: pw.BorderSide(color: PdfColors.grey),
@@ -375,26 +428,27 @@ class ContractPdfGenerator {
     return pw.Text(
       text,
       style: pw.TextStyle(
-        fontSize: 14,
+        fontSize: 10.5,
         fontWeight: pw.FontWeight.bold,
         color: PdfColor.fromInt(0xFF1A237E),
       ),
     );
   }
 
-  pw.TableRow _tableRow(String label, String value) {
+  pw.TableRow _tableRow(String label, String value, {bool compact = false}) {
+    final padding = compact ? 2.0 : 4.0;
     return pw.TableRow(
       children: [
         pw.Padding(
-          padding:  pw.EdgeInsets.all(6),
+          padding: pw.EdgeInsets.all(padding),
           child: pw.Text(
             label,
-            style:  pw.TextStyle(fontWeight: pw.FontWeight.bold),
+            style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9),
           ),
         ),
         pw.Padding(
-          padding: pw.EdgeInsets.all(6),
-          child: pw.Text(value),
+          padding: pw.EdgeInsets.all(padding),
+          child: pw.Text(value, style: const pw.TextStyle(fontSize: 9)),
         ),
       ],
     );
@@ -403,7 +457,7 @@ class ContractPdfGenerator {
   Future<File> _getOutputFile(ContractModel contract) async {
     final dir = await getApplicationDocumentsDirectory();
     final safeNumber = contract.contractNumber.replaceAll(RegExp(r'[^A-Za-z0-9_\-]'), '_');
-    final filePath = p.join(dir.path, 'contracts', 'contract_$safeNumber.pdf');
+    final filePath = p.join(dir.path, 'CarRent_Contracts', 'contract_$safeNumber.pdf');
     final fileDir = Directory(p.dirname(filePath));
     if (!await fileDir.exists()) {
       await fileDir.create(recursive: true);

@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -11,11 +9,15 @@ import '../../../core/pdf/contract_pdf_generator.dart';
 import '../../../data/models/client_model.dart';
 import '../../../data/models/contract_model.dart';
 import '../../../data/models/payment_model.dart';
-import '../../../data/models/vehicle_model.dart';
+import '../../../data/repositories/client_repository.dart';
+import '../../../data/repositories/contract_repository.dart';
 import '../../../data/repositories/payment_repository.dart';
+import '../../../data/repositories/vehicle_repository.dart';
 import '../../providers/contract_provider.dart';
+import '../../providers/dashboard_provider.dart';
 import '../../widgets/common/empty_state_widget.dart';
 import '../../widgets/common/status_badge.dart';
+import '../../widgets/common/app_shimmer.dart';
 
 class ContractDetailScreen extends ConsumerStatefulWidget {
   const ContractDetailScreen({
@@ -32,11 +34,16 @@ class ContractDetailScreen extends ConsumerStatefulWidget {
 
 class _ContractDetailScreenState
     extends ConsumerState<ContractDetailScreen> {
-  final DateFormat _dateFormatter = DateFormat('dd/MM/yyyy');
+  final DateFormat _dateFormatter = DateFormat('dd/MM/yyyy HH:mm');
   final PaymentRepository _paymentRepository = PaymentRepository.instance;
+  final ContractRepository _contractRepository = ContractRepository.instance;
+  final VehicleRepository _vehicleRepository = VehicleRepository.instance;
+  final ClientRepository _clientRepository = ClientRepository.instance;
   final ContractPdfGenerator _pdfGenerator = ContractPdfGenerator();
 
   late Future<List<PaymentModel>> _paymentsFuture;
+
+  String _savedPdfPath = ''; // Stores last downloaded PDF path for snackbar
 
   @override
   void initState() {
@@ -53,11 +60,14 @@ class _ContractDetailScreenState
     await ref
         .read(contractsProvider.notifier)
         .refreshPaymentsForContract(widget.contractId);
+    await ref.read(dashboardProvider.notifier).refresh();
   }
 
   Future<void> _addPayment(ContractModel contract) async {
     final controller = TextEditingController();
     final formKey = GlobalKey<FormState>();
+    final currencyFormatter = NumberFormat.currency(symbol: 'MAD', decimalDigits: 2);
+    final remaining = contract.remainingAmount;
 
     final amount = await showDialog<double>(
       context: context,
@@ -65,24 +75,53 @@ class _ContractDetailScreenState
         title: const Text('Ajouter un paiement'),
         content: Form(
           key: formKey,
-          child: TextFormField(
-            controller: controller,
-            decoration: const InputDecoration(
-              labelText: 'Montant (MAD)',
-            ),
-            keyboardType: const TextInputType.numberWithOptions(
-              decimal: true,
-            ),
-            validator: (value) {
-              if (value == null || value.trim().isEmpty) {
-                return 'Le montant est requis.';
-              }
-              final v = double.tryParse(value);
-              if (v == null || v <= 0) {
-                return 'Montant invalide.';
-              }
-              return null;
-            },
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Reste à payer : ${currencyFormatter.format(remaining)}',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: controller,
+                autofocus: true,
+                decoration: InputDecoration(
+                  labelText: 'Montant à payer',
+                  suffixText: 'MAD',
+                  border: const OutlineInputBorder(),
+                  helperText: 'Saisissez le montant versé par le client.',
+                ),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Le montant est requis.';
+                  }
+                  final v = double.tryParse(value);
+                  if (v == null || v <= 0) {
+                    return 'Montant invalide.';
+                  }
+                  if (v > remaining + 0.01) {
+                    return 'Le montant dépasse le reste (${currencyFormatter.format(remaining)}).';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 8),
+              if (remaining > 0)
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: () {
+                      controller.text = remaining.toStringAsFixed(2);
+                    },
+                    child: const Text('Tout payer'),
+                  ),
+                ),
+            ],
           ),
         ),
         actions: [
@@ -90,13 +129,13 @@ class _ContractDetailScreenState
             onPressed: () => Navigator.of(context).pop(),
             child: const Text('Annuler'),
           ),
-          TextButton(
+          ElevatedButton(
             onPressed: () {
               if (!formKey.currentState!.validate()) return;
               final v = double.parse(controller.text.trim());
               Navigator.of(context).pop(v);
             },
-            child: const Text('Ajouter'),
+            child: const Text('Valider le paiement'),
           ),
         ],
       ),
@@ -105,17 +144,7 @@ class _ContractDetailScreenState
     if (amount == null) return;
 
     try {
-      final now = DateTime.now();
-      final payment = PaymentModel(
-        id: null,
-        contractId: contract.id!,
-        amount: amount,
-        paymentDate: now,
-        paymentMethod: 'cash',
-        notes: null,
-        createdAt: now,
-      );
-      await _paymentRepository.insertPayment(payment);
+      await ContractRepository.instance.addPaymentAndUpdateContract(contract.id!, amount);
       await _refreshPayments();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -127,7 +156,6 @@ class _ContractDetailScreenState
         SnackBar(
           content: Text(
             'Erreur lors de l’ajout du paiement.\n'
-            'حدث خطأ أثناء إضافة الأداء.\n'
             'Payment error: $e',
           ),
         ),
@@ -145,11 +173,44 @@ class _ContractDetailScreenState
     if (date == null) return;
 
     try {
+      // If there's a remaining balance, ask to pay it
+      final remaining = contract.remainingAmount;
+      if (remaining > 0) {
+        final payNow = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Reste à payer'),
+            content: Text(
+              'Il reste ${remaining.toStringAsFixed(2)} MAD à payer. '
+              'Voulez-vous enregistrer ce paiement avant la clôture ?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('NON, PLUS TARD'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('OUI, PAYER TOUT'),
+              ),
+            ],
+          ),
+        );
+
+        if (payNow == true) {
+          await ContractRepository.instance
+              .addPaymentAndUpdateContract(contract.id!, remaining);
+          // Refresh local state before closing
+          await _refreshPayments();
+        }
+      }
+
       await ref
           .read(contractsProvider.notifier)
           .closeContract(contract.id!, date);
       await NotificationService.instance
           .cancelContractNotifications(contract.id!);
+      await ref.read(dashboardProvider.notifier).refresh();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text(AppStrings.successSaved)),
@@ -199,10 +260,13 @@ class _ContractDetailScreenState
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          contract.contractNumber,
-                          style: theme.textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
+                        Hero(
+                          tag: 'contract_${contract.id}',
+                          child: Text(
+                            contract.contractNumber,
+                            style: theme.textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
                         const SizedBox(height: 4),
@@ -337,48 +401,71 @@ class _ContractDetailScreenState
                     ),
                     TextButton.icon(
                       onPressed: () async {
-                        // Generate a minimal PDF with placeholders for now.
-                        // In a full implementation you would fetch related
-                        // vehicle and client details here.
-                        final tmpDir = Directory.systemTemp;
-                        final tmpFile =
-                            File('${tmpDir.path}/contract_${contract.id}.pdf');
-                        if (!await tmpFile.exists()) {
-                          await tmpFile.create(recursive: true);
+                        final vehicle = await _vehicleRepository.getVehicleById(contract.vehicleId);
+                        final primary = await _clientRepository.getClientById(contract.primaryDriverId);
+                        if (vehicle == null || primary == null) {
+                          if (!mounted) return;
+                          // ignore: use_build_context_synchronously
+                          ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+                            const SnackBar(content: Text('Véhicule ou client introuvable.')),
+                          );
+                          return;
+                        }
+                        ClientModel? secondary;
+                        if (contract.secondaryDriverId != null) {
+                          secondary = await _clientRepository.getClientById(contract.secondaryDriverId!);
                         }
                         final pdf = await _pdfGenerator.generateContract(
                           contract: contract,
-                          vehicle: VehicleModel(
-                            id: contract.vehicleId,
-                            brand: 'N/A',
-                            model: 'N/A',
-                            registrationNumber: 'N/A',
-                            year: 0,
-                            status: 'available',
-                            dailyPrice: 0,
-                            imagePath: null,
-                            createdAt: contract.createdAt,
-                            updatedAt: contract.updatedAt,
-                          ),
-                          primaryDriver: ClientModel(
-                            id: contract.primaryDriverId,
-                            firstName: 'N/A',
-                            lastName: '',
-                            cin: '',
-                            licenseNumber: '',
-                            address: null,
-                            phone: '',
-                            email: null,
-                            cinImagePath: null,
-                            licenseImagePath: null,
-                            createdAt: contract.createdAt,
-                            updatedAt: contract.updatedAt,
+                          vehicle: vehicle,
+                          primaryDriver: primary,
+                          secondaryDriver: secondary,
+                        );
+                        if (!mounted) return;
+                        // Show options: Download or Share
+                        await showModalBottomSheet(
+                          context: context,
+                          builder: (ctx) => SafeArea(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const SizedBox(height: 8),
+                                ListTile(
+                                  leading: const Icon(Icons.download_outlined),
+                                  title: const Text('Télécharger le PDF'),
+                                  subtitle: const Text('Sauvegarder dans Documents/CarRent_Contracts'),
+                                  onTap: () async {
+                                    Navigator.pop(ctx);
+                                    try {
+                                      final path = await _pdfGenerator.downloadContract(pdf);
+                                      if (!mounted) return;
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(content: Text('PDF sauvegardé : $path')),
+                                      );
+                                    } catch (e) {
+                                      if (!mounted) return;
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(content: Text('Erreur téléchargement: $e')),
+                                      );
+                                    }
+                                  },
+                                ),
+                                ListTile(
+                                  leading: const Icon(Icons.share_outlined),
+                                  title: const Text('Partager le PDF'),
+                                  onTap: () async {
+                                    Navigator.pop(ctx);
+                                    await _pdfGenerator.shareContract(pdf);
+                                  },
+                                ),
+                                const SizedBox(height: 8),
+                              ],
+                            ),
                           ),
                         );
-                        await _pdfGenerator.shareContract(pdf);
                       },
                       icon: const Icon(Icons.picture_as_pdf_outlined),
-                      label: const Text('Générer / partager PDF'),
+                      label: const Text('Générer PDF'),
                     ),
                   ],
                 ),
@@ -386,7 +473,7 @@ class _ContractDetailScreenState
             ),
           );
         },
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => AppShimmer.detailLayer(),
         error: (error, _) => Center(
           child: Text(
             'Erreur lors du chargement du contrat.\n'
@@ -397,7 +484,7 @@ class _ContractDetailScreenState
         ),
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => context.go('/contracts/new'),
+        onPressed: () => context.push('/contracts/new'),
         child: const Icon(Icons.add),
       ),
     );

@@ -1,10 +1,10 @@
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/app_strings.dart';
+import '../../../core/storage/media_store.dart';
 import '../../../data/models/vehicle_model.dart';
 import '../../providers/vehicle_provider.dart';
 import '../../widgets/common/empty_state_widget.dart';
@@ -32,7 +32,7 @@ class VehicleDetailScreen extends ConsumerWidget {
             onPressed: () {
               final vehicle = _findVehicle(vehiclesAsync.value, vehicleId);
               if (vehicle != null) {
-                context.go('/vehicles/$vehicleId/edit', extra: vehicle);
+                context.push('/vehicles/$vehicleId/edit', extra: vehicle);
               }
             },
           ),
@@ -57,68 +57,67 @@ class VehicleDetailScreen extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          width: 160,
-                          height: 140,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(12),
-                            color: theme.colorScheme.surfaceVariant,
-                          ),
-                          clipBehavior: Clip.antiAlias,
-                          child: vehicle.imagePath != null
-                              ? Image.file(
-                                  File(vehicle.imagePath!),
+                    Hero(
+                      tag: 'vehicle_${vehicle.id}',
+                      child: Container(
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(16),
+                          color: theme.colorScheme.surfaceContainerHighest,
+                        ),
+                        clipBehavior: Clip.antiAlias,
+                        child: AspectRatio(
+                          aspectRatio: 16 / 9,
+                          child: vehicle.imageBytes != null
+                              ? Image.memory(
+                                  vehicle.imageBytes!,
                                   fit: BoxFit.cover,
                                 )
-                              : Icon(
-                                  Icons.directions_car_filled,
-                                  size: 64,
-                                  color: theme.colorScheme.onSurface
-                                      .withOpacity(0.4),
-                                ),
+                              : (MediaStore.instance
+                                          .resolveFile(vehicle.imagePath) !=
+                                      null
+                                  ? Image.file(
+                                      MediaStore.instance
+                                          .resolveFile(vehicle.imagePath)!,
+                                      fit: BoxFit.cover,
+                                    )
+                                  : Center(
+                                      child: Icon(
+                                        Icons.directions_car_filled,
+                                        size: 80,
+                                        color: theme.colorScheme.onSurface
+                                            .withValues(alpha: 0.4),
+                                      ),
+                                    )),
                         ),
-                        const SizedBox(width: 16),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      '${vehicle.brand} ${vehicle.model}',
-                                      style:
-                                          theme.textTheme.titleLarge?.copyWith(
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                  StatusBadge(text: vehicle.status),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
                               Text(
-                                vehicle.registrationNumber,
-                                style: theme.textTheme.bodyMedium,
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                'Année ${vehicle.year}',
-                                style: theme.textTheme.bodyMedium,
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                '${vehicle.dailyPrice.toStringAsFixed(2)} MAD / jour',
-                                style: theme.textTheme.bodyMedium?.copyWith(
+                                '${vehicle.brand} ${vehicle.model}',
+                                style: theme.textTheme.headlineSmall?.copyWith(
                                   fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                '${vehicle.registrationNumber} • Année ${vehicle.year}',
+                                style: theme.textTheme.bodyLarge?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
                                 ),
                               ),
                             ],
                           ),
                         ),
+                        StatusBadge(text: vehicle.status),
                       ],
                     ),
                     const SizedBox(height: 24),

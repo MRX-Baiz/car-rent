@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../data/models/contract_model.dart';
-import '../../../core/constants/app_strings.dart';
 import '../../providers/contract_provider.dart';
 import '../../widgets/common/adaptive_layout.dart';
 import '../../widgets/common/empty_state_widget.dart';
@@ -46,9 +45,19 @@ class _ContractsListScreenState extends ConsumerState<ContractsListScreen>
     return AdaptiveLayout(
       child: Scaffold(
         appBar: AppBar(
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () =>
+              context.canPop() ? context.pop() : context.go('/dashboard'),
+            tooltip: 'Retour',
+          ),
           title: const Text('Contrats'),
           bottom: TabBar(
             controller: _tabController,
+            // Scrolls sideways rather than cramming four labels into a phone
+            // width; centred so it still looks deliberate on desktop.
+            isScrollable: true,
+            tabAlignment: TabAlignment.center,
             tabs: const [
               Tab(text: 'Tous'),
               Tab(text: 'Actifs'),
@@ -67,7 +76,7 @@ class _ContractsListScreenState extends ConsumerState<ContractsListScreen>
           ],
         ),
         floatingActionButton: FloatingActionButton.extended(
-          onPressed: () => context.go('/contracts/new'),
+          onPressed: () => context.push('/contracts/new'),
           icon: const Icon(Icons.add),
           label: const Text('Nouveau contrat'),
         ),
@@ -112,7 +121,7 @@ class _ContractsListScreenState extends ConsumerState<ContractsListScreen>
                 child: ListTile(
                   onTap: () {
                     if (contract.id != null) {
-                      context.go('/contracts/${contract.id}');
+                      context.push('/contracts/${contract.id}');
                     }
                   },
                   leading: CircleAvatar(
@@ -146,7 +155,55 @@ class _ContractsListScreenState extends ConsumerState<ContractsListScreen>
                       ),
                     ],
                   ),
-                  trailing: StatusBadge(text: contract.status),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      StatusBadge(text: contract.status),
+                      if (contract.status == 'completed') ...[
+                        const SizedBox(width: 8),
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline, color: Colors.red),
+                          onPressed: () async {
+                            final confirmed = await showDialog<bool>(
+                              context: context,
+                              builder: (ctx) => AlertDialog(
+                                title: const Text('Supprimer le contrat ?'),
+                                content: Text('Voulez-vous vraiment supprimer le contrat n° ${contract.contractNumber} ? Cette action supprimera également les paiements associés et est irréversible.'),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.of(ctx).pop(false),
+                                    child: const Text('Annuler'),
+                                  ),
+                                  FilledButton(
+                                    style: FilledButton.styleFrom(backgroundColor: Colors.red),
+                                    onPressed: () => Navigator.of(ctx).pop(true),
+                                    child: const Text('Supprimer'),
+                                  ),
+                                ],
+                              ),
+                            );
+
+                            if (confirmed == true && context.mounted) {
+                              try {
+                                await ref.read(contractsProvider.notifier).deleteContract(contract.id!);
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Contrat supprimé avec succès.')),
+                                  );
+                                }
+                              } catch (e) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('Erreur lors de la suppression: $e')),
+                                  );
+                                }
+                              }
+                            }
+                          },
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
               );
             },

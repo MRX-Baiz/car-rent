@@ -67,19 +67,25 @@ class ContractNotifier extends AsyncNotifier<List<ContractModel>> {
     });
   }
 
+  Future<void> deleteContract(int id) async {
+    final current = state.value ?? const <ContractModel>[];
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(() async {
+      await _contractRepository.deleteContract(id);
+      return current.where((c) => c.id != id).toList();
+    });
+  }
+
   Future<void> refreshPaymentsForContract(int contractId) async {
     final current = state.value ?? const <ContractModel>[];
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
-      final totalPaid =
-          await _paymentRepository.getTotalPaidForContract(contractId);
+      // Read the authoritative amount_paid from the contracts table (updated atomically by addPaymentAndUpdateContract)
+      final freshContract = await _contractRepository.getContractById(contractId);
       return current
           .map(
-            (c) => c.id == contractId
-                ? c.copyWith(
-                    amountPaid: totalPaid,
-                    updatedAt: DateTime.now(),
-                  )
+            (c) => c.id == contractId && freshContract != null
+                ? freshContract
                 : c,
           )
           .toList();

@@ -1,11 +1,21 @@
+import 'dart:io';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:intl/intl.dart';
+
 import '../../../core/constants/app_strings.dart';
 import '../../../core/license/license_manager.dart';
+import '../../../data/models/license_model.dart';
+import '../../../core/storage/media_store.dart';
 import '../../../data/repositories/app_settings_repository.dart';
+import '../../../data/repositories/auth_repository.dart';
 import '../../providers/app_settings_provider.dart';
+import '../../providers/auth_provider.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -23,14 +33,98 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   final LicenseManager _licenseManager = LicenseManager();
 
   bool _loadingLicense = true;
+  bool _licenseValid = false;
+  LicenseData? _licenseData;
   String? _licenseInfo;
+  String? _deviceId;
   bool _savingCompany = false;
+
+  String _logoPath = '';
+  String _signaturePath = '';
+  bool _biometricAvailable = false;
+  bool _biometricEnabled = false;
+  int _autoLockMinutes = AuthRepository.defaultAutoLockMinutes;
 
   @override
   void initState() {
     super.initState();
     _loadLicenseInfo();
     _loadCompanySettings();
+    _loadAuthSettings();
+  }
+
+  Future<void> _loadAuthSettings() async {
+    final auth = ref.read(authRepositoryProvider);
+    final available = await auth.biometricAvailable();
+    final enabled = await auth.biometricEnabled();
+    final minutes = await auth.autoLockMinutes();
+    if (!mounted) return;
+    setState(() {
+      _biometricAvailable = available;
+      _biometricEnabled = enabled;
+      _autoLockMinutes = minutes;
+    });
+  }
+
+  Future<void> _setBiometric(bool value) async {
+    final auth = ref.read(authRepositoryProvider);
+
+    // Confirm the sensor actually works for this user before promising it on
+    // the lock screen; enrolment can be missing or fail silently.
+    if (value) {
+      final ok = await auth.authenticateWithBiometrics(
+        reason: 'Confirmez pour activer le déverrouillage biométrique',
+      );
+      if (!ok) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Biométrie non confirmée. Option non activée.'),
+            ),
+          );
+        }
+        return;
+      }
+    }
+
+    await auth.setBiometricEnabled(value);
+    if (!mounted) return;
+    setState(() => _biometricEnabled = value);
+    await ref.read(authProvider.notifier).refresh();
+  }
+
+  static String _autoLockLabel(int minutes) {
+    if (minutes <= 0) return 'Immédiatement';
+    if (minutes == 1) return 'Après 1 minute en arrière-plan';
+    return 'Après $minutes minutes en arrière-plan';
+  }
+
+  Future<void> _pickAutoLockDelay() async {
+    const choices = <int>[0, 1, 5, 15];
+    final picked = await showDialog<int>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: const Text('Verrouillage automatique'),
+        children: [
+          for (final minutes in choices)
+            RadioListTile<int>(
+              value: minutes,
+              groupValue: _autoLockMinutes,
+              title: Text(_autoLockLabel(minutes)),
+              // "Immédiatement" also fires when the camera or the file picker
+              // takes over the screen, which interrupts an OCR scan.
+              subtitle: minutes == 0
+                  ? const Text('Redemande le code après chaque scan de document.')
+                  : null,
+              onChanged: (value) => Navigator.pop(context, value),
+            ),
+        ],
+      ),
+    );
+    if (picked == null || !mounted) return;
+
+    await ref.read(authRepositoryProvider).setAutoLockMinutes(picked);
+    if (mounted) setState(() => _autoLockMinutes = picked);
   }
 
   @override
@@ -47,6 +141,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     _companyNameController.text = await repo.getCompanyName();
     _companyAddressController.text = await repo.getCompanyAddress();
     _companyPhoneController.text = await repo.getCompanyPhone();
+    _logoPath = await repo.getCompanyLogo();
+    _signaturePath = await repo.getCompanySignature();
     if (mounted) setState(() {});
   }
 
@@ -58,9 +154,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       await repo.setCompanyName(_companyNameController.text.trim());
       await repo.setCompanyAddress(_companyAddressController.text.trim());
       await repo.setCompanyPhone(_companyPhoneController.text.trim());
+      await repo.setCompanyLogo(_logoPath);
+      await repo.setCompanySignature(_signaturePath);
+      
       ref.invalidate(companyNameProvider);
       ref.invalidate(companyAddressProvider);
       ref.invalidate(companyPhoneProvider);
+      ref.invalidate(companyLogoProvider);
+      ref.invalidate(companySignatureProvider);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text(AppStrings.successSaved)),
@@ -78,18 +179,21 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Future<void> _loadLicenseInfo() async {
     setState(() => _loadingLicense = true);
     try {
-      final active = await _licenseManager.isLicenseActive();
+      final result = await _licenseManager.validateRuntime();
+      final deviceId = await _licenseManager.getDeviceId();
       if (!mounted) return;
       setState(() {
-        _licenseInfo = active
-            ? 'Licence active.\nالرخصة مفعلة.\nLicense is active and valid.'
-            : 'Licence inactive ou expirée.\nالترخيص غير مفعل أو منتهي الصلاحية.';
+        _licenseValid = result.isValid;
+        _licenseData = result.data;
+        _licenseInfo = result.isValid ? null : result.error;
+        _deviceId = deviceId;
         _loadingLicense = false;
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _licenseInfo = 'Erreur: $e\nخطأ أثناء تحميل بيانات الرخصة.';
+        _licenseValid = false;
+        _licenseInfo = 'Erreur: $e';
         _loadingLicense = false;
       });
     }
@@ -128,6 +232,178 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
   }
 
+  Future<void> _pickImage(bool isLogo) async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.image,
+      allowMultiple: false,
+    );
+    if (result == null || result.files.isEmpty) return;
+
+    final path = result.files.single.path;
+    if (path == null) return;
+
+    // The picker hands back a copy in the app cache, which Android reclaims at
+    // will. Left as-is the logo vanished from the settings screen and, worse,
+    // silently dropped out of every generated contract PDF.
+    final stored = await MediaStore.instance.save(
+      File(path),
+      prefix: isLogo ? 'logo' : 'signature',
+    );
+    if (!mounted) return;
+
+    setState(() {
+      if (isLogo) {
+        _logoPath = stored;
+      } else {
+        _signaturePath = stored;
+      }
+    });
+  }
+
+  /// Shows who the licence belongs to, when it runs out, and this device's ID.
+  /// Previously this was just "Licence active", which left no way to tell when
+  /// a renewal was due or which device a new key had to be issued for.
+  Widget _buildLicenseStatus(ThemeData theme) {
+    if (!_licenseValid) {
+      return Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.errorContainer.withValues(alpha: 0.4),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.error_outline, color: theme.colorScheme.error),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                _licenseInfo ?? 'Licence inactive.',
+                style: TextStyle(color: theme.colorScheme.error),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final data = _licenseData;
+    final expiry = data?.expiryDate;
+    final daysLeft =
+        expiry == null ? null : expiry.difference(DateTime.now()).inDays;
+    // Warn while there is still time to obtain a new key.
+    final expiringSoon = daysLeft != null && daysLeft <= 30;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(
+              expiringSoon ? Icons.warning_amber_rounded : Icons.verified_user,
+              color: expiringSoon ? Colors.orange : Colors.green,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'Licence active',
+              style: theme.textTheme.titleSmall
+                  ?.copyWith(fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        if (data != null && data.name.isNotEmpty)
+          Text('Licencié à : ${data.name}'),
+        if (expiry != null) ...[
+          const SizedBox(height: 2),
+          Text(
+            'Expire le : ${DateFormat('dd/MM/yyyy').format(expiry)}'
+            '${daysLeft != null ? '  ($daysLeft jours restants)' : ''}',
+            style: expiringSoon
+                ? const TextStyle(
+                    color: Colors.orange, fontWeight: FontWeight.bold)
+                : null,
+          ),
+        ],
+        if (_deviceId != null) ...[
+          const SizedBox(height: 8),
+          Text(
+            'ID de cet appareil',
+            style: theme.textTheme.bodySmall
+                ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+          ),
+          Row(
+            children: [
+              Expanded(
+                child: SelectableText(
+                  _deviceId!,
+                  style: const TextStyle(
+                      fontFamily: 'Courier', fontWeight: FontWeight.bold),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.copy, size: 18),
+                tooltip: 'Copier l\'ID',
+                onPressed: () {
+                  Clipboard.setData(ClipboardData(text: _deviceId!));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                        content: Text('ID de l\'appareil copié !')),
+                  );
+                },
+              ),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildImagePicker(String label, String path, bool isLogo) {
+    return Row(
+      children: [
+        Container(
+          width: 80,
+          height: 80,
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.grey.shade300),
+            borderRadius: BorderRadius.circular(8),
+            color: Colors.grey.shade100,
+          ),
+          child: MediaStore.instance.resolveFile(path) != null
+              ? ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.file(
+                    MediaStore.instance.resolveFile(path)!,
+                    fit: BoxFit.cover,
+                  ),
+                )
+              : const Icon(Icons.image, color: Colors.grey),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: const TextStyle(fontWeight: FontWeight.w500)),
+              Text(
+                path.isEmpty ? 'Aucune image' : path.split('/').last,
+                style: const TextStyle(fontSize: 12, color: Colors.grey),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                onPressed: () => _pickImage(isLogo),
+                icon: const Icon(Icons.upload_file),
+                label: const Text('Sélectionner'),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -136,13 +412,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.go('/dashboard'),
+          onPressed: () =>
+              context.canPop() ? context.pop() : context.go('/dashboard'),
           tooltip: 'Retour au tableau de bord',
         ),
         title: const Text('Paramètres'),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        // Pad past the system navigation bar so the last control is
+        // not trapped under the phone's back/home buttons.
+        padding: EdgeInsets.fromLTRB(
+            16, 16, 16, 16 + MediaQuery.viewPaddingOf(context).bottom),
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 700),
@@ -176,8 +456,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     labelText: 'Téléphone',
                   ),
                   keyboardType: TextInputType.phone,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                  ],
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 16),
+                _buildImagePicker('Logo de la société', _logoPath, true),
+                const SizedBox(height: 16),
+                _buildImagePicker('Signature de l\'agence', _signaturePath, false),
+                const SizedBox(height: 16),
                 ElevatedButton.icon(
                   onPressed: _savingCompany ? null : _saveCompanySettings,
                   icon: _savingCompany
@@ -198,24 +485,95 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 const SizedBox(height: 8),
                 if (_loadingLicense)
                   const LinearProgressIndicator()
-                else if (_licenseInfo != null)
-                  Text(
-                    _licenseInfo!,
-                    style: theme.textTheme.bodyMedium,
-                  ),
-                const SizedBox(height: 12),
+                else
+                  _buildLicenseStatus(theme),
+                const SizedBox(height: 16),
+
+                // Spelling out when this is needed; without it the field looks
+                // redundant while a licence is already active.
+                Text(
+                  'Renouvellement',
+                  style: theme.textTheme.titleSmall
+                      ?.copyWith(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'À utiliser uniquement pour prolonger la licence avant son '
+                  'expiration, ou après un changement d\'appareil. '
+                  'Aucune action n\'est requise tant que la licence est valide.',
+                  style: theme.textTheme.bodySmall
+                      ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                ),
+                const SizedBox(height: 8),
                 TextField(
                   controller: _licenseKeyController,
+                  maxLines: 2,
                   decoration: const InputDecoration(
                     labelText: 'Nouvelle clé de licence',
+                    hintText: 'Collez ici la clé fournie par votre fournisseur',
+                    border: OutlineInputBorder(),
                   ),
                 ),
                 const SizedBox(height: 8),
                 ElevatedButton.icon(
                   onPressed: _saveLicense,
                   icon: const Icon(Icons.vpn_key),
-                  label: const Text('Enregistrer la licence'),
+                  label: const Text('Appliquer la nouvelle clé'),
                 ),
+
+
+                const SizedBox(height: 32),
+                Text(
+                  'Session et Sécurité',
+                  style: theme.textTheme.titleMedium
+                      ?.copyWith(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                Card(
+                  child: Column(
+                    children: [
+                      ListTile(
+                        leading: const Icon(Icons.pin_outlined),
+                        title: const Text('Modifier le code PIN'),
+                        subtitle: const Text(
+                          'Demande le code actuel avant tout changement.',
+                        ),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () => context.push('/settings/pin'),
+                      ),
+                      const Divider(height: 1),
+                      SwitchListTile(
+                        secondary: const Icon(Icons.fingerprint),
+                        title: const Text('Déverrouillage biométrique'),
+                        subtitle: Text(
+                          _biometricAvailable
+                              ? 'Utiliser l\'empreinte ou le visage à la place du code.'
+                              : 'Aucune empreinte enregistrée sur cet appareil.',
+                        ),
+                        value: _biometricEnabled && _biometricAvailable,
+                        onChanged: _biometricAvailable ? _setBiometric : null,
+                      ),
+                      const Divider(height: 1),
+                      ListTile(
+                        leading: const Icon(Icons.timer_outlined),
+                        title: const Text('Verrouillage automatique'),
+                        subtitle: Text(_autoLockLabel(_autoLockMinutes)),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: _pickAutoLockDelay,
+                      ),
+                      const Divider(height: 1),
+                      ListTile(
+                        leading: const Icon(Icons.lock_outline, color: Colors.red),
+                        title: const Text(
+                          'Verrouiller maintenant',
+                          style: TextStyle(color: Colors.red),
+                        ),
+                        onTap: () => ref.read(authProvider.notifier).lock(),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 48),
               ],
             ),
           ),
