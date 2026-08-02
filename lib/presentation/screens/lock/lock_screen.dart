@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../data/repositories/auth_repository.dart';
 import '../../providers/auth_provider.dart';
@@ -159,6 +160,14 @@ class _LockScreenState extends ConsumerState<LockScreen> {
                     onChanged: _onChanged,
                     onBiometric:
                         auth.biometricAvailable ? _promptBiometric : null,
+                  ),
+
+                  const SizedBox(height: 8),
+                  // Reachable while locked out too: a long lockout is exactly
+                  // when someone realises they have genuinely forgotten it.
+                  TextButton(
+                    onPressed: () => context.push('/lock/recovery'),
+                    child: const Text('Code oublié ?'),
                   ),
                 ],
               ),

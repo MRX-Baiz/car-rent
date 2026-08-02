@@ -5,8 +5,9 @@ import 'package:go_router/go_router.dart';
 import '../../../data/repositories/auth_repository.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/common/pin_pad.dart';
+import '../../widgets/common/recovery_code_view.dart';
 
-enum _Step { current, create, confirm }
+enum _Step { current, create, confirm, recoveryCode }
 
 /// Creates the app PIN, or replaces an existing one.
 ///
@@ -29,6 +30,7 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> {
   String _firstEntry = '';
   String? _error;
   bool _busy = false;
+  String? _recoveryCode;
 
   static const int _length = AuthRepository.pinLength;
 
@@ -59,6 +61,8 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> {
         _acceptFirstEntry(value);
       case _Step.confirm:
         await _confirm(value);
+      case _Step.recoveryCode:
+        break; // No keypad on that step.
     }
   }
 
@@ -124,8 +128,17 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> {
       return;
     }
 
-    // First run: creating the PIN also unlocks, so the redirect takes over.
-    await ref.read(authProvider.notifier).createPin(value);
+    // First run. The PIN is stored but the app stays locked until the recovery
+    // code has been acknowledged — unlocking now would let the router move on
+    // and the code would never be seen.
+    final code =
+        await ref.read(authProvider.notifier).createPinAndRecoveryCode(value);
+    if (!mounted) return;
+    setState(() {
+      _recoveryCode = code;
+      _step = _Step.recoveryCode;
+      _busy = false;
+    });
   }
 
   ({String title, String subtitle}) get _copy {
@@ -147,6 +160,8 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> {
           title: 'Confirmez le code',
           subtitle: 'Saisissez le même code une seconde fois.',
         );
+      case _Step.recoveryCode:
+        return (title: '', subtitle: '');
     }
   }
 
@@ -171,7 +186,16 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 400),
-              child: Column(
+              child: _step == _Step.recoveryCode
+                  ? RecoveryCodeView(
+                      code: _recoveryCode!,
+                      acknowledgeLabel: 'J\'ai noté ce code',
+                      // Only now does the app unlock, so the code cannot be
+                      // skipped past by the router.
+                      onAcknowledged: () =>
+                          ref.read(authProvider.notifier).completeSetup(),
+                    )
+                  : Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   if (!widget.isChange) ...[
@@ -236,3 +260,4 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> {
     );
   }
 }
+

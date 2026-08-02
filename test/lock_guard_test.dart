@@ -36,6 +36,12 @@ void main() {
       expect(lockRedirect(LockStatus.locked, '/lock'), isNull);
     });
 
+    test('the recovery page is reachable while locked out', () {
+      // Someone who has forgotten their PIN can only ask for help from here,
+      // so the guard must not bounce them back to the keypad.
+      expect(lockRedirect(LockStatus.locked, '/lock/recovery'), isNull);
+    });
+
     test('the licence screen stays reachable', () {
       // Renewing an expired licence has to work before unlocking, otherwise a
       // lapsed licence and a forgotten PIN deadlock each other.
@@ -86,6 +92,11 @@ void main() {
     test('the lock and setup screens hand back to the dashboard', () {
       expect(lockRedirect(LockStatus.unlocked, '/lock'), '/dashboard');
       expect(lockRedirect(LockStatus.unlocked, '/pin-setup'), '/dashboard');
+    });
+
+    test('recovery is not left hanging open once inside', () {
+      expect(lockRedirect(LockStatus.unlocked, '/lock/recovery'), '/dashboard',
+          reason: 'no reason to sit on a PIN reset page while unlocked');
     });
 
     test('changing the PIN is not treated as first-run setup', () {

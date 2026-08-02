@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/security/pin_reset_token.dart';
 import '../../data/repositories/auth_repository.dart';
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
@@ -101,13 +102,81 @@ class AuthNotifier extends StateNotifier<AuthState> {
     );
   }
 
-  Future<bool> createPin(String pin) async {
+  /// Stores the PIN and mints the recovery code, without unlocking yet.
+  ///
+  /// Unlocking here would let the router move on immediately and the user
+  /// would never see the code — which is the only time it can ever be shown.
+  /// [completeSetup] finishes the job once they have acknowledged it.
+  Future<String> createPinAndRecoveryCode(String pin) async {
     state = state.copyWith(busy: true);
     await _repository.setPin(pin);
-    if (!mounted) return false;
-    state = const AuthState(status: LockStatus.unlocked);
-    return true;
+    final code = await _repository.generateRecoveryCode();
+    if (mounted) {
+      state = state.copyWith(busy: false);
+    }
+    return code;
   }
+
+  void completeSetup() {
+    state = const AuthState(status: LockStatus.unlocked);
+  }
+
+  /// Clears the PIN so a new one can be chosen. Business data is untouched.
+  Future<UnlockOutcome> redeemRecoveryCode(String code) async {
+    state = state.copyWith(busy: true);
+    final outcome = await _repository.redeemRecoveryCode(code);
+    if (!mounted) return outcome;
+
+    if (outcome is UnlockSuccess) {
+      // No PIN now, so refresh lands on needsSetup and the guard sends the
+      // user to choose a new one.
+      await refresh();
+      return outcome;
+    }
+
+    state = state.copyWith(
+      busy: false,
+      message: switch (outcome) {
+        UnlockLockedOut(:final remaining) =>
+          'Trop de tentatives. Réessayez dans ${_formatDuration(remaining)}.',
+        NoPinConfigured() => 'Aucun code de récupération n\'a été créé.',
+        _ => 'Code de récupération incorrect.',
+      },
+    );
+    return outcome;
+  }
+
+  Future<ResetTokenOutcome> redeemResetToken(String token) async {
+    state = state.copyWith(busy: true);
+    final outcome = await _repository.redeemResetToken(token);
+    if (!mounted) return outcome;
+
+    if (outcome is ResetTokenAccepted) {
+      await refresh();
+      return outcome;
+    }
+
+    state = state.copyWith(
+      busy: false,
+      message: switch (outcome) {
+        ResetTokenWrongDevice() =>
+          'Ce code a été généré pour un autre appareil.',
+        ResetTokenExpired() =>
+          'Ce code a expiré. Demandez-en un nouveau au vendeur.',
+        ResetTokenReplayed() =>
+          'Ce code a déjà été utilisé. Demandez-en un nouveau.',
+        ResetTokenForged() =>
+          'Ce code n\'est pas valide. Vérifiez la saisie.',
+        _ => 'Code illisible. Recopiez-le en entier.',
+      },
+    );
+    return outcome;
+  }
+
+  Future<String> regenerateRecoveryCode() =>
+      _repository.generateRecoveryCode();
+
+  void clearMessage() => state = state.copyWith(message: null);
 
   Future<bool> submitPin(String pin) async {
     state = state.copyWith(busy: true);

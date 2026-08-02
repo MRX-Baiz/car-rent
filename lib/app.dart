@@ -19,6 +19,7 @@ import 'presentation/screens/license/license_screen.dart';
 import 'presentation/screens/settings/settings_screen.dart';
 import 'presentation/screens/splash/splash_screen.dart';
 import 'presentation/screens/lock/lock_screen.dart';
+import 'presentation/screens/lock/pin_recovery_screen.dart';
 import 'presentation/screens/lock/pin_setup_screen.dart';
 import 'presentation/screens/vehicles/vehicle_detail_screen.dart';
 import 'presentation/screens/vehicles/vehicle_form_screen.dart';
@@ -45,10 +46,14 @@ String? lockRedirect(LockStatus status, String path) {
       return '/splash';
     case LockStatus.needsSetup:
       return path == '/pin-setup' ? null : '/pin-setup';
+    // /lock/recovery lives under the lock screen on purpose: someone who has
+    // forgotten their PIN must be able to reach it while still locked out.
     case LockStatus.locked:
-      return path == '/lock' ? null : '/lock';
+      return path.startsWith('/lock') ? null : '/lock';
     case LockStatus.unlocked:
-      return path == '/lock' || path == '/pin-setup' ? '/dashboard' : null;
+      return path.startsWith('/lock') || path == '/pin-setup'
+          ? '/dashboard'
+          : null;
   }
 }
 
@@ -170,6 +175,12 @@ final _router = GoRouter(
     GoRoute(
       path: '/lock',
       builder: (context, state) => const LockScreen(),
+      routes: [
+        GoRoute(
+          path: 'recovery',
+          builder: (context, state) => const PinRecoveryScreen(),
+        ),
+      ],
     ),
     GoRoute(
       path: '/pin-setup',

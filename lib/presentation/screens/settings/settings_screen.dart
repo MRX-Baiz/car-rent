@@ -18,6 +18,7 @@ import '../../../data/repositories/app_settings_repository.dart';
 import '../../../data/repositories/auth_repository.dart';
 import '../../providers/app_settings_provider.dart';
 import '../../providers/contract_provider.dart';
+import '../../widgets/common/recovery_code_view.dart';
 import '../../providers/auth_provider.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -287,6 +288,55 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
           ],
         ],
+      ),
+    );
+  }
+
+  /// The stored code is only a hash, so there is nothing to show again. What
+  /// the user can always do is mint a fresh one while they are still inside —
+  /// which is what keeps "I lost the paper" from being a dead end.
+  Future<void> _regenerateRecoveryCode() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Nouveau code de récupération'),
+        content: const Text(
+          'Un nouveau code sera généré et affiché une seule fois. '
+          'Votre code actuel cessera immédiatement de fonctionner.\n\n'
+          'Continuer ?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Générer'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    final code = await ref.read(authProvider.notifier).regenerateRecoveryCode();
+    if (!mounted) return;
+
+    await showDialog<void>(
+      context: context,
+      // Dismissing by tapping outside would lose the code for good.
+      barrierDismissible: false,
+      builder: (context) => Dialog(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: SingleChildScrollView(
+            child: RecoveryCodeView(
+              code: code,
+              acknowledgeLabel: 'J\'ai noté ce code',
+              onAcknowledged: () => Navigator.pop(context),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -747,6 +797,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         ),
                         trailing: const Icon(Icons.chevron_right),
                         onTap: () => context.push('/settings/pin'),
+                      ),
+                      const Divider(height: 1),
+                      ListTile(
+                        leading: const Icon(Icons.vpn_key_outlined),
+                        title: const Text('Code de récupération'),
+                        subtitle: const Text(
+                          'Générer un nouveau code. L\'ancien sera annulé.',
+                        ),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: _regenerateRecoveryCode,
                       ),
                       const Divider(height: 1),
                       SwitchListTile(

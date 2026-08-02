@@ -4,7 +4,10 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:local_auth/local_auth.dart';
 
+import '../../core/license/license_manager.dart';
 import '../../core/security/pin_hasher.dart';
+import '../../core/security/pin_reset_token.dart';
+import '../../core/security/recovery_code.dart';
 import 'app_settings_repository.dart';
 import 'key_value_store.dart';
 
@@ -46,9 +49,11 @@ class AuthRepository {
     KeyValueStore? store,
     LocalAuthentication? localAuth,
     DateTime Function()? now,
+    Future<String> Function()? deviceId,
   })  : _store = store ?? AppSettingsRepository.instance,
         _localAuth = localAuth ?? LocalAuthentication(),
-        _now = now ?? DateTime.now;
+        _now = now ?? DateTime.now,
+        _deviceId = deviceId ?? LicenseManager().getDeviceId;
 
   static final AuthRepository instance = AuthRepository();
 
@@ -56,9 +61,19 @@ class AuthRepository {
   final LocalAuthentication _localAuth;
   final DateTime Function() _now;
 
+  /// A reset token is bound to one device, same as a licence key.
+  final Future<String> Function() _deviceId;
+
   static const String keyPinSalt = 'pin_salt';
   static const String keyPinHash = 'pin_hash';
   static const String keyPinIterations = 'pin_iterations';
+  static const String keyRecoverySalt = 'recovery_salt';
+  static const String keyRecoveryHash = 'recovery_hash';
+  static const String keyRecoveryIterations = 'recovery_iterations';
+
+  /// Highest reset-token serial this device has redeemed, so an older token
+  /// cannot be replayed.
+  static const String keyResetSerial = 'pin_reset_serial';
   static const String keyFailedAttempts = 'pin_failed_attempts';
   static const String keyLockedUntil = 'pin_locked_until';
   static const String keyBiometricEnabled = 'biometric_enabled';
@@ -146,6 +161,103 @@ class AuthRepository {
     }
 
     return _recordFailure();
+  }
+
+  // ----------------------------------------------------------------- recovery
+
+  Future<bool> hasRecoveryCode() async {
+    final hash = await _store.getString(keyRecoveryHash);
+    return hash.isNotEmpty;
+  }
+
+  /// Mints a code, stores only its hash, and hands back the plaintext for the
+  /// one and only time it can ever be shown.
+  ///
+  /// Storing just the hash means the app genuinely cannot display it again —
+  /// which is the point, and why settings offer a fresh code rather than a
+  /// reminder of the old one.
+  Future<String> generateRecoveryCode() async {
+    final code = RecoveryCode.generate();
+    final salt = _randomSalt();
+    final hash = await _derive(
+      pin: code,
+      salt: salt,
+      iterations: PinHasher.defaultIterations,
+    );
+
+    await _store.setString(keyRecoverySalt, base64Encode(salt));
+    await _store.setString(keyRecoveryHash, base64Encode(hash));
+    await _store.setString(
+      keyRecoveryIterations,
+      PinHasher.defaultIterations.toString(),
+    );
+    return code;
+  }
+
+  /// Checks a recovery code and, on success, clears the PIN so a new one can
+  /// be chosen. Data is untouched: this is a way back in, not a wipe.
+  ///
+  /// Goes through the same lockout as the PIN — twelve digits are already out
+  /// of brute-force reach, but there is no reason to leave the door unlatched.
+  Future<UnlockOutcome> redeemRecoveryCode(String input) async {
+    if (!await hasRecoveryCode()) {
+      return const NoPinConfigured();
+    }
+
+    final remaining = await lockoutRemaining();
+    if (remaining > Duration.zero) {
+      return UnlockLockedOut(remaining: remaining);
+    }
+
+    final code = RecoveryCode.normalise(input);
+    final salt = base64Decode(await _store.getString(keyRecoverySalt));
+    final expected = base64Decode(await _store.getString(keyRecoveryHash));
+    final iterations =
+        int.tryParse(await _store.getString(keyRecoveryIterations)) ??
+            PinHasher.defaultIterations;
+
+    final actual = await _derive(pin: code, salt: salt, iterations: iterations);
+    if (!PinHasher.constantTimeEquals(actual, expected)) {
+      return _recordFailure();
+    }
+
+    // Single use. A code that survived its redemption would stay a permanent
+    // key for anyone who photographed the paper it was written on.
+    await _clearRecoveryCode();
+    await clearPin();
+    return const UnlockSuccess();
+  }
+
+  /// Redeems a vendor-issued token: the backstop for a customer who lost the
+  /// recovery code too.
+  Future<ResetTokenOutcome> redeemResetToken(String token) async {
+    final outcome = await PinResetToken.verify(
+      token,
+      deviceId: await _deviceId(),
+      lastAcceptedSerial:
+          int.tryParse(await _store.getString(keyResetSerial)) ?? 0,
+      now: _now(),
+    );
+
+    if (outcome is ResetTokenAccepted) {
+      await _store.setString(keyResetSerial, outcome.serial.toString());
+      await clearPin();
+    }
+    return outcome;
+  }
+
+  /// Drops the PIN and every lockout, leaving all business data in place.
+  Future<void> clearPin() async {
+    await _store.deleteString(keyPinHash);
+    await _store.deleteString(keyPinSalt);
+    await _store.deleteString(keyPinIterations);
+    await _resetLockout();
+  }
+
+  Future<void> _clearRecoveryCode() async {
+    await _store.deleteString(keyRecoveryHash);
+    await _store.deleteString(keyRecoverySalt);
+    await _store.deleteString(keyRecoveryIterations);
   }
 
   // ------------------------------------------------------------------ lockout
