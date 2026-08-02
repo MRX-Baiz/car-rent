@@ -246,15 +246,22 @@ class _CarRentAppState extends ConsumerState<CarRentApp> with WidgetsBindingObse
     // routinely never delivers — the previous "log out on exit" hung off that
     // callback and so fired more or less at random.
     final auth = ref.read(authProvider.notifier);
+    final notifications = NotificationService.instance;
     switch (state) {
       case AppLifecycleState.paused:
       case AppLifecycleState.hidden:
         auth.noteBackgrounded();
+        notifications.appInForeground = false;
+        // Checked on the way out, not on the way in. Running this on resume
+        // meant tapping the overdue notification brought the app up, which
+        // immediately posted another one.
+        notifications.notifyLateVehicles();
       case AppLifecycleState.resumed:
         auth.noteResumed();
-        // Cheap, and catches a vehicle that went overdue while the app was
-        // in the background with no alarm scheduled for it.
-        NotificationService.instance.notifyLateVehicles();
+        notifications.appInForeground = true;
+        // The dashboard already shows what is overdue, so clear the summary
+        // rather than leave it sitting in the shade.
+        notifications.dismissLateDigest();
       case AppLifecycleState.inactive:
       case AppLifecycleState.detached:
         break;

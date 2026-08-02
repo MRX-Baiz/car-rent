@@ -185,6 +185,45 @@ void main() {
     });
   });
 
+  // Re-showing a notification with the same id sounds and vibrates again, so
+  // the overdue summary is only posted when this signature changes. Getting it
+  // wrong is what made the reminder fire on every return to the app.
+  group('overdue digest signature', () {
+    test('does not change when the query returns a different order', () {
+      expect(
+        NotificationService.digestSignature([3, 1, 2]),
+        NotificationService.digestSignature([1, 2, 3]),
+        reason: 'row order must not be mistaken for a new overdue vehicle',
+      );
+    });
+
+    test('changes when another vehicle becomes overdue', () {
+      expect(
+        NotificationService.digestSignature([1, 2]),
+        isNot(NotificationService.digestSignature([1, 2, 3])),
+      );
+    });
+
+    test('changes when a vehicle is returned', () {
+      expect(
+        NotificationService.digestSignature([1, 2, 3]),
+        isNot(NotificationService.digestSignature([1, 3])),
+      );
+    });
+
+    test('is stable for the same single vehicle', () {
+      expect(
+        NotificationService.digestSignature([7]),
+        NotificationService.digestSignature([7]),
+        reason: 'repeated checks on an unchanged situation must stay quiet',
+      );
+    });
+
+    test('is empty when nothing is overdue', () {
+      expect(NotificationService.digestSignature(const []), isEmpty);
+    });
+  });
+
   group('licence warnings', () {
     test('are ordered furthest-out first and are all distinct', () {
       final days = NotificationService.licenseWarningDays;

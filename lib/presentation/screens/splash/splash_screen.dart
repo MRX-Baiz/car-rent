@@ -44,7 +44,9 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
       if (expiry != null) {
         await NotificationService.instance.scheduleLicenseExpiry(expiry);
       }
-      await NotificationService.instance.notifyLateVehicles();
+      // No overdue alert here: the app is opening, so the user is about to see
+      // the dashboard. Clear any summary left over from last time instead.
+      await NotificationService.instance.dismissLateDigest();
 
       // 2. Read the lock state. This never unlocks — it only decides between
       // creating a PIN and asking for it — so the router's redirect takes it

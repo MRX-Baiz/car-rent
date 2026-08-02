@@ -4,6 +4,8 @@ import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 
+import '../../data/repositories/app_settings_repository.dart';
+import '../../data/repositories/key_value_store.dart';
 import '../database/database_helper.dart';
 import 'notification_preferences.dart';
 
@@ -28,8 +30,21 @@ class NotificationService {
   NotificationPreferencesRepository _preferencesRepository =
       NotificationPreferencesRepository.instance;
 
+  KeyValueStore _store = AppSettingsRepository.instance;
+
   bool _initialized = false;
   bool _available = false;
+
+  /// Notifying someone who is already looking at the app is pure noise: the
+  /// dashboard shows the same information. Kept up to date by CarRentApp.
+  bool _appInForeground = true;
+
+  set appInForeground(bool value) => _appInForeground = value;
+
+  /// Which contracts the overdue digest last alerted about. Re-showing the
+  /// same set would re-alert on Android, which is what made the reminder feel
+  /// like it was firing over and over.
+  static const String keyLateDigestSignature = 'late_digest_signature';
 
   /// Notification ids are grouped per contract: contract 7 owns 70 to 79.
   /// Cancelling a contract's reminders means clearing its whole block, so
@@ -353,11 +368,37 @@ class NotificationService {
     }
   }
 
+  /// Identifies a set of overdue contracts, so an unchanged set can be
+  /// recognised and left alone instead of alerting again.
+  @visibleForTesting
+  static String digestSignature(Iterable<int> contractIds) {
+    final sorted = contractIds.toList()..sort();
+    return sorted.join(',');
+  }
+
+  /// Clears the overdue summary. Called when the app comes to the foreground:
+  /// the user is looking at the dashboard, which already shows the same count.
+  Future<void> dismissLateDigest() async {
+    await initialize();
+    if (!_available) return;
+    try {
+      await _plugin.cancel(_idLateDigest);
+    } catch (e) {
+      if (kDebugMode) debugPrint('dismissLateDigest: $e');
+    }
+  }
+
   /// One summary for everything overdue, rather than a separate alert per
-  /// vehicle. Call on startup and on resume.
+  /// vehicle.
+  ///
+  /// Safe to call repeatedly: it alerts only when the set of overdue vehicles
+  /// has actually changed, and never while the app is open. Without both
+  /// guards, every return to the app re-fired the alert — including the return
+  /// caused by tapping the notification itself.
   Future<void> notifyLateVehicles() async {
     await initialize();
     if (!_available) return;
+    if (_appInForeground) return;
 
     try {
       final preferences = await _preferencesRepository.load();
@@ -374,8 +415,19 @@ class NotificationService {
 
       if (rows.isEmpty) {
         await _plugin.cancel(_idLateDigest);
+        await _store.deleteString(keyLateDigestSignature);
         return;
       }
+
+      // Nothing new is overdue since the last alert, so stay quiet. Showing
+      // the same notification again would sound and vibrate afresh.
+      final signature = digestSignature(
+        rows.map((row) => row['contract_id'] as int),
+      );
+      if (signature == await _store.getString(keyLateDigestSignature)) {
+        return;
+      }
+      await _store.setString(keyLateDigestSignature, signature);
 
       final plates = rows
           .map((row) => row['registration_number'] as String?)
@@ -516,7 +568,12 @@ class NotificationService {
         title,
         body,
         applyQuietHours(now, preferences),
-        _details(channel: channel, channelName: channelName, grouped: true),
+        _details(
+          channel: channel,
+          channelName: channelName,
+          grouped: true,
+          onlyAlertOnce: true,
+        ),
         payload: route,
         androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
         uiLocalNotificationDateInterpretation:
@@ -529,7 +586,12 @@ class NotificationService {
       id,
       title,
       body,
-      _details(channel: channel, channelName: channelName, grouped: true),
+      _details(
+        channel: channel,
+        channelName: channelName,
+        grouped: true,
+        onlyAlertOnce: true,
+      ),
       payload: route,
     );
   }
@@ -539,6 +601,7 @@ class NotificationService {
     required String channelName,
     bool grouped = false,
     bool withViewAction = false,
+    bool onlyAlertOnce = false,
   }) {
     final androidDetails = AndroidNotificationDetails(
       channel,
@@ -546,6 +609,9 @@ class NotificationService {
       channelDescription: 'Rappels de $channelName',
       importance: Importance.max,
       priority: Priority.high,
+      // Updating a notification that is already on screen should refresh its
+      // text silently, not sound and vibrate again.
+      onlyAlertOnce: onlyAlertOnce,
       groupKey: grouped ? _lateGroupKey : null,
       actions: withViewAction
           ? <AndroidNotificationAction>[
