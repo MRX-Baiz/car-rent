@@ -16,6 +16,32 @@ import 'notification_preferences.dart';
 /// after unlocking.
 final pendingNotificationRoute = ValueNotifier<String?>(null);
 
+/// Whether a reminder scheduled now would actually arrive on time.
+class NotificationDiagnostics {
+  const NotificationDiagnostics({
+    required this.available,
+    required this.notificationsAllowed,
+    required this.exactAlarmsAllowed,
+    required this.pending,
+  });
+
+  /// False on platforms with no local-notification support.
+  final bool available;
+
+  /// Android 13+ blocks everything until the user has been asked.
+  final bool notificationsAllowed;
+
+  /// Without this, Android 12+ downgrades an exact alarm to an inexact one and
+  /// Doze holds it until the device next wakes — so a reminder set for 14:37
+  /// can arrive whenever the phone is picked up, with no error anywhere.
+  final bool exactAlarmsAllowed;
+
+  /// How many reminders are currently queued with the OS.
+  final int pending;
+
+  bool get isFullyGranted => notificationsAllowed && exactAlarmsAllowed;
+}
+
 /// Local reminders: vehicle returns, overdue vehicles, payments, licence expiry.
 ///
 /// Everything is scheduled on the device; there is no server and no push.
@@ -34,6 +60,10 @@ class NotificationService {
 
   bool _initialized = false;
   bool _available = false;
+
+  /// Permissions are asked for at most once per run, so saving several
+  /// contracts in a row does not mean several prompts.
+  bool _permissionsChecked = false;
 
   /// Notifying someone who is already looking at the app is pure noise: the
   /// dashboard shows the same information. Kept up to date by CarRentApp.
@@ -59,6 +89,7 @@ class NotificationService {
   /// Far above any plausible contract id, so fixed notifications never collide
   /// with a contract block.
   static const int _idLateDigest = 1000000001;
+  static const int _idTest = 1000000002;
   static const int _idLicenseBase = 1000000010;
 
   /// Days before licence expiry that earn a warning.
@@ -156,6 +187,86 @@ class NotificationService {
 
   // -------------------------------------------------------------- permission
 
+  /// Everything that decides whether a reminder will actually arrive.
+  ///
+  /// Surfaced in settings because the failure is otherwise invisible: Android
+  /// accepts a schedule it has no intention of delivering on time, and says
+  /// nothing.
+  Future<NotificationDiagnostics> diagnostics() async {
+    await initialize();
+    if (!_available) {
+      return const NotificationDiagnostics(
+        available: false,
+        notificationsAllowed: false,
+        exactAlarmsAllowed: false,
+        pending: 0,
+      );
+    }
+
+    var notificationsAllowed = true;
+    var exactAlarmsAllowed = true;
+    var pending = 0;
+
+    try {
+      final android = _plugin.resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>();
+      if (android != null) {
+        notificationsAllowed = await android.areNotificationsEnabled() ?? false;
+        exactAlarmsAllowed =
+            await android.canScheduleExactNotifications() ?? false;
+      }
+      pending = (await _plugin.pendingNotificationRequests()).length;
+    } catch (e) {
+      if (kDebugMode) debugPrint('diagnostics: $e');
+    }
+
+    return NotificationDiagnostics(
+      available: true,
+      notificationsAllowed: notificationsAllowed,
+      exactAlarmsAllowed: exactAlarmsAllowed,
+      pending: pending,
+    );
+  }
+
+  /// Asks for anything still missing, once per run.
+  ///
+  /// Called when a contract is saved rather than at launch: the prompt then
+  /// arrives attached to an action that obviously needs reminders, instead of
+  /// out of nowhere on the splash screen.
+  Future<void> ensurePermissions() async {
+    if (_permissionsChecked) return;
+    _permissionsChecked = true;
+
+    final preferences = await _preferencesRepository.load();
+    if (!preferences.enabled) return;
+
+    final status = await diagnostics();
+    if (!status.available || status.isFullyGranted) return;
+
+    await requestPermission();
+  }
+
+  /// Fires a reminder shortly, to prove the whole chain works end to end.
+  Future<void> sendTestNotification({
+    Duration delay = const Duration(seconds: 15),
+  }) async {
+    await initialize();
+    if (!_available) return;
+
+    final when = tz.TZDateTime.now(tz.local).add(delay);
+    await _plugin.zonedSchedule(
+      _idTest,
+      'Test de notification',
+      'Si vous lisez ceci, les rappels fonctionnent.',
+      when,
+      _details(channel: _channelContracts, channelName: 'Contrats'),
+      payload: '/settings',
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
+    );
+  }
+
   /// True when the OS will actually deliver what we schedule.
   Future<bool> hasPermission() async {
     await initialize();
@@ -235,6 +346,11 @@ class NotificationService {
 
     final preferences = await _preferencesRepository.load();
     if (!preferences.enabled) return;
+
+    // Saving a contract is the natural moment to discover the permissions are
+    // missing — the alternative is scheduling reminders Android will silently
+    // never deliver.
+    await ensurePermissions();
 
     try {
       final route = '/contracts/$contractId';

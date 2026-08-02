@@ -51,6 +51,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   NotificationPreferences _notifications = const NotificationPreferences();
   bool _notificationsGranted = false;
+  NotificationDiagnostics? _notificationStatus;
 
   @override
   void initState() {
@@ -103,12 +104,118 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   Future<void> _loadNotificationSettings() async {
     final preferences = await NotificationPreferencesRepository.instance.load();
-    final granted = await NotificationService.instance.hasPermission();
+    final status = await NotificationService.instance.diagnostics();
     if (!mounted) return;
     setState(() {
       _notifications = preferences;
-      _notificationsGranted = granted;
+      _notificationsGranted = status.notificationsAllowed;
+      _notificationStatus = status;
     });
+  }
+
+  Future<void> _fixPermissions() async {
+    await NotificationService.instance.requestPermission();
+    await _loadNotificationSettings();
+    if (!mounted) return;
+    final status = _notificationStatus;
+    if (status != null && !status.isFullyGranted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Certaines autorisations sont encore refusées. '
+            'Ouvrez les réglages Android de l\'application.',
+          ),
+          duration: Duration(seconds: 5),
+        ),
+      );
+    }
+  }
+
+  Future<void> _sendTestNotification() async {
+    await NotificationService.instance.sendTestNotification();
+    await _loadNotificationSettings();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Notification test programmée dans 15 secondes. '
+          'Quittez l\'application pour vérifier qu\'elle arrive.',
+        ),
+        duration: Duration(seconds: 6),
+      ),
+    );
+  }
+
+  Widget _buildNotificationDiagnostics(ThemeData theme) {
+    final status = _notificationStatus;
+    if (status == null) {
+      return const SizedBox.shrink();
+    }
+    if (!status.available) {
+      return ListTile(
+        leading: Icon(Icons.info_outline, color: theme.colorScheme.outline),
+        title: const Text('Rappels indisponibles sur cette plateforme'),
+      );
+    }
+
+    Widget row(String label, bool ok, String whenMissing) {
+      return ListTile(
+        dense: true,
+        leading: Icon(
+          ok ? Icons.check_circle_outline : Icons.error_outline,
+          color: ok ? Colors.green : theme.colorScheme.error,
+        ),
+        title: Text(label),
+        subtitle: ok ? null : Text(whenMissing),
+      );
+    }
+
+    return Column(
+      children: [
+        row(
+          'Notifications autorisées',
+          status.notificationsAllowed,
+          'Android bloque tout tant que ce n\'est pas accordé.',
+        ),
+        row(
+          'Alarmes exactes autorisées',
+          status.exactAlarmsAllowed,
+          'Sans cela, un rappel prévu à 14h37 peut n\'arriver que lorsque '
+          'vous rallumez l\'écran.',
+        ),
+        ListTile(
+          dense: true,
+          leading: Icon(Icons.schedule, color: theme.colorScheme.outline),
+          title: Text('${status.pending} rappel(s) en attente'),
+          subtitle: status.pending == 0
+              ? const Text('Aucun contrat actif à venir.')
+              : null,
+        ),
+        if (!status.isFullyGranted)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            child: SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: _fixPermissions,
+                icon: const Icon(Icons.lock_open),
+                label: const Text('Accorder les autorisations'),
+              ),
+            ),
+          ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+          child: SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: _sendTestNotification,
+              icon: const Icon(Icons.notifications_active_outlined),
+              label: const Text('Envoyer une notification test'),
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   Future<void> _updateNotifications(NotificationPreferences updated) async {
@@ -224,6 +331,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 _updateNotifications(_notifications.copyWith(enabled: value)),
           ),
           if (enabled) ...[
+            const Divider(height: 1),
+            _buildNotificationDiagnostics(theme),
             const Divider(height: 1),
             ListTile(
               leading: const Icon(Icons.schedule),
