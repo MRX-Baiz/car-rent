@@ -59,6 +59,7 @@ app.*.map.json
 # License signing keys - never commit, these sign every generated license
 *.pem
 license_out.txt
+reset_token_out.txt
 
 # Python OCR server virtualenv
 ocr_server/.venv/
