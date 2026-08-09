@@ -13,25 +13,30 @@ you're about to re-derive one of them, the "why" is below — read it first.
 
 ---
 
-## 1. Before you do anything else: the signing key
+## 1. The signing key
 
 `private_key.pem` (RSA-4096) signs every licence key and every PIN-reset
-token. It is **not in git** — `.gitignore` excludes `*.pem` on purpose — and
-it never should be. The app only ever embeds the matching **public** key
-(`lib/core/license/asymmetric_crypto_helper.dart`), which can verify but not
-sign.
+token. `.gitignore` still lists `*.pem` — that line is what keeps a routine
+`git add .` from ever picking it up by accident — but it **is** committed to
+this repo (force-added, deliberately, so it travels with `git clone` instead
+of needing an out-of-band transfer). The app embeds the matching **public**
+key separately (`lib/core/license/asymmetric_crypto_helper.dart`), which can
+verify but not sign.
 
-**On a new machine, this file has to be copied out of band** — USB drive,
-encrypted archive, password manager attachment. Not email, not committed to
-any repo, not pasted into chat. If it ends up on GitHub, rotate it: every
-licence and every reset token in the field would otherwise be forgeable by
-whoever finds it.
+This is a considered trade-off, not an oversight: it only holds up as long as
+this repository stays private. If it is ever made public, forked to a public
+remote, or added as a dependency anywhere, **rotate the key immediately** —
+regenerate the pair, update the embedded public key in
+`asymmetric_crypto_helper.dart`, and every licence and reset token already
+issued from the old key stops verifying (existing installs keep running;
+issuing *new* licences/tokens for them needs the new key). Anyone who reaches
+this repo can otherwise mint a valid licence or PIN-reset token for any
+device without contacting the vendor at all.
 
-Without it you can still build and run the app and hit its full test suite —
-the tests that touch signing generate their own throwaway RSA keypair
-(`test/pin_recovery_test.dart`, `test/license_crypto_test.dart`). You only
-need the real key to run `scripts/generate_license.sh` or
-`scripts/generate_reset_token.sh` for a real customer.
+You don't need the key to build, run, or test the app day to day — the tests
+that touch signing generate their own throwaway RSA keypair
+(`test/pin_recovery_test.dart`, `test/license_crypto_test.dart`). It's only
+read by `scripts/generate_license.sh` and `scripts/generate_reset_token.sh`.
 
 ---
 
@@ -220,15 +225,12 @@ Full list in `pubspec.yaml`.
    flutter doctor
    ```
    Resolve anything `flutter doctor` flags before going further.
-6. **Copy `private_key.pem`** into the project root, out of band (§1). Not
-   required to build, run, or test the app — only for
-   `scripts/generate_license.sh` / `scripts/generate_reset_token.sh`.
-7. **Verify the checkout is healthy**:
+6. **Verify the checkout is healthy**:
    ```
    flutter analyze      # expect 0 errors
    flutter test         # expect 126 passing
    ```
-8. **Run it**:
+7. **Run it**:
    ```
    flutter run -d windows           # desktop
    flutter run -d <android-device>  # phone, USB debugging on
