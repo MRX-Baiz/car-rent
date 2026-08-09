@@ -1,13 +1,21 @@
 # CarRent Manager
 
-Vehicle rental management app (Flutter). Runs on **Android**, **iOS**, **Windows** and **macOS** from a single codebase.
+Vehicle rental management app (Flutter). Android is the current focus; iOS,
+Windows and macOS build from the same codebase but are not yet the priority.
+
+**Continuing development on a new machine, or working with Claude Code on
+this project? Start with [CLAUDE.md](CLAUDE.md)** — it covers environment
+setup (including Windows-specific gotchas), the architecture decisions worth
+knowing before touching auth/navigation/storage/notifications, and what's
+still open. This README is just the quick pitch.
 
 ## Features
 
 - Vehicles, clients, contracts, payments
-- License activation
+- License activation (RSA-signed, device-bound, offline)
+- Local PIN + biometric lock, with a two-tier recovery path
 - PDF contract generation and printing
-- Local notifications (return reminders)
+- Local notifications (return reminders, overdue vehicles, licence expiry)
 - Company settings
 - On-device OCR scanning of CIN / driving licences (works offline, no server)
 

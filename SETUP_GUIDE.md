@@ -34,11 +34,14 @@ No Python, no Flutter SDK and no network connection are needed on the target mac
 Each installation is bound to its hardware ID. To activate a machine:
 
 1. Launch the app — the license screen shows that device's ID.
-2. Generate a signed license for it:
+2. Generate a signed license for it (needs only `openssl`, not the Flutter/Dart SDK):
    ```bash
-   dart run scripts/license_generator.dart
+   ./scripts/generate_license.sh "Customer Name" 2027-12-31 DEVICE_ID
    ```
-   Choose option **2**, then enter the customer name, expiry date and the device ID.
+   Or run it with no arguments for an interactive prompt.
 3. Paste the generated key into the app's license screen.
 
-`private_key.pem` signs every license — keep it secret and never commit it. Option **1** regenerates the keypair and invalidates all existing licenses, so only use it when starting fresh (and update the embedded key in `lib/core/license/asymmetric_crypto_helper.dart` to match).
+`private_key.pem` signs every license — see [CLAUDE.md](CLAUDE.md) §1 for how
+to handle it; never commit it. A PIN forgotten *and* the recovery code lost
+is not a licensing problem — that's `scripts/generate_reset_token.sh`
+instead, which unlocks the app without touching the licence.
