@@ -21,7 +21,7 @@
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
 
     <application
-        android:label="car_rent_manager"
+        android:label="CarRent Manager"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
