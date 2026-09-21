@@ -33,6 +33,7 @@ migrate_working_dir/
 .pub-cache/
 .pub/
 /build/
+/releases/
 /coverage/
 # Gradle writes here too; /build/ above only covers the project root.
 /android/build/
