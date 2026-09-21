@@ -136,6 +136,31 @@ that cost real debugging time:
 - Timezone was originally pinned to UTC, which kept one-shot reminders
   correct but drifted the *daily* overdue repeat by the local UTC offset
   every day. Now read from the device via `flutter_timezone`.
+- Android daily overdue alarms must preserve their first date (the day after
+  the return deadline). `DateTimeComponents.time` ignores that date and can
+  fire today, even when tomorrow was passed. `AndroidDailyReminder` uses the
+  native `scheduledNotificationRepeatFrequency: 0` (Daily) channel field in
+  **flutter_local_notifications 17.2.4**, pinned in `pubspec.yaml`. That native
+  path preserves the first date, advances by calendar days, and retains the
+  plugin's cancellation, persistence and boot handling. Its mapper import and
+  native channel field are internal APIs: recheck them and the scheduling
+  regression tests before upgrading the plugin. This adapter is Android-only;
+  the existing iOS/macOS repeat path still needs separate validation.
+- On launch, saved contracts have their alarms replaced using the current
+  scheduling rules, without permission prompts; completed contracts have their
+  alarms cleared. This also replaces alarms from versions with the early-repeat
+  bug. The background overdue summary waits until the next day's return time
+  too; dashboard overdue status still starts as soon as the deadline passes.
+- Android cannot deliver a reminder while the phone is powered off.
+  `MissedNotificationBootReceiver` handles the restart: it immediately shows
+  one-time reminders that elapsed while power was off, removes those consumed
+  entries, advances daily overdue reminders to their next future day, then
+  asks the notification plugin to restore every remaining alarm. It is in the
+  plugin's Java package because this uses the same persisted notification
+  records and display path as `flutter_local_notifications`. The app includes
+  the plugin's Gson 2.8.9 dependency explicitly because the plugin does not
+  export it to the app module. Test this after a phone shutdown when upgrading
+  that dependency.
 - The overdue-vehicle digest used to re-fire every time the app returned to
   the foreground — including the return caused by tapping the notification
   itself, which made it feel like it never stopped. It's now keyed by a
@@ -146,14 +171,42 @@ that cost real debugging time:
   `pendingNotificationRoute` (a `ValueNotifier<String?>`) parks it, and
   `CarRentApp` replays it once `lockSignal` reports `unlocked`.
 
-**Known gap, not yet verified**: the exact-alarm permission fix is in and the
-diagnostics panel is built, but end-to-end delivery on a real device with the
-full 5-minute-contract test hasn't been confirmed clean yet. If reminders are
-still late or missing after checking the diagnostics panel, the next suspect
-is OEM battery optimisation (Xiaomi/Huawei/Oppo/Samsung all kill background
-alarms for apps not explicitly whitelisted, independent of any Android
-permission) — that's `Réglages → Applications → CarRent Manager → Batterie →
-Sans restriction`, not something fixable from app code.
+**Phone tests reported passing**: return/payment reminders, killed app,
+restart after a missed deadline (delivery after 1-2 minutes), and notification
+tap navigation. Recheck these on the release build and other phone brands.
+
+### Contract signatures: on-device or returned PDF, no signing server
+
+`ContractSigningService` prepares one permanent original PDF per contract.
+Schema version 6 adds `contract_documents`, storing its SHA-256, the client
+identity at preparation time, the frozen rental terms and the signed copy's
+file name/hash. All PDFs and captured PNG signatures live in `MediaStore`,
+so ZIP backup/restore includes them automatically.
+
+The contract detail card supports two flows:
+- **Signer sur ce téléphone**: preview the exact original, explicitly accept
+  the terms, draw a signature, then stamp it in the original's named
+  `client_signature` field. The saved result is a handwritten signature image,
+  not a certified electronic signature. The timestamp is the phone's clock.
+- **Envoyer au client pour signature**: share the original via the system
+  share sheet. French instructions explain Adobe Acrobat Reader / Remplir et
+  signer. Import the returned PDF, preview it and require operator review.
+  Reject unreadable files, the unchanged original and a missing contract
+  number. This is not automatic identity/signature verification. Store the
+  returned bytes unchanged; the recorded time means receipt, not signing time.
+
+An archived signed PDF cannot be overwritten. Preparing the first original
+freezes rental terms in `ContractRepository.updateContract`; changed terms
+require a new contract. Payment recording and closing still work and do not
+rewrite the archived PDF. Related client/agency edits also leave it intact.
+PDF fonts are bundled Roboto (Apache 2.0, assets/fonts/LICENSE.txt) for offline
+use. Dates/times and amounts in the PDF use the saved contract values.
+
+Tests: `contract_signing_test.dart` covers capture/import, frozen terms,
+unchanged original, corrupted files, v5 migration and restore after deleting
+media. `client_signature_screen_test.dart` checks empty-signature prevention,
+clear, and a narrow phone layout. Real device signing/Adobe round-trip still
+needs manual validation.
 
 ### Licensing: RSA-4096, device-bound, offline
 
@@ -188,7 +241,7 @@ modes only showed up on real OCR noise.
 | State management | Riverpod 2.x (`flutter_riverpod`) |
 | Navigation | `go_router` ^13.0.0 |
 | Database | `sqflite` (mobile) / `sqflite_common_ffi` (Windows, Linux) |
-| Notifications | `flutter_local_notifications` ^17 + `timezone` + `flutter_timezone` |
+| Notifications | `flutter_local_notifications` 17.2.4 (pinned) + `timezone` + `flutter_timezone` |
 | Crypto | `fast_rsa` (licence/reset-token signing), `crypto` (PBKDF2/SHA-256) |
 | Biometrics | `local_auth` ^3 |
 | PDF | `pdf` + `printing` |
@@ -228,7 +281,7 @@ Full list in `pubspec.yaml`.
 6. **Verify the checkout is healthy**:
    ```
    flutter analyze      # expect 0 errors
-   flutter test         # expect 126 passing
+   flutter test         # expect 143 passing
    ```
 7. **Run it**:
    ```
@@ -283,7 +336,7 @@ scripts/
   make_icon_assets.py       launcher icon from source art
   make_notification_icon.py status-bar icon (monochrome silhouette)
 
-test/                     126 tests; see §7
+test/                     143 tests; see §7
 ```
 
 ---
@@ -292,7 +345,7 @@ test/                     126 tests; see §7
 
 ```
 flutter analyze     # must be 0 errors before committing
-flutter test         # 126 tests as of this writing
+flutter test         # 143 tests as of this writing
 ```
 
 Every security-relevant piece has a test that fails without the fix it's
@@ -312,6 +365,10 @@ guarding, not just a happy-path check:
   just the back button; don't remove that test when touching navigation.
 - `notification_test.dart` — the digest de-duplication logic (order-
   independent, changes-only) that stops the repeat-alert bug from §2.
+- `notification_scheduling_test.dart` — Android channel regression for a
+  three-minute contract: no time-only daily match, first overdue date tomorrow,
+  normal return/payment alarms intact, cancellation, startup replacement,
+  quiet hours, and no background digest immediately after the deadline.
 
 If you fix a bug, add the test that would have caught it before writing the
 fix — that's the standard the existing suite was held to.
@@ -322,15 +379,12 @@ fix — that's the standard the existing suite was held to.
 
 Roughly in the order they'd bite someone:
 
-1. **Notification delivery on real hardware isn't fully confirmed yet.** The
-   exact-alarm permission fix and diagnostics panel are in; the 5-minute
-   test-contract scenario needs a clean run to close this out. See §2.
-2. **No export/import feature.** Android's auto-backup is on by default but
-   caps at 25MB total per app — easily exceeded once client documents
-   accumulate, and it fails *silently* (no error to the user or developer).
-   It's a reasonable safety net for a small install, not something to promise
-   customers as their migration path between devices. A real export-to-file /
-   import-from-file flow was discussed but not started.
+1. **Signing needs phone validation.** Both signing flows and automated
+   regression tests are implemented. Test finger signing and the Adobe PDF
+   share/sign/import round-trip on real hardware.
+2. **Backup/restore is implemented and phone-tested.** Text, vehicle images,
+   CIN and permis attachments restored successfully. Signing documents use
+   the same media store; their restore is also covered by automated tests.
 3. **iOS / Windows / macOS are buildable but not the focus.** Android is
    where the polish has gone (launcher icon, notification icon, back-button
    handling, biometric host activity). Expect rough edges elsewhere.

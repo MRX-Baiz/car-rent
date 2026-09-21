@@ -3,20 +3,31 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
-import '../../../core/pdf/contract_pdf_generator.dart';
-import '../../../data/models/client_model.dart';
+import '../../../core/utils/contract_insights.dart';
+import '../../../core/utils/format_utils.dart';
 import '../../../data/models/contract_model.dart';
 import '../../../data/models/payment_model.dart';
-import '../../../data/repositories/client_repository.dart';
 import '../../../data/repositories/contract_repository.dart';
 import '../../../data/repositories/payment_repository.dart';
-import '../../../data/repositories/vehicle_repository.dart';
+import '../../providers/contract_progress_provider.dart';
 import '../../providers/contract_provider.dart';
 import '../../providers/dashboard_provider.dart';
-import '../../widgets/common/empty_state_widget.dart';
-import '../../widgets/common/status_badge.dart';
+import '../../providers/lookup_provider.dart';
+import '../../widgets/common/alert_banner.dart';
+import '../../widgets/common/app_card.dart';
 import '../../widgets/common/app_shimmer.dart';
+import '../../widgets/common/detail_row.dart';
+import '../../widgets/common/empty_state_widget.dart';
+import '../../widgets/common/form_section.dart';
+import '../../widgets/common/plate_badge.dart';
+import '../../widgets/common/section_header.dart';
+import '../../widgets/common/status_badge.dart';
+import '../../widgets/common/status_chip.dart';
+import '../../widgets/common/vehicle_photo.dart';
+import 'contract_signature_card.dart';
+import '../../widgets/motion/backdrop_page.dart';
 
 class ContractDetailScreen extends ConsumerStatefulWidget {
   const ContractDetailScreen({
@@ -31,18 +42,11 @@ class ContractDetailScreen extends ConsumerStatefulWidget {
       _ContractDetailScreenState();
 }
 
-class _ContractDetailScreenState
-    extends ConsumerState<ContractDetailScreen> {
+class _ContractDetailScreenState extends ConsumerState<ContractDetailScreen> {
   final DateFormat _dateFormatter = DateFormat('dd/MM/yyyy HH:mm');
   final PaymentRepository _paymentRepository = PaymentRepository.instance;
-  final ContractRepository _contractRepository = ContractRepository.instance;
-  final VehicleRepository _vehicleRepository = VehicleRepository.instance;
-  final ClientRepository _clientRepository = ClientRepository.instance;
-  final ContractPdfGenerator _pdfGenerator = ContractPdfGenerator();
 
   late Future<List<PaymentModel>> _paymentsFuture;
-
-  String _savedPdfPath = ''; // Stores last downloaded PDF path for snackbar
 
   @override
   void initState() {
@@ -65,7 +69,6 @@ class _ContractDetailScreenState
   Future<void> _addPayment(ContractModel contract) async {
     final controller = TextEditingController();
     final formKey = GlobalKey<FormState>();
-    final currencyFormatter = NumberFormat.currency(symbol: 'MAD', decimalDigits: 2);
     final remaining = contract.remainingAmount;
 
     final amount = await showDialog<double>(
@@ -79,17 +82,16 @@ class _ContractDetailScreenState
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Reste à payer : ${currencyFormatter.format(remaining)}',
+                'Reste à payer : ${formatMad(remaining)}',
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 16),
               TextFormField(
                 controller: controller,
                 autofocus: true,
-                decoration: InputDecoration(
+                decoration: const InputDecoration(
                   labelText: 'Montant à payer',
                   suffixText: 'MAD',
-                  border: const OutlineInputBorder(),
                   helperText: 'Saisissez le montant versé par le client.',
                 ),
                 keyboardType: const TextInputType.numberWithOptions(
@@ -104,7 +106,7 @@ class _ContractDetailScreenState
                     return 'Montant invalide.';
                   }
                   if (v > remaining + 0.01) {
-                    return 'Le montant dépasse le reste (${currencyFormatter.format(remaining)}).';
+                    return 'Le montant dépasse le reste (${formatMad(remaining)}).';
                   }
                   return null;
                 },
@@ -143,7 +145,8 @@ class _ContractDetailScreenState
     if (amount == null) return;
 
     try {
-      await ContractRepository.instance.addPaymentAndUpdateContract(contract.id!, amount);
+      await ContractRepository.instance
+          .addPaymentAndUpdateContract(contract.id!, amount);
       await _refreshPayments();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -168,6 +171,7 @@ class _ContractDetailScreenState
       initialDate: DateTime.now(),
       firstDate: contract.startDate,
       lastDate: DateTime.now().add(const Duration(days: 365)),
+      helpText: 'Date de retour du véhicule',
     );
     if (date == null) return;
 
@@ -175,12 +179,13 @@ class _ContractDetailScreenState
       // If there's a remaining balance, ask to pay it
       final remaining = contract.remainingAmount;
       if (remaining > 0) {
+        if (!mounted) return;
         final payNow = await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
             title: const Text('Reste à payer'),
             content: Text(
-              'Il reste ${remaining.toStringAsFixed(2)} MAD à payer. '
+              'Il reste ${formatMad(remaining)} à payer. '
               'Voulez-vous enregistrer ce paiement avant la clôture ?',
             ),
             actions: [
@@ -226,16 +231,21 @@ class _ContractDetailScreenState
     }
   }
 
+  Future<void> _openInspection(int contractId, String type) async {
+    await context.push('/contracts/$contractId/inspection/$type');
+    if (mounted) ref.invalidate(contractProgressProvider(contractId));
+  }
+
   @override
   Widget build(BuildContext context) {
     final contractsAsync = ref.watch(contractsProvider);
-    final theme = Theme.of(context);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Détails du contrat'),
+        title: const Text('Contrat'),
       ),
-      body: contractsAsync.when(
+      body: BackdropPage(
+          child: contractsAsync.when(
         data: (contracts) {
           final contract = _findContract(contracts, widget.contractId);
           if (contract == null) {
@@ -245,230 +255,7 @@ class _ContractDetailScreenState
               icon: Icons.receipt_long_outlined,
             );
           }
-
-          return RefreshIndicator(
-            onRefresh: _refreshPayments,
-            child: ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Hero(
-                          tag: 'contract_${contract.id}',
-                          child: Text(
-                            contract.contractNumber,
-                            style: theme.textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Contrat pour véhicule #${contract.vehicleId}',
-                        ),
-                      ],
-                    ),
-                    StatusBadge(text: contract.status),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Période de location',
-                          style: theme.textTheme.titleMedium
-                              ?.copyWith(fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Début: ${_dateFormatter.format(contract.startDate)}',
-                        ),
-                        Text(
-                          'Retour prévu: ${_dateFormatter.format(contract.expectedReturnDate)}',
-                        ),
-                        if (contract.actualReturnDate != null)
-                          Text(
-                            'Retour réel: ${_dateFormatter.format(contract.actualReturnDate!)}',
-                          ),
-                        const SizedBox(height: 8),
-                        Text('Nombre de jours: ${contract.rentalDays}'),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Paiements',
-                          style: theme.textTheme.titleMedium
-                              ?.copyWith(fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Total contrat: ${contract.totalPrice.toStringAsFixed(2)} MAD',
-                        ),
-                        Text(
-                          'Payé: ${contract.amountPaid.toStringAsFixed(2)} MAD',
-                        ),
-                        Text(
-                          'Reste: ${contract.remainingAmount.toStringAsFixed(2)} MAD',
-                        ),
-                        const SizedBox(height: 12),
-                        FutureBuilder<List<PaymentModel>>(
-                          future: _paymentsFuture,
-                          builder: (context, snapshot) {
-                            if (snapshot.connectionState ==
-                                ConnectionState.waiting) {
-                              return const Center(
-                                child: CircularProgressIndicator(),
-                              );
-                            }
-                            if (snapshot.hasError) {
-                              return Text(
-                                'Erreur lors du chargement des paiements.\n'
-                                'خطأ أثناء تحميل الأداءات.\n'
-                                'Payments loading error: ${snapshot.error}',
-                              );
-                            }
-                            final payments = snapshot.data ?? [];
-                            if (payments.isEmpty) {
-                              return const Text(
-                                'Aucun paiement enregistré pour ce contrat.',
-                              );
-                            }
-                            return Column(
-                              children: payments
-                                  .map(
-                                    (p) => ListTile(
-                                      contentPadding: EdgeInsets.zero,
-                                      leading: const Icon(
-                                        Icons.payments_outlined,
-                                      ),
-                                      title: Text(
-                                        '${p.amount.toStringAsFixed(2)} MAD',
-                                      ),
-                                      subtitle: Text(
-                                        _dateFormatter
-                                            .format(p.paymentDate),
-                                      ),
-                                    ),
-                                  )
-                                  .toList(),
-                            );
-                          },
-                        ),
-                        const SizedBox(height: 8),
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: TextButton.icon(
-                            onPressed: contract.status == 'completed'
-                                ? null
-                                : () => _addPayment(contract),
-                            icon: const Icon(Icons.add),
-                            label: const Text('Ajouter un paiement'),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    TextButton.icon(
-                      onPressed: contract.status == 'completed'
-                          ? null
-                          : () => _closeContract(contract),
-                      icon: const Icon(Icons.lock_outline),
-                      label: const Text('Clôturer le contrat'),
-                    ),
-                    TextButton.icon(
-                      onPressed: () async {
-                        final vehicle = await _vehicleRepository.getVehicleById(contract.vehicleId);
-                        final primary = await _clientRepository.getClientById(contract.primaryDriverId);
-                        if (vehicle == null || primary == null) {
-                          if (!mounted) return;
-                          // ignore: use_build_context_synchronously
-                          ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-                            const SnackBar(content: Text('Véhicule ou client introuvable.')),
-                          );
-                          return;
-                        }
-                        ClientModel? secondary;
-                        if (contract.secondaryDriverId != null) {
-                          secondary = await _clientRepository.getClientById(contract.secondaryDriverId!);
-                        }
-                        final pdf = await _pdfGenerator.generateContract(
-                          contract: contract,
-                          vehicle: vehicle,
-                          primaryDriver: primary,
-                          secondaryDriver: secondary,
-                        );
-                        if (!mounted) return;
-                        // Show options: Download or Share
-                        await showModalBottomSheet(
-                          context: context,
-                          builder: (ctx) => SafeArea(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const SizedBox(height: 8),
-                                ListTile(
-                                  leading: const Icon(Icons.download_outlined),
-                                  title: const Text('Télécharger le PDF'),
-                                  subtitle: const Text('Sauvegarder dans Documents/CarRent_Contracts'),
-                                  onTap: () async {
-                                    Navigator.pop(ctx);
-                                    try {
-                                      final path = await _pdfGenerator.downloadContract(pdf);
-                                      if (!mounted) return;
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(content: Text('PDF sauvegardé : $path')),
-                                      );
-                                    } catch (e) {
-                                      if (!mounted) return;
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(content: Text('Erreur téléchargement: $e')),
-                                      );
-                                    }
-                                  },
-                                ),
-                                ListTile(
-                                  leading: const Icon(Icons.share_outlined),
-                                  title: const Text('Partager le PDF'),
-                                  onTap: () async {
-                                    Navigator.pop(ctx);
-                                    await _pdfGenerator.shareContract(pdf);
-                                  },
-                                ),
-                                const SizedBox(height: 8),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                      icon: const Icon(Icons.picture_as_pdf_outlined),
-                      label: const Text('Générer PDF'),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          );
+          return _buildBody(context, contract);
         },
         loading: () => AppShimmer.detailLayer(),
         error: (error, _) => Center(
@@ -479,21 +266,516 @@ class _ContractDetailScreenState
             textAlign: TextAlign.center,
           ),
         ),
+      )),
+      bottomNavigationBar: contractsAsync.maybeWhen(
+        data: (contracts) {
+          final contract = _findContract(contracts, widget.contractId);
+          return contract == null || contract.status == 'completed'
+              ? null
+              : _buildActionBar(contract);
+        },
+        orElse: () => null,
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => context.push('/contracts/new'),
-        child: const Icon(Icons.add),
+    );
+  }
+
+  /// One contextual action at the counter: before the keys leave it is the
+  /// departure check; afterwards it is the return check and closing.
+  Widget _buildActionBar(ContractModel contract) {
+    final progress =
+        ref.watch(contractProgressProvider(widget.contractId)).value;
+    final id = contract.id!;
+    if (progress == null) return const SizedBox.shrink();
+
+    if (!progress.departureDone) {
+      return BottomActionBar(
+        child: FilledButton.icon(
+          onPressed: () => _openInspection(id, 'departure'),
+          icon: const Icon(Icons.key_outlined),
+          label: const Text('Faire l’état des lieux de départ'),
+        ),
+      );
+    }
+
+    return BottomActionBar(
+      child: Row(
+        children: [
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: () => _openInspection(id, 'return'),
+              icon: Icon(progress.returnDone
+                  ? Icons.check_circle_outline
+                  : Icons.assignment_return_outlined),
+              label: Text(progress.returnDone ? 'Retour fait' : 'Retour'),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            flex: 2,
+            child: FilledButton.icon(
+              onPressed: () => _closeContract(contract),
+              icon: const Icon(Icons.lock_outline),
+              label: const Text('Clôturer le contrat'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBody(BuildContext context, ContractModel contract) {
+    final theme = Theme.of(context);
+    final lookups = ref.watch(lookupsProvider).value ?? const Lookups();
+    final progress = ref.watch(contractProgressProvider(widget.contractId));
+    final vehicle = lookups.vehicle(contract.vehicleId);
+    final client = lookups.client(contract.primaryDriverId);
+    final second = lookups.client(contract.secondaryDriverId);
+    final chauffeur = lookups.chauffeur(contract.chauffeurId);
+    final ret = returnStatusOf(contract);
+    final pay = paymentStatusOf(contract);
+    final completed = contract.status == 'completed';
+
+    return RefreshIndicator(
+      onRefresh: () async {
+        ref.invalidate(contractProgressProvider(widget.contractId));
+        await _refreshPayments();
+      },
+      child: ListView(
+        padding: EdgeInsets.fromLTRB(
+          16,
+          16,
+          16,
+          24 + MediaQuery.viewPaddingOf(context).bottom,
+        ),
+        children: [
+          AppCard(
+            accent: contract.isLate ? AppTone.danger.color : null,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Hero(
+                        tag: 'contract_${contract.id}',
+                        child: Material(
+                          type: MaterialType.transparency,
+                          child: Text(
+                            contract.contractNumber,
+                            style: theme.textTheme.titleLarge,
+                          ),
+                        ),
+                      ),
+                    ),
+                    StatusBadge(text: contract.displayStatus),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    SizedBox(
+                      width: 72,
+                      height: 56,
+                      child: vehicle == null
+                          ? const Icon(Icons.directions_car_filled,
+                              color: AppColors.primary, size: 32)
+                          : VehiclePhoto(vehicle: vehicle, iconSize: 28),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(lookups.vehicleName(contract.vehicleId),
+                              style: theme.textTheme.titleMedium),
+                          if (vehicle != null) ...[
+                            const SizedBox(height: 4),
+                            PlateBadge(vehicle.registrationNumber),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    const Icon(Icons.person_outline,
+                        size: 20, color: AppColors.textSecondary),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        client?.fullName ??
+                            'Client #${contract.primaryDriverId}',
+                        style: theme.textTheme.bodyLarge
+                            ?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          if (contract.isLate) ...[
+            const SizedBox(height: 12),
+            AlertBanner(
+              tone: AppTone.danger,
+              icon: Icons.schedule,
+              title: ret.label,
+              message: 'Le retour était prévu le '
+                  '${_dateFormatter.format(contract.expectedReturnDate)}.',
+            ),
+          ] else if (completed && contract.remainingAmount > 0.009) ...[
+            const SizedBox(height: 12),
+            AlertBanner(
+              tone: AppTone.warning,
+              title: 'Solde impayé',
+              message: 'Il reste ${formatMad(contract.remainingAmount)} '
+                  'à encaisser sur ce contrat terminé.',
+            ),
+          ],
+          if (!completed) ...[
+            const SectionHeader(
+              title: 'Suivi de la location',
+              padding: EdgeInsets.fromLTRB(4, 20, 4, 10),
+            ),
+            AppCard(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: progress.when(
+                data: (p) => DetailList(children: [
+                  _StepRow(
+                    done: p.departureDone,
+                    title: 'État des lieux de départ',
+                    subtitle: p.departure == null
+                        ? 'À faire avant la remise des clés.'
+                        : 'Fait le ${_dateFormatter.format(p.departure!.createdAt)}',
+                    onTap: () => _openInspection(contract.id!, 'departure'),
+                  ),
+                  _StepRow(
+                    done: p.signed,
+                    title: 'Contrat signé',
+                    subtitle: p.signed
+                        ? 'PDF signé enregistré.'
+                        : 'À signer par le client (voir plus bas).',
+                  ),
+                  _StepRow(
+                    done: pay.isSettled,
+                    title: 'Paiement',
+                    subtitle: pay.isSettled
+                        ? 'Contrat entièrement payé.'
+                        : 'Reste ${formatMad(contract.remainingAmount)} à encaisser.',
+                  ),
+                  _StepRow(
+                    done: p.returnDone,
+                    title: 'État des lieux de retour',
+                    subtitle: p.returned == null
+                        ? ret.label
+                        : 'Fait le ${_dateFormatter.format(p.returned!.createdAt)}',
+                    onTap: () => _openInspection(contract.id!, 'return'),
+                  ),
+                ]),
+                loading: () => const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 16),
+                  child: LinearProgressIndicator(),
+                ),
+                error: (_, __) => const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 12),
+                  child: Text('Suivi indisponible pour le moment.'),
+                ),
+              ),
+            ),
+          ],
+          const SectionHeader(
+            title: 'Période de location',
+            padding: EdgeInsets.fromLTRB(4, 20, 4, 10),
+          ),
+          AppCard(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            child: DetailList(children: [
+              DetailRow(
+                icon: Icons.flag_outlined,
+                label: 'Départ',
+                value: _dateFormatter.format(contract.startDate),
+              ),
+              DetailRow(
+                icon: Icons.event_outlined,
+                label: 'Retour prévu',
+                value: _dateFormatter.format(contract.expectedReturnDate),
+                trailing: completed
+                    ? null
+                    : StatusChip(label: ret.label, tone: ret.tone, dense: true),
+              ),
+              if (contract.actualReturnDate != null)
+                DetailRow(
+                  icon: Icons.assignment_turned_in_outlined,
+                  label: 'Retour réel',
+                  value: _dateFormatter.format(contract.actualReturnDate!),
+                ),
+              DetailRow(
+                icon: Icons.timelapse,
+                label: 'Durée',
+                value:
+                    '${contract.rentalDays < 1 ? 1 : contract.rentalDays} jour(s)',
+              ),
+            ]),
+          ),
+          const SectionHeader(
+            title: 'Client et conducteurs',
+            padding: EdgeInsets.fromLTRB(4, 20, 4, 10),
+          ),
+          AppCard(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            child: DetailList(children: [
+              DetailRow(
+                icon: Icons.person_outline,
+                label: 'Conducteur principal',
+                value:
+                    client?.fullName ?? 'Client #${contract.primaryDriverId}',
+                trailing: client == null
+                    ? null
+                    : Text(client.phone,
+                        style: theme.textTheme.bodyMedium
+                            ?.copyWith(color: AppColors.textSecondary)),
+                onTap: client == null || client.id == null
+                    ? null
+                    : () => context.push('/clients/${client.id}'),
+              ),
+              if (contract.secondaryDriverId != null)
+                DetailRow(
+                  icon: Icons.person_add_alt_outlined,
+                  label: 'Conducteur secondaire',
+                  value: second?.fullName ??
+                      'Client #${contract.secondaryDriverId}',
+                  onTap: second == null || second.id == null
+                      ? null
+                      : () => context.push('/clients/${second.id}'),
+                ),
+              if (contract.chauffeurId != null)
+                DetailRow(
+                  icon: Icons.badge_outlined,
+                  label: 'Chauffeur de l’agence',
+                  value: chauffeur?.fullName ??
+                      'Chauffeur #${contract.chauffeurId}',
+                  trailing: Text(
+                    '${contract.chauffeurHours.toStringAsFixed(contract.chauffeurHours % 1 == 0 ? 0 : 1)} h × '
+                    '${formatMad(contract.chauffeurHourlyRate)}',
+                    style: theme.textTheme.bodySmall
+                        ?.copyWith(color: AppColors.textSecondary),
+                  ),
+                ),
+            ]),
+          ),
+          const SectionHeader(
+            title: 'Paiements',
+            padding: EdgeInsets.fromLTRB(4, 20, 4, 10),
+          ),
+          _buildPayments(context, contract, pay),
+          const SectionHeader(
+            title: 'PDF et signature',
+            padding: EdgeInsets.fromLTRB(4, 20, 4, 10),
+          ),
+          ContractSignatureCard(
+            key: ValueKey(contract.id),
+            contractId: contract.id!,
+            onChanged: () =>
+                ref.invalidate(contractProgressProvider(widget.contractId)),
+          ),
+          if ((contract.notes ?? '').trim().isNotEmpty) ...[
+            const SectionHeader(
+              title: 'Notes',
+              padding: EdgeInsets.fromLTRB(4, 20, 4, 10),
+            ),
+            AppCard(child: Text(contract.notes!.trim())),
+          ],
+          if (completed) ...[
+            const SectionHeader(
+              title: 'États des lieux',
+              padding: EdgeInsets.fromLTRB(4, 20, 4, 10),
+            ),
+            AppCard(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: DetailList(children: [
+                DetailRow(
+                  icon: Icons.departure_board_outlined,
+                  label: 'Départ',
+                  value: 'Voir ou refaire',
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => _openInspection(contract.id!, 'departure'),
+                ),
+                DetailRow(
+                  icon: Icons.assignment_return_outlined,
+                  label: 'Retour',
+                  value: 'Voir ou refaire',
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => _openInspection(contract.id!, 'return'),
+                ),
+              ]),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPayments(
+    BuildContext context,
+    ContractModel contract,
+    PaymentStatus pay,
+  ) {
+    final theme = Theme.of(context);
+    final ratio = contract.totalPrice <= 0
+        ? 1.0
+        : (contract.amountPaid / contract.totalPrice).clamp(0.0, 1.0);
+
+    Widget figure(String label, double value, {Color? color}) => Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label,
+                  style: theme.textTheme.bodySmall
+                      ?.copyWith(color: AppColors.textSecondary)),
+              const SizedBox(height: 2),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  formatMad(value),
+                  style: theme.textTheme.titleMedium?.copyWith(color: color),
+                ),
+              ),
+            ],
+          ),
+        );
+
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              figure('Total', contract.totalPrice),
+              figure('Payé', contract.amountPaid, color: AppTone.success.color),
+              figure('Reste', contract.remainingAmount,
+                  color: pay.isSettled
+                      ? AppColors.textSecondary
+                      : AppTone.danger.color),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: LinearProgressIndicator(
+              value: ratio,
+              minHeight: 10,
+              backgroundColor: AppTone.neutral.soft,
+              color: pay.isSettled ? AppTone.success.color : AppColors.primary,
+            ),
+          ),
+          const SizedBox(height: 12),
+          FutureBuilder<List<PaymentModel>>(
+            future: _paymentsFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (snapshot.hasError) {
+                return Text(
+                  'Erreur lors du chargement des paiements.\n'
+                  'خطأ أثناء تحميل الأداءات.\n'
+                  'Payments loading error: ${snapshot.error}',
+                );
+              }
+              final payments = snapshot.data ?? [];
+              if (payments.isEmpty) {
+                return Text(
+                  'Aucun paiement enregistré pour ce contrat.',
+                  style: theme.textTheme.bodyMedium
+                      ?.copyWith(color: AppColors.textSecondary),
+                );
+              }
+              return DetailList(
+                children: [
+                  for (final p in payments)
+                    DetailRow(
+                      icon: Icons.payments_outlined,
+                      label: _dateFormatter.format(p.paymentDate),
+                      value: formatMad(p.amount),
+                    ),
+                ],
+              );
+            },
+          ),
+          if (contract.status != 'completed') ...[
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: pay.isSettled ? null : () => _addPayment(contract),
+              icon: const Icon(Icons.add),
+              label: const Text('Enregistrer un paiement'),
+            ),
+          ],
+        ],
       ),
     );
   }
 
   ContractModel? _findContract(List<ContractModel>? list, int id) {
     if (list == null) return null;
-    try {
-      return list.firstWhere((c) => c.id == id);
-    } catch (_) {
-      return null;
+    for (final c in list) {
+      if (c.id == id) return c;
     }
+    return null;
   }
 }
 
+class _StepRow extends StatelessWidget {
+  const _StepRow({
+    required this.done,
+    required this.title,
+    required this.subtitle,
+    this.onTap,
+  });
+
+  final bool done;
+  final String title;
+  final String subtitle;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return InkWell(
+      onTap: onTap,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 60),
+        child: Row(
+          children: [
+            Icon(
+              done ? Icons.check_circle : Icons.radio_button_unchecked,
+              color: done ? AppTone.success.color : const Color(0xFF9AA3B5),
+              size: 26,
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title,
+                        style: theme.textTheme.bodyLarge
+                            ?.copyWith(fontWeight: FontWeight.w700)),
+                    Text(subtitle,
+                        style: theme.textTheme.bodySmall
+                            ?.copyWith(color: AppColors.textSecondary)),
+                  ],
+                ),
+              ),
+            ),
+            if (onTap != null)
+              const Icon(Icons.chevron_right, color: AppColors.textSecondary),
+          ],
+        ),
+      ),
+    );
+  }
+}

@@ -10,6 +10,7 @@ import 'data/models/vehicle_model.dart';
 import 'presentation/screens/contracts/contract_detail_screen.dart';
 import 'presentation/screens/contracts/contract_form_screen.dart';
 import 'presentation/screens/contracts/contracts_list_screen.dart';
+import 'presentation/screens/contracts/inspection_form_screen.dart';
 import 'presentation/screens/clients/client_detail_screen.dart';
 import 'presentation/screens/clients/client_form_screen.dart';
 import 'presentation/screens/clients/clients_list_screen.dart';
@@ -23,7 +24,12 @@ import 'presentation/screens/lock/pin_recovery_screen.dart';
 import 'presentation/screens/lock/pin_setup_screen.dart';
 import 'presentation/screens/vehicles/vehicle_detail_screen.dart';
 import 'presentation/screens/vehicles/vehicle_form_screen.dart';
+import 'presentation/screens/vehicles/vehicle_photos_screen.dart';
 import 'presentation/screens/vehicles/vehicles_list_screen.dart';
+import 'presentation/screens/chauffeurs/chauffeurs_screen.dart';
+import 'presentation/screens/assistant/assistant_model_screen.dart';
+import 'presentation/screens/assistant/assistant_screen.dart';
+import 'data/models/chauffeur_model.dart';
 
 /// Reachable with the app locked: the splash decides where to go, and the
 /// licence screen has to work before a PIN can exist.
@@ -107,6 +113,14 @@ final _router = GoRouter(
             return VehicleFormScreen(vehicle: vehicle);
           },
         ),
+        GoRoute(
+            path: ':id/photos',
+            builder: (context, state) {
+              final id = int.tryParse(state.pathParameters['id'] ?? '');
+              return id == null
+                  ? const SplashScreen()
+                  : VehiclePhotosScreen(vehicleId: id);
+            }),
       ],
     ),
     GoRoute(
@@ -154,7 +168,8 @@ final _router = GoRouter(
       routes: [
         GoRoute(
           path: 'new',
-          builder: (context, state) => const ContractFormScreen(),
+          builder: (context, state) =>
+              ContractFormScreen(initialVehicleId: state.extra as int?),
         ),
         GoRoute(
           path: ':id',
@@ -165,6 +180,17 @@ final _router = GoRouter(
             }
             return ContractDetailScreen(contractId: id);
           },
+          routes: [
+            GoRoute(
+                path: 'inspection/:type',
+                builder: (context, state) {
+                  final id = int.tryParse(state.pathParameters['id'] ?? '');
+                  final type = state.pathParameters['type'];
+                  if (id == null || (type != 'departure' && type != 'return'))
+                    return const SplashScreen();
+                  return InspectionFormScreen(contractId: id, type: type!);
+                }),
+          ],
         ),
       ],
     ),
@@ -172,6 +198,25 @@ final _router = GoRouter(
       path: '/settings',
       builder: (context, state) => const SettingsScreen(),
     ),
+    GoRoute(
+      path: '/assistant',
+      builder: (context, state) => const AssistantScreen(),
+      routes: [
+        GoRoute(
+          path: 'model',
+          builder: (context, state) => const AssistantModelScreen(),
+        ),
+      ],
+    ),
+    GoRoute(
+        path: '/chauffeurs',
+        builder: (context, state) => const ChauffeursScreen(),
+        routes: [
+          GoRoute(
+              path: 'form',
+              builder: (context, state) =>
+                  ChauffeurFormScreen(value: state.extra as ChauffeurModel?)),
+        ]),
     GoRoute(
       path: '/lock',
       builder: (context, state) => const LockScreen(),
@@ -209,7 +254,8 @@ class CarRentApp extends ConsumerStatefulWidget {
   ConsumerState<CarRentApp> createState() => _CarRentAppState();
 }
 
-class _CarRentAppState extends ConsumerState<CarRentApp> with WidgetsBindingObserver {
+class _CarRentAppState extends ConsumerState<CarRentApp>
+    with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
@@ -284,4 +330,3 @@ class _CarRentAppState extends ConsumerState<CarRentApp> with WidgetsBindingObse
     );
   }
 }
-

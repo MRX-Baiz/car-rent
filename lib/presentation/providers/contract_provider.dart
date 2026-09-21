@@ -54,12 +54,20 @@ class ContractNotifier extends AsyncNotifier<List<ContractModel>> {
     });
   }
 
+  Future<void> restoreReminders() async {
+    final contracts = await _contractRepository.getAllContracts();
+    for (final contract in contracts) {
+      await syncReminders(contract, requestPermissions: false);
+    }
+  }
+
   /// Re-arms every reminder for [contract].
   ///
   /// Lives here rather than in the screens so no caller can add, edit, close
   /// or delete a contract and leave its reminders behind — which is how a
   /// deleted contract kept nagging about a vehicle that no longer existed.
-  Future<void> syncReminders(ContractModel contract) async {
+  Future<void> syncReminders(ContractModel contract,
+      {bool requestPermissions = true}) async {
     final id = contract.id;
     if (id == null) return;
 
@@ -75,6 +83,7 @@ class ContractNotifier extends AsyncNotifier<List<ContractModel>> {
       startDate: contract.startDate,
       expectedReturnDate: contract.expectedReturnDate,
       remainingAmount: contract.remainingAmount,
+      requestPermissions: requestPermissions,
     );
   }
 
@@ -113,15 +122,14 @@ class ContractNotifier extends AsyncNotifier<List<ContractModel>> {
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
       // Read the authoritative amount_paid from the contracts table (updated atomically by addPaymentAndUpdateContract)
-      final freshContract = await _contractRepository.getContractById(contractId);
+      final freshContract =
+          await _contractRepository.getContractById(contractId);
       return current
           .map(
-            (c) => c.id == contractId && freshContract != null
-                ? freshContract
-                : c,
+            (c) =>
+                c.id == contractId && freshContract != null ? freshContract : c,
           )
           .toList();
     });
   }
 }
-

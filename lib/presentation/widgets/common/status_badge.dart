@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_colors.dart';
+import 'status_chip.dart';
 
+/// Badge for the domain statuses stored in the database (vehicle, contract,
+/// chauffeur). Free-form states go through [StatusChip] directly.
 class StatusBadge extends StatelessWidget {
   const StatusBadge({
     super.key,
@@ -10,61 +13,42 @@ class StatusBadge extends StatelessWidget {
 
   final String text;
 
-  Color _backgroundColor() {
-    switch (text) {
-      case 'available':
-        return AppColors.statusAvailable.withValues(alpha: 0.12);
-      case 'rented':
-        return AppColors.statusRented.withValues(alpha: 0.12);
-      case 'maintenance':
-        return AppColors.statusMaintenance.withValues(alpha: 0.12);
-      case 'late':
-        return AppColors.statusLate.withValues(alpha: 0.12);
-      case 'active':
-        return AppColors.statusActive.withValues(alpha: 0.12);
-      case 'completed':
-        return AppColors.statusCompleted.withValues(alpha: 0.12);
-      default:
-        return Colors.grey.withValues(alpha: 0.12);
-    }
-  }
+  static const _tones = {
+    'available': AppTone.success,
+    'rented': AppTone.warning,
+    'maintenance': AppTone.danger,
+    'late': AppTone.danger,
+    'active': AppTone.info,
+    'completed': AppTone.neutral,
+    'assigned': AppTone.warning,
+  };
 
-  Color _textColor() {
-    switch (text) {
-      case 'available':
-        return AppColors.statusAvailable;
-      case 'rented':
-        return AppColors.statusRented;
-      case 'maintenance':
-        return AppColors.statusMaintenance;
-      case 'late':
-        return AppColors.statusLate;
-      case 'active':
-        return AppColors.statusActive;
-      case 'completed':
-        return AppColors.statusCompleted;
-      default:
-        return Colors.grey;
-    }
-  }
+  static const _labels = {
+    'available': 'Disponible',
+    'rented': 'Loué',
+    'maintenance': 'Maintenance',
+    'late': 'En retard',
+    'active': 'En cours',
+    'completed': 'Terminé',
+    'assigned': 'Occupé',
+  };
+
+  static const _icons = {
+    'available': Icons.check_circle_outline,
+    'rented': Icons.key_outlined,
+    'maintenance': Icons.build_outlined,
+    'late': Icons.schedule,
+    'active': Icons.play_circle_outline,
+    'completed': Icons.task_alt,
+    'assigned': Icons.do_not_disturb_on_outlined,
+  };
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: _backgroundColor(),
-        borderRadius: BorderRadius.circular(50),
-      ),
-      child: Text(
-        text,
-        style: TextStyle(
-          color: _textColor(),
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
+    return StatusChip(
+      label: _labels[text] ?? text,
+      tone: _tones[text] ?? AppTone.neutral,
+      icon: _icons[text],
     );
   }
 }
-

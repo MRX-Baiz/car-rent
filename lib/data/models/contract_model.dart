@@ -1,9 +1,14 @@
+import 'dart:convert';
+
 class ContractModel {
   final int? id;
   final String contractNumber; // Auto-generated: "CTR-YYYYMMDD-XXXX"
   final int vehicleId;
   final int primaryDriverId;
   final int? secondaryDriverId;
+  final int? chauffeurId;
+  final double chauffeurHours;
+  final double chauffeurHourlyRate;
   final DateTime startDate;
   final DateTime expectedReturnDate;
   final DateTime? actualReturnDate;
@@ -20,6 +25,9 @@ class ContractModel {
     required this.vehicleId,
     required this.primaryDriverId,
     this.secondaryDriverId,
+    this.chauffeurId,
+    this.chauffeurHours = 0,
+    this.chauffeurHourlyRate = 0,
     required this.startDate,
     required this.expectedReturnDate,
     this.actualReturnDate,
@@ -33,9 +41,29 @@ class ContractModel {
 
   double get remainingAmount => totalPrice - amountPaid;
 
+  String get signingTermsJson => jsonEncode({
+        'number': contractNumber,
+        'vehicle': vehicleId,
+        'primary': primaryDriverId,
+        'secondary': secondaryDriverId,
+        'chauffeur': chauffeurId,
+        'chauffeurHours': chauffeurHours,
+        'chauffeurRate': chauffeurHourlyRate,
+        'start': startDate.toIso8601String(),
+        'return': expectedReturnDate.toIso8601String(),
+        'total': totalPrice,
+        'notes': notes,
+      });
+
   int get rentalDays => expectedReturnDate.difference(startDate).inDays;
 
-  bool get isLate => status == 'active' && DateTime.now().isAfter(expectedReturnDate);
+  bool get isLate =>
+      status == 'active' && DateTime.now().isAfter(expectedReturnDate);
+
+  /// Lateness is never written to the database — a contract stays 'active'
+  /// until it is closed — so anything that shows or filters by status has to
+  /// go through this rather than [status].
+  String get displayStatus => isLate ? 'late' : status;
 
   ContractModel copyWith({
     int? id,
@@ -43,6 +71,9 @@ class ContractModel {
     int? vehicleId,
     int? primaryDriverId,
     int? secondaryDriverId,
+    int? chauffeurId,
+    double? chauffeurHours,
+    double? chauffeurHourlyRate,
     DateTime? startDate,
     DateTime? expectedReturnDate,
     DateTime? actualReturnDate,
@@ -59,6 +90,9 @@ class ContractModel {
       vehicleId: vehicleId ?? this.vehicleId,
       primaryDriverId: primaryDriverId ?? this.primaryDriverId,
       secondaryDriverId: secondaryDriverId ?? this.secondaryDriverId,
+      chauffeurId: chauffeurId ?? this.chauffeurId,
+      chauffeurHours: chauffeurHours ?? this.chauffeurHours,
+      chauffeurHourlyRate: chauffeurHourlyRate ?? this.chauffeurHourlyRate,
       startDate: startDate ?? this.startDate,
       expectedReturnDate: expectedReturnDate ?? this.expectedReturnDate,
       actualReturnDate: actualReturnDate ?? this.actualReturnDate,
@@ -78,6 +112,9 @@ class ContractModel {
       'vehicle_id': vehicleId,
       'primary_driver_id': primaryDriverId,
       'secondary_driver_id': secondaryDriverId,
+      'chauffeur_id': chauffeurId,
+      'chauffeur_hours': chauffeurHours,
+      'chauffeur_hourly_rate': chauffeurHourlyRate,
       'start_date': startDate.toIso8601String(),
       'expected_return_date': expectedReturnDate.toIso8601String(),
       'actual_return_date': actualReturnDate?.toIso8601String(),
@@ -97,6 +134,10 @@ class ContractModel {
       vehicleId: map['vehicle_id'] as int,
       primaryDriverId: map['primary_driver_id'] as int,
       secondaryDriverId: map['secondary_driver_id'] as int?,
+      chauffeurId: map['chauffeur_id'] as int?,
+      chauffeurHours: (map['chauffeur_hours'] as num?)?.toDouble() ?? 0,
+      chauffeurHourlyRate:
+          (map['chauffeur_hourly_rate'] as num?)?.toDouble() ?? 0,
       startDate: DateTime.parse(map['start_date'] as String),
       expectedReturnDate: DateTime.parse(map['expected_return_date'] as String),
       actualReturnDate: map['actual_return_date'] != null
@@ -111,4 +152,3 @@ class ContractModel {
     );
   }
 }
-

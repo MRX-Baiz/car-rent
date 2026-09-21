@@ -37,6 +37,7 @@ migrate_working_dir/
 # Gradle writes here too; /build/ above only covers the project root.
 /android/build/
 /android/.gradle/
+/android/.kotlin/
 
 # Local run artefacts
 crash_log.txt

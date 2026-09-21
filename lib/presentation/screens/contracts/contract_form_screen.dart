@@ -20,15 +20,26 @@ import '../../providers/contract_provider.dart';
 import '../../providers/dashboard_provider.dart';
 import '../../providers/vehicle_provider.dart';
 import '../../providers/client_provider.dart';
-import '../../widgets/common/app_button.dart';
+import '../../providers/chauffeur_provider.dart';
+import '../../../data/models/chauffeur_model.dart';
+import '../../../core/constants/app_colors.dart';
+import '../../../core/utils/format_utils.dart';
+import '../../../core/utils/vehicle_labels.dart';
+import '../../widgets/common/alert_banner.dart';
 import '../../widgets/common/empty_state_widget.dart';
+import '../../widgets/common/form_section.dart';
+import '../../widgets/common/plate_badge.dart';
+import '../../widgets/common/status_chip.dart';
+import '../../widgets/common/vehicle_photo.dart';
 
 class ContractFormScreen extends ConsumerStatefulWidget {
-  const ContractFormScreen({super.key});
+  const ContractFormScreen({super.key, this.initialVehicleId});
+
+  /// Set when the form is opened from a vehicle's page.
+  final int? initialVehicleId;
 
   @override
-  ConsumerState<ContractFormScreen> createState() =>
-      _ContractFormScreenState();
+  ConsumerState<ContractFormScreen> createState() => _ContractFormScreenState();
 }
 
 class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
@@ -38,6 +49,8 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
   VehicleModel? _selectedVehicle;
   ClientModel? _primaryDriver;
   ClientModel? _secondaryDriver;
+  ChauffeurModel? _chauffeur;
+  final _chauffeurHoursController = TextEditingController();
 
   DateTime _startDate = DateTime.now();
   DateTime _expectedReturnDate = DateTime.now().add(const Duration(days: 1));
@@ -46,14 +59,13 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
   double _amountPaid = 0;
   double _totalPrice = 0;
   double _dailyPrice = 0;
-  
+
   final _dailyPriceController = TextEditingController();
   final _totalPriceController = TextEditingController();
   final _amountPaidController = TextEditingController();
 
   bool _isSubmitting = false;
   bool _isImportingOcr = false;
-
 
   bool _isNewPrimaryDriver = false;
   bool _isNewSecondaryDriver = false;
@@ -107,7 +119,6 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
     return closest;
   }
 
-
   @override
   void dispose() {
     _newPrimaryFirstName.dispose();
@@ -123,6 +134,7 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
     _dailyPriceController.dispose();
     _totalPriceController.dispose();
     _amountPaidController.dispose();
+    _chauffeurHoursController.dispose();
     super.dispose();
   }
 
@@ -132,7 +144,16 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
     Future.microtask(() async {
       await ref.read(vehiclesProvider.notifier).loadVehicles();
       await ref.read(clientsProvider.notifier).loadClients();
+      await ref.read(chauffeursProvider.notifier).load();
       if (mounted) {
+        final preselected = widget.initialVehicleId;
+        if (preselected != null) {
+          final vehicles = ref.read(vehiclesProvider).value ?? [];
+          final match = vehicles
+              .where((v) => v.id == preselected && v.status == 'available')
+              .firstOrNull;
+          if (match != null) setState(() => _selectedVehicle = match);
+        }
         final clients = ref.read(clientsProvider).value ?? [];
         if (clients.isEmpty) {
           setState(() {
@@ -151,8 +172,11 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
   double get _remaining => _totalPrice - _amountPaid;
 
   void _updateTotalPrice() {
-    _totalPrice = _dailyPrice * _durationDays;
-    _totalPriceController.text = _totalPrice == 0 ? '' : _totalPrice.toStringAsFixed(2);
+    _totalPrice = _dailyPrice * _durationDays +
+        ((_chauffeur?.hourlyRate ?? 0) *
+            (double.tryParse(_chauffeurHoursController.text) ?? 0));
+    _totalPriceController.text =
+        _totalPrice == 0 ? '' : _totalPrice.toStringAsFixed(2);
   }
 
   List<ClientModel> _filteredClients(
@@ -168,6 +192,22 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
               (c.cin ?? '').toLowerCase().contains(q),
         )
         .toList();
+  }
+
+  List<ClientModel> _uniqueClients(List<ClientModel> clients, String query) {
+    final unique = <int, ClientModel>{};
+    for (final client in _filteredClients(clients, query)) {
+      if (client.id != null) unique.putIfAbsent(client.id!, () => client);
+    }
+    return unique.values.toList();
+  }
+
+  ClientModel? _clientWithId(List<ClientModel> clients, int? id) {
+    if (id == null) return null;
+    for (final client in clients) {
+      if (client.id == id) return client;
+    }
+    return null;
   }
 
   void _syncSelectedDriversWithFilter(List<ClientModel> clients) {
@@ -232,7 +272,9 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
       } catch (_) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Caméra non disponible. Sélection depuis les fichiers.')),
+            const SnackBar(
+                content: Text(
+                    'Caméra non disponible. Sélection depuis les fichiers.')),
           );
         }
       }
@@ -251,7 +293,9 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
     if (bytes != null && bytes.isNotEmpty) {
       final ext = (pickedFile.extension ?? '').isNotEmpty
           ? pickedFile.extension!
-          : (pickedFile.name.contains('.') ? pickedFile.name.split('.').last : 'jpg');
+          : (pickedFile.name.contains('.')
+              ? pickedFile.name.split('.').last
+              : 'jpg');
       final tmp = File(
         '${Directory.systemTemp.path}/${_tmpPrefix}${DateTime.now().millisecondsSinceEpoch}.$ext',
       );
@@ -264,12 +308,6 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
     if (!await file.exists()) return null;
     return file;
   }
-
-
-
-
-
-
 
   Future<void> _importDriverOcr({
     required bool isPrimary,
@@ -284,11 +322,14 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
       final text = await _ocrService.extractText(file.path);
       if (text.trim().isEmpty) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Aucun texte extrait.')));
+          ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Aucun texte extrait.')));
         }
         return;
       }
-      final data = isPermis ? _ocrService.parseLicenseData(text) : _ocrService.parseCINData(text);
+      final data = isPermis
+          ? _ocrService.parseLicenseData(text)
+          : _ocrService.parseCINData(text);
       final isNew = isPrimary ? _isNewPrimaryDriver : _isNewSecondaryDriver;
       if (isNew) {
         setState(() {
@@ -299,33 +340,47 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
           final cn = data['cin'] ?? '';
           final lic = isPermis ? (data['licenseNumber'] ?? '') : '';
           final expiry = data['expiryDate'] ?? '';
-          
+
           if (isPrimary) {
-            if (fn.isNotEmpty && _newPrimaryFirstName.text.isEmpty) _newPrimaryFirstName.text = fn;
-            if (ln.isNotEmpty && _newPrimaryLastName.text.isEmpty) _newPrimaryLastName.text = ln;
-            if (cn.isNotEmpty && _newPrimaryCin.text.isEmpty) _newPrimaryCin.text = cn;
-            if (lic.isNotEmpty && _newPrimaryLicense.text.isEmpty) _newPrimaryLicense.text = lic;
-            if (expiry.isNotEmpty) _newPrimaryLicenseExpiry = _parseDate(expiry);
+            if (fn.isNotEmpty && _newPrimaryFirstName.text.isEmpty)
+              _newPrimaryFirstName.text = fn;
+            if (ln.isNotEmpty && _newPrimaryLastName.text.isEmpty)
+              _newPrimaryLastName.text = ln;
+            if (cn.isNotEmpty && _newPrimaryCin.text.isEmpty)
+              _newPrimaryCin.text = cn;
+            if (lic.isNotEmpty && _newPrimaryLicense.text.isEmpty)
+              _newPrimaryLicense.text = lic;
+            if (expiry.isNotEmpty)
+              _newPrimaryLicenseExpiry = _parseDate(expiry);
           } else {
-            if (fn.isNotEmpty && _newSecondaryFirstName.text.isEmpty) _newSecondaryFirstName.text = fn;
-            if (ln.isNotEmpty && _newSecondaryLastName.text.isEmpty) _newSecondaryLastName.text = ln;
-            if (cn.isNotEmpty && _newSecondaryCin.text.isEmpty) _newSecondaryCin.text = cn;
-            if (lic.isNotEmpty && _newSecondaryLicense.text.isEmpty) _newSecondaryLicense.text = lic;
-            if (expiry.isNotEmpty) _newSecondaryLicenseExpiry = _parseDate(expiry);
+            if (fn.isNotEmpty && _newSecondaryFirstName.text.isEmpty)
+              _newSecondaryFirstName.text = fn;
+            if (ln.isNotEmpty && _newSecondaryLastName.text.isEmpty)
+              _newSecondaryLastName.text = ln;
+            if (cn.isNotEmpty && _newSecondaryCin.text.isEmpty)
+              _newSecondaryCin.text = cn;
+            if (lic.isNotEmpty && _newSecondaryLicense.text.isEmpty)
+              _newSecondaryLicense.text = lic;
+            if (expiry.isNotEmpty)
+              _newSecondaryLicenseExpiry = _parseDate(expiry);
           }
         });
         if (mounted) {
-           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Champs remplis selon le document.')));
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+              content: Text('Champs remplis selon le document.')));
         }
       } else {
         final cin = (data['cin'] ?? '').trim();
         if (cin.isEmpty && !isPermis) {
-          if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('CIN non reconnu.')));
+          if (mounted)
+            ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('CIN non reconnu.')));
           return;
         }
         ClientModel? matched;
         try {
-          matched = clients.firstWhere((c) => (c.cin ?? '').toUpperCase() == cin.toUpperCase());
+          matched = clients.firstWhere(
+              (c) => (c.cin ?? '').toUpperCase() == cin.toUpperCase());
         } catch (_) {}
         if (!mounted) return;
         setState(() {
@@ -340,12 +395,17 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
         });
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(matched != null ? 'Conducteur sélectionné.' : 'Client non trouvé dans la base.')),
+            SnackBar(
+                content: Text(matched != null
+                    ? 'Conducteur sélectionné.'
+                    : 'Client non trouvé dans la base.')),
           );
         }
       }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur import: $e')));
+      if (mounted)
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Erreur import: $e')));
     } finally {
       if (mounted) setState(() => _isImportingOcr = false);
     }
@@ -375,7 +435,8 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
       if (!_expectedReturnDate.isAfter(_startDate)) {
         _expectedReturnDate = _startDate.add(const Duration(days: 1));
       }
-      _durationDays = _normalizeDurationDays(_startDate.difference(_expectedReturnDate).inDays.abs());
+      _durationDays = _normalizeDurationDays(
+          _startDate.difference(_expectedReturnDate).inDays.abs());
       _updateTotalPrice();
     });
   }
@@ -396,7 +457,9 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
     if (picked.bytes != null && picked.bytes!.isNotEmpty) {
       ext = (picked.extension ?? '').isNotEmpty
           ? picked.extension!.toLowerCase()
-          : (picked.name.contains('.') ? picked.name.split('.').last.toLowerCase() : '');
+          : (picked.name.contains('.')
+              ? picked.name.split('.').last.toLowerCase()
+              : '');
       final tmp = File(
         '${Directory.systemTemp.path}/$_tmpPrefix${DateTime.now().millisecondsSinceEpoch}.${ext.isEmpty ? 'bin' : ext}',
       );
@@ -420,7 +483,8 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
       if (!mounted) return;
       if (text.trim().isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Aucun texte extrait. Essayez un autre fichier.')),
+          const SnackBar(
+              content: Text('Aucun texte extrait. Essayez un autre fichier.')),
         );
         return;
       }
@@ -531,31 +595,37 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
     if (_isSubmitting) return;
 
     if (_selectedVehicle == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Sélectionnez un véhicule.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Sélectionnez un véhicule.')));
       return;
     }
 
     if (_isNewPrimaryDriver) {
-      if (_newPrimaryFirstName.text.trim().isEmpty || 
-          _newPrimaryLastName.text.trim().isEmpty || 
+      if (_newPrimaryFirstName.text.trim().isEmpty ||
+          _newPrimaryLastName.text.trim().isEmpty ||
           _newPrimaryCin.text.trim().isEmpty ||
           _newPrimaryLicense.text.trim().isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Nom, Prénom, CIN et Permis sont requis pour le conducteur principal.')));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text(
+                'Nom, Prénom, CIN et Permis sont requis pour le conducteur principal.')));
         return;
       }
     } else {
       if (_primaryDriver == null) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Sélectionnez un conducteur principal.')));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Sélectionnez un conducteur principal.')));
         return;
       }
     }
 
     if (_hasSecondaryDriver && _isNewSecondaryDriver) {
-      if (_newSecondaryFirstName.text.trim().isEmpty || 
+      if (_newSecondaryFirstName.text.trim().isEmpty ||
           _newSecondaryLastName.text.trim().isEmpty ||
           _newSecondaryCin.text.trim().isEmpty ||
           _newSecondaryLicense.text.trim().isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Nom, Prénom, CIN et Permis sont requis pour le conducteur secondaire.')));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text(
+                'Nom, Prénom, CIN et Permis sont requis pour le conducteur secondaire.')));
         return;
       }
     }
@@ -566,23 +636,39 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
 
     // --- SMART VALIDATION ---
     final warnings = <String>[];
-    
+
     // 1. Same driver check
-    final pCin = _isNewPrimaryDriver ? _newPrimaryCin.text.trim() : _primaryDriver?.cin;
-    final sCin = _hasSecondaryDriver ? (_isNewSecondaryDriver ? _newSecondaryCin.text.trim() : _secondaryDriver?.cin) : null;
-    if (_hasSecondaryDriver && pCin == sCin && pCin != null && pCin.isNotEmpty) {
+    final pCin =
+        _isNewPrimaryDriver ? _newPrimaryCin.text.trim() : _primaryDriver?.cin;
+    final sCin = _hasSecondaryDriver
+        ? (_isNewSecondaryDriver
+            ? _newSecondaryCin.text.trim()
+            : _secondaryDriver?.cin)
+        : null;
+    if (_hasSecondaryDriver &&
+        pCin == sCin &&
+        pCin != null &&
+        pCin.isNotEmpty) {
       warnings.add('Le conducteur principal et secondaire sont identiques.');
     }
 
     // 2. License expiry check
-    final pExpiry = _isNewPrimaryDriver ? _newPrimaryLicenseExpiry : _primaryDriver?.licenseExpiryDate;
+    final pExpiry = _isNewPrimaryDriver
+        ? _newPrimaryLicenseExpiry
+        : _primaryDriver?.licenseExpiryDate;
     if (pExpiry != null && pExpiry.isBefore(DateTime.now())) {
-      warnings.add('Le permis du conducteur principal est expiré (${DateFormat('dd/MM/yyyy').format(pExpiry)}).');
+      warnings.add(
+          'Le permis du conducteur principal est expiré (${DateFormat('dd/MM/yyyy').format(pExpiry)}).');
     }
-    
-    final sExpiry = _hasSecondaryDriver ? (_isNewSecondaryDriver ? _newSecondaryLicenseExpiry : _secondaryDriver?.licenseExpiryDate) : null;
+
+    final sExpiry = _hasSecondaryDriver
+        ? (_isNewSecondaryDriver
+            ? _newSecondaryLicenseExpiry
+            : _secondaryDriver?.licenseExpiryDate)
+        : null;
     if (sExpiry != null && sExpiry.isBefore(DateTime.now())) {
-      warnings.add('Le permis du conducteur secondaire est expiré (${DateFormat('dd/MM/yyyy').format(sExpiry)}).');
+      warnings.add(
+          'Le permis du conducteur secondaire est expiré (${DateFormat('dd/MM/yyyy').format(sExpiry)}).');
     }
 
     if (warnings.isNotEmpty) {
@@ -599,10 +685,13 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: warnings.map<Widget>((w) => Padding(
-              padding: const EdgeInsets.only(bottom: 8.0),
-              child: Text('• $w'),
-            )).toList()..add(const Text('\nSouhaitez-vous quand même continuer ?')),
+            children: warnings
+                .map<Widget>((w) => Padding(
+                      padding: const EdgeInsets.only(bottom: 8.0),
+                      child: Text('• $w'),
+                    ))
+                .toList()
+              ..add(const Text('\nSouhaitez-vous quand même continuer ?')),
           ),
           actions: [
             TextButton(
@@ -623,7 +712,6 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
     }
     // --- END SMART VALIDATION ---
 
-
     try {
       final repo = ContractRepository.instance;
       final contractNumber = await repo.generateContractNumber();
@@ -640,42 +728,44 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
       final clientRepo = ClientRepository.instance;
       int primaryId;
       if (_isNewPrimaryDriver) {
-          final pCin = _newPrimaryCin.text.trim();
-          final pLic = _newPrimaryLicense.text.trim();
-          final pPhone = _newPrimaryPhone.text.trim();
-          primaryId = await clientRepo.insertClient(ClientModel(
-              firstName: _newPrimaryFirstName.text.trim(),
-              lastName: _newPrimaryLastName.text.trim(),
-              cin: pCin.isEmpty ? 'NON_RENSEIGNE_${now.millisecondsSinceEpoch}' : pCin,
-              licenseNumber: pLic,
-              licenseExpiryDate: _newPrimaryLicenseExpiry,
-              phone: pPhone.isEmpty ? '0000000000' : pPhone,
-              createdAt: now,
-              updatedAt: now,
-          ));
+        final pCin = _newPrimaryCin.text.trim();
+        final pLic = _newPrimaryLicense.text.trim();
+        final pPhone = _newPrimaryPhone.text.trim();
+        primaryId = await clientRepo.insertClient(ClientModel(
+          firstName: _newPrimaryFirstName.text.trim(),
+          lastName: _newPrimaryLastName.text.trim(),
+          cin: pCin.isEmpty
+              ? 'NON_RENSEIGNE_${now.millisecondsSinceEpoch}'
+              : pCin,
+          licenseNumber: pLic,
+          licenseExpiryDate: _newPrimaryLicenseExpiry,
+          phone: pPhone.isEmpty ? '0000000000' : pPhone,
+          createdAt: now,
+          updatedAt: now,
+        ));
       } else {
-          primaryId = _primaryDriver!.id!;
+        primaryId = _primaryDriver!.id!;
       }
 
       int? secondaryId;
       if (_hasSecondaryDriver) {
-          if (_isNewSecondaryDriver) {
-              final sCin = _newSecondaryCin.text.trim();
-              final sLic = _newSecondaryLicense.text.trim();
-              final sPhone = _newSecondaryPhone.text.trim();
-              secondaryId = await clientRepo.insertClient(ClientModel(
-                  firstName: _newSecondaryFirstName.text.trim(),
-                  lastName: _newSecondaryLastName.text.trim(),
-                  cin: sCin,
-                  licenseNumber: sLic,
-                  licenseExpiryDate: _newSecondaryLicenseExpiry,
-                  phone: sPhone.isEmpty ? '0000000000' : sPhone,
-                  createdAt: now,
-                  updatedAt: now,
-              ));
-          } else {
-              secondaryId = _secondaryDriver?.id;
-          }
+        if (_isNewSecondaryDriver) {
+          final sCin = _newSecondaryCin.text.trim();
+          final sLic = _newSecondaryLicense.text.trim();
+          final sPhone = _newSecondaryPhone.text.trim();
+          secondaryId = await clientRepo.insertClient(ClientModel(
+            firstName: _newSecondaryFirstName.text.trim(),
+            lastName: _newSecondaryLastName.text.trim(),
+            cin: sCin,
+            licenseNumber: sLic,
+            licenseExpiryDate: _newSecondaryLicenseExpiry,
+            phone: sPhone.isEmpty ? '0000000000' : sPhone,
+            createdAt: now,
+            updatedAt: now,
+          ));
+        } else {
+          secondaryId = _secondaryDriver?.id;
+        }
       }
 
       await ref.read(clientsProvider.notifier).loadClients();
@@ -686,6 +776,9 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
         vehicleId: _selectedVehicle!.id!,
         primaryDriverId: primaryId,
         secondaryDriverId: secondaryId,
+        chauffeurId: _chauffeur?.id,
+        chauffeurHours: double.tryParse(_chauffeurHoursController.text) ?? 0,
+        chauffeurHourlyRate: _chauffeur?.hourlyRate ?? 0,
         startDate: _startDate,
         expectedReturnDate: _expectedReturnDate,
         actualReturnDate: null,
@@ -732,468 +825,69 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
     }
   }
 
+  VehicleModel? _vehicleWithId(List<VehicleModel> vehicles, int? id) {
+    if (id == null) return null;
+    for (final v in vehicles) {
+      if (v.id == id) return v;
+    }
+    return null;
+  }
+
+  ClientModel? _secondaryDropdownValue(List<ClientModel> clients) {
+    final current = _secondaryDriver;
+    if (current == null) return null;
+    if (_primaryDriver != null && current.id == _primaryDriver!.id) return null;
+    final filtered = _uniqueClients(clients, _secondaryClientSearchQuery).where(
+      (c) => _primaryDriver == null || c.id != _primaryDriver!.id,
+    );
+    return _clientWithId(filtered.toList(), current.id);
+  }
+
+  void _setPaid(double value) {
+    setState(() {
+      _amountPaid = value;
+      _amountPaidController.text = value == 0 ? '' : value.toStringAsFixed(2);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final vehiclesAsync = ref.watch(vehiclesProvider);
     final clientsAsync = ref.watch(clientsProvider);
-    final theme = Theme.of(context);
+    final chauffeurs =
+        ref.watch(chauffeursProvider).value ?? const <ChauffeurModel>[];
+
+    final availableVehicles = (vehiclesAsync.value ?? const <VehicleModel>[])
+        .where((v) => v.status == 'available')
+        .toList();
+    final showForm = vehiclesAsync.hasValue &&
+        clientsAsync.hasValue &&
+        availableVehicles.isNotEmpty;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Nouveau contrat'),
       ),
+      bottomNavigationBar: showForm ? _buildSubmitBar(context) : null,
       body: vehiclesAsync.when(
         data: (vehicles) {
-          final availableVehicles =
-              vehicles.where((v) => v.status == 'available').toList();
-
           if (availableVehicles.isEmpty) {
-            return const Padding(
-              padding: EdgeInsets.all(16),
+            return Padding(
+              padding: const EdgeInsets.all(16),
               child: EmptyStateWidget(
                 title: 'Aucun véhicule disponible.',
-                subtitle:
-                    'Ajoutez un véhicule ou libérez un contrat existant.',
+                subtitle: 'Ajoutez un véhicule ou libérez un contrat existant.',
                 icon: Icons.directions_car_filled_outlined,
+                actionLabel: 'Ajouter un véhicule',
+                onAction: () => context.push('/vehicles/add'),
               ),
             );
           }
 
           return clientsAsync.when(
-            data: (clients) {
-              return SingleChildScrollView(
-                // Pad past the system navigation bar, otherwise the submit
-                // button at the end of the form sits under the phone's
-                // back/home buttons and cannot be tapped.
-                padding: EdgeInsets.fromLTRB(
-                  16,
-                  16,
-                  16,
-                  16 + MediaQuery.viewPaddingOf(context).bottom,
-                ),
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 800),
-                    child: Form(
-                      key: _formKey,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          const SizedBox(height: 20),
-                          Text(
-                            '1. Véhicule',
-                            style: theme.textTheme.titleMedium
-                                ?.copyWith(fontWeight: FontWeight.bold),
-                          ),
-                          const SizedBox(height: 8),
-                          DropdownButtonFormField<VehicleModel>(
-                            value: _selectedVehicle,
-                            items: availableVehicles
-                                .map(
-                                  (v) => DropdownMenuItem(
-                                    value: v,
-                                    child: Text(
-                                      '${v.brand} ${v.model} (${v.registrationNumber})',
-                                    ),
-                                  ),
-                                )
-                                .toList(),
-                            onChanged: (v) {
-                              setState(() {
-                                _selectedVehicle = v;
-                              });
-                            },
-                            decoration: const InputDecoration(
-                              labelText: 'Véhicule',
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          
-                          Text(
-                            '2. Conducteur principal',
-                            style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-                          ),
-                          // Radios and scan buttons share a line on desktop and
-                          // fall onto separate lines on a phone, where a single
-                          // Row overflowed.
-                          Wrap(
-                            alignment: WrapAlignment.spaceBetween,
-                            crossAxisAlignment: WrapCrossAlignment.center,
-                            spacing: 8,
-                            runSpacing: 4,
-                            children: [
-                              // Both options together exceed a phone's width,
-                              // so they wrap onto separate lines when needed.
-                              Wrap(
-                                crossAxisAlignment: WrapCrossAlignment.center,
-                                children: [
-                                  Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Radio<bool>(
-                                        value: false,
-                                        groupValue: _isNewPrimaryDriver,
-                                        onChanged: (v) => setState(() => _isNewPrimaryDriver = v!),
-                                      ),
-                                      const Text('Client existant'),
-                                    ],
-                                  ),
-                                  Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Radio<bool>(
-                                        value: true,
-                                        groupValue: _isNewPrimaryDriver,
-                                        onChanged: (v) => setState(() => _isNewPrimaryDriver = v!),
-                                      ),
-                                      const Text('Nouveau client'),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  if (_isNewPrimaryDriver) ...[
-                                    OutlinedButton.icon(
-                                      onPressed: _isImportingOcr ? null : () => _importDriverOcr(isPrimary: true, isPermis: false, clients: clients),
-                                      icon: const Icon(Icons.badge_outlined, size: 18),
-                                      label: const Text('CIN'),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    OutlinedButton.icon(
-                                      onPressed: _isImportingOcr ? null : () => _importDriverOcr(isPrimary: true, isPermis: true, clients: clients),
-                                      icon: const Icon(Icons.credit_card, size: 18),
-                                      label: const Text('Permis'),
-                                    ),
-                                  ] else ...[
-                                    OutlinedButton.icon(
-                                      onPressed: _isImportingOcr ? null : () => _importDriverOcr(isPrimary: true, isPermis: false, clients: clients),
-                                      icon: const Icon(Icons.credit_card, size: 18),
-                                      label: const Text('Importer CIN'),
-                                    ),
-                                  ]
-                                ],
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          if (_isNewPrimaryDriver) ...[
-                             Row(children: [
-                               Expanded(child: TextFormField(controller: _newPrimaryFirstName, decoration: const InputDecoration(labelText: 'Prénom'))),
-                               const SizedBox(width: 8),
-                               Expanded(child: TextFormField(controller: _newPrimaryLastName, decoration: const InputDecoration(labelText: 'Nom'))),
-                             ]),
-                             const SizedBox(height: 8),
-                             Row(children: [
-                               Expanded(child: TextFormField(controller: _newPrimaryCin, decoration: const InputDecoration(labelText: 'CIN'))),
-                               const SizedBox(width: 8),
-                               Expanded(child: TextFormField(controller: _newPrimaryLicense, decoration: const InputDecoration(labelText: 'Numéro Permis'))),
-                             ]),
-                             const SizedBox(height: 8),
-                             TextFormField(controller: _newPrimaryPhone, decoration: const InputDecoration(labelText: 'Téléphone (optionnel)')),
-                          ] else ...[
-                            TextFormField(
-                              decoration: const InputDecoration(
-                                labelText: 'Rechercher un conducteur',
-                                hintText: 'Nom ou CIN',
-                                prefixIcon: Icon(Icons.search),
-                              ),
-                              onChanged: (value) {
-                                setState(() {
-                                  _clientSearchQuery = value;
-                                  _syncSelectedDriversWithFilter(clients);
-                                });
-                              },
-                            ),
-                            const SizedBox(height: 8),
-                            DropdownButtonFormField<ClientModel>(
-                              value: _primaryDriver != null &&
-                                      _filteredClients(clients, _clientSearchQuery).any((c) => c.id == _primaryDriver!.id)
-                                  ? _primaryDriver
-                                  : null,
-                              items: _filteredClients(clients, _clientSearchQuery)
-                                  .map((c) => DropdownMenuItem(value: c, child: Text('${c.fullName} (${c.cin})')))
-                                  .toList(),
-                              onChanged: (c) {
-                                setState(() {
-                                  _primaryDriver = c;
-                                  if (c != null && _secondaryDriver?.id == c.id) {
-                                    _secondaryDriver = null;
-                                  }
-                                });
-                              },
-                              decoration: const InputDecoration(labelText: 'Conducteur principal'),
-                            ),
-                          ],
-                          const SizedBox(height: 16),
-
-                          
-                          Row(
-                            children: [
-                              Checkbox(value: _hasSecondaryDriver, onChanged: (v) => setState(() => _hasSecondaryDriver = v!)),
-                              Text(
-                                '3. Conducteur secondaire (optionnel)',
-                                style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-                              ),
-                            ]
-                          ),
-                          if (_hasSecondaryDriver) ...[
-                            Wrap(
-                              alignment: WrapAlignment.spaceBetween,
-                              crossAxisAlignment: WrapCrossAlignment.center,
-                              spacing: 8,
-                              runSpacing: 4,
-                              children: [
-                                Wrap(
-                                  crossAxisAlignment: WrapCrossAlignment.center,
-                                  children: [
-                                    Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Radio<bool>(
-                                          value: false,
-                                          groupValue: _isNewSecondaryDriver,
-                                          onChanged: (v) => setState(() => _isNewSecondaryDriver = v!),
-                                        ),
-                                        const Text('Client existant'),
-                                      ],
-                                    ),
-                                    Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Radio<bool>(
-                                          value: true,
-                                          groupValue: _isNewSecondaryDriver,
-                                          onChanged: (v) => setState(() => _isNewSecondaryDriver = v!),
-                                        ),
-                                        const Text('Nouveau client'),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    if (_isNewSecondaryDriver) ...[
-                                      OutlinedButton.icon(
-                                        onPressed: _isImportingOcr ? null : () => _importDriverOcr(isPrimary: false, isPermis: false, clients: clients),
-                                        icon: const Icon(Icons.badge_outlined, size: 18),
-                                        label: const Text('CIN'),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      OutlinedButton.icon(
-                                        onPressed: _isImportingOcr ? null : () => _importDriverOcr(isPrimary: false, isPermis: true, clients: clients),
-                                        icon: const Icon(Icons.credit_card, size: 18),
-                                        label: const Text('Permis'),
-                                      ),
-                                    ] else ...[
-                                      OutlinedButton.icon(
-                                        onPressed: _isImportingOcr ? null : () => _importDriverOcr(isPrimary: false, isPermis: false, clients: clients),
-                                        icon: const Icon(Icons.credit_card, size: 18),
-                                        label: const Text('Importer CIN'),
-                                      ),
-                                    ]
-                                  ],
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            if (_isNewSecondaryDriver) ...[
-                              Row(children: [
-                                 Expanded(child: TextFormField(controller: _newSecondaryFirstName, decoration: const InputDecoration(labelText: 'Prénom'))),
-                                 const SizedBox(width: 8),
-                                 Expanded(child: TextFormField(controller: _newSecondaryLastName, decoration: const InputDecoration(labelText: 'Nom'))),
-                               ]),
-                               const SizedBox(height: 8),
-                               Row(children: [
-                                 Expanded(child: TextFormField(controller: _newSecondaryCin, decoration: const InputDecoration(labelText: 'CIN'))),
-                                 const SizedBox(width: 8),
-                                 Expanded(child: TextFormField(controller: _newSecondaryLicense, decoration: const InputDecoration(labelText: 'Numéro Permis'))),
-                               ]),
-                               const SizedBox(height: 8),
-                               TextFormField(controller: _newSecondaryPhone, decoration: const InputDecoration(labelText: 'Téléphone (optionnel)')),
-                            ] else ...[
-                              TextFormField(
-                                decoration: const InputDecoration(
-                                  labelText: 'Rechercher un conducteur secondaire',
-                                  hintText: 'Nom ou CIN',
-                                  prefixIcon: Icon(Icons.search),
-                                ),
-                                onChanged: (value) {
-                                  setState(() {
-                                    _secondaryClientSearchQuery = value;
-                                    final filtered = _filteredClients(clients, _secondaryClientSearchQuery);
-                                    if (_secondaryDriver != null && !filtered.any((c) => c.id == _secondaryDriver!.id)) {
-                                      _secondaryDriver = null;
-                                    }
-                                  });
-                                },
-                              ),
-                              const SizedBox(height: 8),
-                              DropdownButtonFormField<ClientModel?>(
-                                value: (() {
-                                  final current = _secondaryDriver;
-                                  if (current == null) return null;
-                                  if (_primaryDriver != null && current.id == _primaryDriver!.id) return null;
-                                  final filtered = _filteredClients(clients, _secondaryClientSearchQuery).where(
-                                    (c) => _primaryDriver == null || c.id != _primaryDriver!.id,
-                                  );
-                                  return filtered.any((c) => c.id == current.id) ? current : null;
-                                })(),
-                                items: [
-                                  const DropdownMenuItem<ClientModel?>(value: null, child: Text('Aucun')),
-                                  ..._filteredClients(clients, _secondaryClientSearchQuery)
-                                      .where((c) => _primaryDriver == null || c.id != _primaryDriver!.id)
-                                      .map((c) => DropdownMenuItem<ClientModel?>(value: c, child: Text('${c.fullName} (${c.cin})'))),
-                                ],
-                                onChanged: (ClientModel? c) {
-                                  setState(() {
-                                    _secondaryDriver = c;
-                                  });
-                                },
-                                decoration: const InputDecoration(labelText: 'Conducteur secondaire'),
-                              ),
-                            ],
-                          ],
-                          const SizedBox(height: 16),
-
-                          Text(
-                            '4. Période de location',
-                            style: theme.textTheme.titleMedium
-                                ?.copyWith(fontWeight: FontWeight.bold),
-                          ),
-                          const SizedBox(height: 8),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: ListTile(
-                                  contentPadding: EdgeInsets.zero,
-                                  title: const Text('Date de début'),
-                                  subtitle: Text(
-                                    _dateFormatter.format(_startDate),
-                                  ),
-                                  trailing:
-                                      const Icon(Icons.date_range_outlined),
-                                  onTap: _pickStartDate,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: ListTile(
-                                  contentPadding: EdgeInsets.zero,
-                                  title: const Text('Retour prévu'),
-                                  subtitle: Text(
-                                    _dateFormatter.format(_expectedReturnDate),
-                                  ),
-                                  trailing:
-                                      const Icon(Icons.date_range_outlined),
-                                  onTap: _pickExpectedReturnDate,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Row(
-                            children: [
-                              const Text('Durée:'),
-                              const SizedBox(width: 8),
-                              DropdownButton<int>(
-                                value: _allowedDurations.contains(_durationDays)
-                                    ? _durationDays
-                                    : _allowedDurations.first,
-                                items: _allowedDurations
-                                    .map(
-                                      (d) => DropdownMenuItem<int>(
-                                        value: d,
-                                        child: Text('$d jours'),
-                                      ),
-                                    )
-                                    .toList(),
-                                onChanged: (value) {
-                                  if (value == null) return;
-                                  setState(() {
-                                    _durationDays = _normalizeDurationDays(value);
-                                    _expectedReturnDate =
-                                        _startDate.add(Duration(days: _durationDays));
-                                    _updateTotalPrice();
-                                  });
-                                },
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            '5. Paiement',
-                            style: theme.textTheme.titleMedium
-                                ?.copyWith(fontWeight: FontWeight.bold),
-                          ),
-                          const SizedBox(height: 8),
-                          TextFormField(
-                            controller: _dailyPriceController,
-                            decoration: const InputDecoration(
-                              labelText: 'Prix journalier (MAD)',
-                            ),
-                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                            onChanged: (value) {
-                              setState(() {
-                                _dailyPrice = double.tryParse(value) ?? 0;
-                                _updateTotalPrice();
-                              });
-                            },
-                          ),
-                          const SizedBox(height: 12),
-                          TextFormField(
-                            controller: _totalPriceController,
-                            decoration: const InputDecoration(
-                              labelText: 'Prix total du contrat (MAD)',
-                            ),
-                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                            onChanged: (value) {
-                              setState(() {
-                                _totalPrice = double.tryParse(value) ?? 0;
-                                // Automatically update daily price if total price is set manually
-                                if (_durationDays > 0 && value.isNotEmpty) {
-                                  _dailyPrice = _totalPrice / _durationDays;
-                                  _dailyPriceController.text = _dailyPrice.toStringAsFixed(2);
-                                }
-                              });
-                            },
-                          ),
-                          const SizedBox(height: 12),
-                          TextFormField(
-                            controller: _amountPaidController,
-                            decoration: const InputDecoration(
-                              labelText: 'Montant payé (MAD)',
-                            ),
-                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                            onChanged: (value) {
-                              setState(() {
-                                _amountPaid = double.tryParse(value) ?? 0;
-                              });
-                            },
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Reste à payer: ${_remaining.toStringAsFixed(2)} MAD',
-                            style: theme.textTheme.bodyMedium,
-                          ),
-                          const SizedBox(height: 24),
-                          AppButton(
-                            label: 'Créer le contrat',
-                            icon: Icons.check_circle_outline,
-                            isLoading: _isSubmitting,
-                            onPressed: _submit,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            },
-            loading: () =>
-                const Center(child: CircularProgressIndicator()),
+            data: (clients) =>
+                _buildForm(context, availableVehicles, clients, chauffeurs),
+            loading: () => const Center(child: CircularProgressIndicator()),
             error: (error, _) => Center(
               child: Text(
                 'Erreur lors du chargement des clients.\n'
@@ -1216,5 +910,589 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
       ),
     );
   }
+
+  /// Always-visible total and the submit button, so the operator never has to
+  /// scroll to the end of a long form to finish it.
+  Widget _buildSubmitBar(BuildContext context) {
+    final theme = Theme.of(context);
+    return BottomActionBar(
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('Total ${formatMad(_totalPrice)}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleMedium),
+                Text(
+                  _remaining <= 0.009
+                      ? 'Entièrement payé'
+                      : 'Reste ${formatMad(_remaining)}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: _remaining <= 0.009
+                        ? AppTone.success.color
+                        : AppColors.textSecondary,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          FilledButton.icon(
+            onPressed: _isSubmitting ? null : _submit,
+            icon: _isSubmitting
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Colors.white),
+                  )
+                : const Icon(Icons.check_circle_outline),
+            label: const Text('Créer le contrat'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildForm(
+    BuildContext context,
+    List<VehicleModel> availableVehicles,
+    List<ClientModel> clients,
+    List<ChauffeurModel> chauffeurs,
+  ) {
+    final theme = Theme.of(context);
+    final vehicle = _vehicleWithId(availableVehicles, _selectedVehicle?.id);
+
+    return SingleChildScrollView(
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+      padding: const EdgeInsets.all(16),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 800),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                FormSection(
+                  step: 1,
+                  title: 'Véhicule',
+                  subtitle: '${availableVehicles.length} disponible(s)',
+                  children: [
+                    DropdownButtonFormField<VehicleModel>(
+                      isExpanded: true,
+                      value: vehicle,
+                      items: availableVehicles
+                          .map(
+                            (v) => DropdownMenuItem(
+                              value: v,
+                              child: Text(
+                                '${v.brand} ${v.model} · ${v.registrationNumber}',
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (v) => setState(() => _selectedVehicle = v),
+                      decoration: const InputDecoration(
+                        labelText: 'Choisir un véhicule',
+                        prefixIcon: Icon(Icons.directions_car_outlined),
+                      ),
+                    ),
+                    if (vehicle != null) _VehicleSummary(vehicle: vehicle),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                FormSection(
+                  step: 2,
+                  title: 'Client (conducteur principal)',
+                  children: _driverFields(isPrimary: true, clients: clients),
+                ),
+                const SizedBox(height: 16),
+                FormSection(
+                  step: 3,
+                  title: 'Conducteur secondaire',
+                  subtitle: 'Optionnel',
+                  trailing: Switch(
+                    value: _hasSecondaryDriver,
+                    onChanged: (v) => setState(() => _hasSecondaryDriver = v),
+                  ),
+                  children: _hasSecondaryDriver
+                      ? _driverFields(isPrimary: false, clients: clients)
+                      : const [],
+                ),
+                const SizedBox(height: 16),
+                FormSection(
+                  step: 4,
+                  title: 'Chauffeur de l’agence',
+                  subtitle: 'Optionnel · facturé à l’heure',
+                  children: [
+                    DropdownButtonFormField<ChauffeurModel?>(
+                      isExpanded: true,
+                      value: _chauffeur,
+                      decoration: const InputDecoration(
+                        labelText: 'Chauffeur',
+                        prefixIcon: Icon(Icons.badge_outlined),
+                      ),
+                      items: [
+                        const DropdownMenuItem<ChauffeurModel?>(
+                            value: null, child: Text('Sans chauffeur')),
+                        ...chauffeurs
+                            .where((c) => c.status == 'available')
+                            .map((c) => DropdownMenuItem(
+                                  value: c,
+                                  child: Text(
+                                    '${c.fullName} — ${formatMad(c.hourlyRate)}/h',
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                )),
+                      ],
+                      onChanged: (value) => setState(() {
+                        _chauffeur = value;
+                        _updateTotalPrice();
+                      }),
+                    ),
+                    if (_chauffeur != null)
+                      TextFormField(
+                        controller: _chauffeurHoursController,
+                        decoration: const InputDecoration(
+                          labelText: 'Nombre d’heures chauffeur',
+                          suffixText: 'h',
+                          prefixIcon: Icon(Icons.schedule),
+                        ),
+                        keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true),
+                        onChanged: (_) => setState(_updateTotalPrice),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                FormSection(
+                  step: 5,
+                  title: 'Période de location',
+                  subtitle: 'Durée : $_rentalDays jour(s)',
+                  children: [
+                    _DateField(
+                      label: 'Début',
+                      value: _dateFormatter.format(_startDate),
+                      onTap: _pickStartDate,
+                    ),
+                    _DateField(
+                      label: 'Retour prévu',
+                      value: _dateFormatter.format(_expectedReturnDate),
+                      onTap: _pickExpectedReturnDate,
+                    ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Durée rapide', style: theme.textTheme.titleSmall),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            for (final d in _allowedDurations)
+                              ChoiceChip(
+                                label: Text('$d j'),
+                                selected: _durationDays == d,
+                                onSelected: (_) {
+                                  setState(() {
+                                    _durationDays = _normalizeDurationDays(d);
+                                    _expectedReturnDate = _startDate
+                                        .add(Duration(days: _durationDays));
+                                    _updateTotalPrice();
+                                  });
+                                },
+                              ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                FormSection(
+                  step: 6,
+                  title: 'Paiement',
+                  children: [
+                    TextFormField(
+                      controller: _dailyPriceController,
+                      decoration: const InputDecoration(
+                        labelText: 'Prix par jour',
+                        suffixText: 'MAD',
+                        prefixIcon: Icon(Icons.sell_outlined),
+                      ),
+                      keyboardType:
+                          const TextInputType.numberWithOptions(decimal: true),
+                      onChanged: (value) {
+                        setState(() {
+                          _dailyPrice = double.tryParse(value) ?? 0;
+                          _updateTotalPrice();
+                        });
+                      },
+                    ),
+                    TextFormField(
+                      controller: _totalPriceController,
+                      decoration: const InputDecoration(
+                        labelText: 'Prix total du contrat',
+                        suffixText: 'MAD',
+                        prefixIcon: Icon(Icons.calculate_outlined),
+                        helperText:
+                            'Calculé automatiquement, modifiable à la main.',
+                      ),
+                      keyboardType:
+                          const TextInputType.numberWithOptions(decimal: true),
+                      onChanged: (value) {
+                        setState(() {
+                          _totalPrice = double.tryParse(value) ?? 0;
+                          // Automatically update daily price if total price is set manually
+                          if (_durationDays > 0 && value.isNotEmpty) {
+                            _dailyPrice = _totalPrice / _durationDays;
+                            _dailyPriceController.text =
+                                _dailyPrice.toStringAsFixed(2);
+                          }
+                        });
+                      },
+                    ),
+                    TextFormField(
+                      controller: _amountPaidController,
+                      decoration: const InputDecoration(
+                        labelText: 'Montant payé maintenant',
+                        suffixText: 'MAD',
+                        prefixIcon: Icon(Icons.payments_outlined),
+                      ),
+                      keyboardType:
+                          const TextInputType.numberWithOptions(decimal: true),
+                      onChanged: (value) {
+                        setState(() {
+                          _amountPaid = double.tryParse(value) ?? 0;
+                        });
+                      },
+                    ),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        ActionChip(
+                          avatar: const Icon(Icons.done_all, size: 18),
+                          label: const Text('Tout payer'),
+                          onPressed: _totalPrice > 0
+                              ? () => _setPaid(_totalPrice)
+                              : null,
+                        ),
+                        ActionChip(
+                          avatar: const Icon(Icons.money_off, size: 18),
+                          label: const Text('Aucun acompte'),
+                          onPressed: () => _setPaid(0),
+                        ),
+                      ],
+                    ),
+                    if (_remaining < -0.009)
+                      const AlertBanner(
+                        tone: AppTone.warning,
+                        title: 'Le montant payé dépasse le total.',
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _driverFields({
+    required bool isPrimary,
+    required List<ClientModel> clients,
+  }) {
+    final isNew = isPrimary ? _isNewPrimaryDriver : _isNewSecondaryDriver;
+    final firstName = isPrimary ? _newPrimaryFirstName : _newSecondaryFirstName;
+    final lastName = isPrimary ? _newPrimaryLastName : _newSecondaryLastName;
+    final cin = isPrimary ? _newPrimaryCin : _newSecondaryCin;
+    final license = isPrimary ? _newPrimaryLicense : _newSecondaryLicense;
+    final phone = isPrimary ? _newPrimaryPhone : _newSecondaryPhone;
+    final selected = isPrimary ? _primaryDriver : _secondaryDriver;
+
+    return [
+      SegmentedButton<bool>(
+        showSelectedIcon: false,
+        segments: const [
+          ButtonSegment(value: false, label: Text('Client existant')),
+          ButtonSegment(value: true, label: Text('Nouveau client')),
+        ],
+        selected: {isNew},
+        onSelectionChanged: (value) => setState(() {
+          if (isPrimary) {
+            _isNewPrimaryDriver = value.first;
+          } else {
+            _isNewSecondaryDriver = value.first;
+          }
+        }),
+      ),
+      Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          if (isNew) ...[
+            OutlinedButton.icon(
+              onPressed: _isImportingOcr
+                  ? null
+                  : () => _importDriverOcr(
+                      isPrimary: isPrimary, isPermis: false, clients: clients),
+              icon: const Icon(Icons.document_scanner_outlined, size: 20),
+              label: const Text('Scanner la CIN'),
+            ),
+            OutlinedButton.icon(
+              onPressed: _isImportingOcr
+                  ? null
+                  : () => _importDriverOcr(
+                      isPrimary: isPrimary, isPermis: true, clients: clients),
+              icon: const Icon(Icons.credit_card, size: 20),
+              label: const Text('Scanner le permis'),
+            ),
+          ] else
+            OutlinedButton.icon(
+              onPressed: _isImportingOcr
+                  ? null
+                  : () => _importDriverOcr(
+                      isPrimary: isPrimary, isPermis: false, clients: clients),
+              icon: const Icon(Icons.document_scanner_outlined, size: 20),
+              label: const Text('Retrouver par scan de CIN'),
+            ),
+        ],
+      ),
+      if (_isImportingOcr)
+        const LinearProgressIndicator()
+      else if (isNew) ...[
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: TextFormField(
+                controller: firstName,
+                textCapitalization: TextCapitalization.words,
+                decoration: const InputDecoration(labelText: 'Prénom'),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: TextFormField(
+                controller: lastName,
+                textCapitalization: TextCapitalization.characters,
+                decoration: const InputDecoration(labelText: 'Nom'),
+              ),
+            ),
+          ],
+        ),
+        TextFormField(
+          controller: cin,
+          textCapitalization: TextCapitalization.characters,
+          decoration: const InputDecoration(
+            labelText: 'CIN',
+            prefixIcon: Icon(Icons.badge_outlined),
+          ),
+        ),
+        TextFormField(
+          controller: license,
+          decoration: const InputDecoration(
+            labelText: 'Numéro de permis',
+            prefixIcon: Icon(Icons.credit_card),
+          ),
+        ),
+        TextFormField(
+          controller: phone,
+          keyboardType: TextInputType.phone,
+          decoration: const InputDecoration(
+            labelText: 'Téléphone (optionnel)',
+            prefixIcon: Icon(Icons.phone_outlined),
+          ),
+        ),
+      ] else ...[
+        TextFormField(
+          decoration: InputDecoration(
+            labelText: isPrimary
+                ? 'Rechercher un client'
+                : 'Rechercher un conducteur secondaire',
+            hintText: 'Nom ou CIN',
+            prefixIcon: const Icon(Icons.search),
+          ),
+          onChanged: (value) {
+            setState(() {
+              if (isPrimary) {
+                _clientSearchQuery = value;
+                _syncSelectedDriversWithFilter(clients);
+              } else {
+                _secondaryClientSearchQuery = value;
+                final filtered =
+                    _uniqueClients(clients, _secondaryClientSearchQuery);
+                if (_secondaryDriver != null &&
+                    !filtered.any((c) => c.id == _secondaryDriver!.id)) {
+                  _secondaryDriver = null;
+                }
+              }
+            });
+          },
+        ),
+        if (isPrimary)
+          DropdownButtonFormField<ClientModel>(
+            isExpanded: true,
+            value: _clientWithId(
+              _uniqueClients(clients, _clientSearchQuery),
+              _primaryDriver?.id,
+            ),
+            items: _uniqueClients(clients, _clientSearchQuery)
+                .map((c) => DropdownMenuItem(
+                    value: c,
+                    child: Text('${c.fullName} (${c.cin})',
+                        overflow: TextOverflow.ellipsis)))
+                .toList(),
+            onChanged: (c) {
+              setState(() {
+                _primaryDriver = c;
+                if (c != null && _secondaryDriver?.id == c.id) {
+                  _secondaryDriver = null;
+                }
+              });
+            },
+            decoration: const InputDecoration(labelText: 'Choisir un client'),
+          )
+        else
+          DropdownButtonFormField<ClientModel?>(
+            isExpanded: true,
+            value: _secondaryDropdownValue(clients),
+            items: [
+              const DropdownMenuItem<ClientModel?>(
+                  value: null, child: Text('Aucun')),
+              ..._uniqueClients(clients, _secondaryClientSearchQuery)
+                  .where((c) =>
+                      _primaryDriver == null || c.id != _primaryDriver!.id)
+                  .map((c) => DropdownMenuItem<ClientModel?>(
+                      value: c,
+                      child: Text('${c.fullName} (${c.cin})',
+                          overflow: TextOverflow.ellipsis))),
+            ],
+            onChanged: (ClientModel? c) => setState(() => _secondaryDriver = c),
+            decoration:
+                const InputDecoration(labelText: 'Conducteur secondaire'),
+          ),
+        if (selected != null) _ClientHint(client: selected),
+      ],
+    ];
+  }
 }
 
+class _VehicleSummary extends StatelessWidget {
+  const _VehicleSummary({required this.vehicle});
+  final VehicleModel vehicle;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: AppColors.background,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 76,
+            height: 56,
+            child: VehiclePhoto(vehicle: vehicle, iconSize: 26),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                PlateBadge(vehicle.registrationNumber),
+                const SizedBox(height: 6),
+                Text(
+                  '${formatKm(vehicle.currentMileage)} · '
+                  '${fuelTypeName(vehicle.fuelType)} ${vehicle.fuelLevel} %',
+                  style: theme.textTheme.bodySmall,
+                ),
+                const SizedBox(height: 4),
+                StatusChip(
+                  label: conditionName(vehicle.conditionStatus),
+                  tone: conditionTone(vehicle.conditionStatus),
+                  icon: conditionIcon(vehicle.conditionStatus),
+                  dense: true,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Flags an expired licence as soon as the client is picked, rather than only
+/// in the confirmation dialog at the very end.
+class _ClientHint extends StatelessWidget {
+  const _ClientHint({required this.client});
+  final ClientModel client;
+
+  @override
+  Widget build(BuildContext context) {
+    final licence = expiryOf(client.licenseExpiryDate);
+    return Wrap(
+      spacing: 8,
+      runSpacing: 6,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        StatusChip(
+            label: client.phone, icon: Icons.phone_outlined, dense: true),
+        if (client.licenseExpiryDate != null)
+          StatusChip(
+            label: 'Permis · ${licence.label}',
+            tone: licence.tone,
+            icon: Icons.credit_card,
+            dense: true,
+          ),
+      ],
+    );
+  }
+}
+
+class _DateField extends StatelessWidget {
+  const _DateField({
+    required this.label,
+    required this.value,
+    required this.onTap,
+  });
+
+  final String label;
+  final String value;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: InputDecorator(
+        decoration: InputDecoration(
+          labelText: label,
+          prefixIcon: const Icon(Icons.event_outlined),
+          suffixIcon: const Icon(Icons.edit_calendar_outlined),
+        ),
+        child: Text(value,
+            style: Theme.of(context)
+                .textTheme
+                .bodyLarge
+                ?.copyWith(fontWeight: FontWeight.w700)),
+      ),
+    );
+  }
+}

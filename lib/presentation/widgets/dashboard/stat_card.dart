@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../common/app_card.dart';
+import '../motion/count_up.dart';
+
 class StatCard extends StatelessWidget {
   const StatCard({
     super.key,
@@ -8,6 +11,7 @@ class StatCard extends StatelessWidget {
     required this.icon,
     this.color,
     this.onTap,
+    this.countTo,
   });
 
   final String title;
@@ -16,70 +20,72 @@ class StatCard extends StatelessWidget {
   final Color? color;
   final VoidCallback? onTap;
 
+  /// When set, the number counts up to it instead of showing [value] as is.
+  final int? countTo;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cardColor = color ?? theme.colorScheme.primary;
 
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
+    return AppCard(
+      onTap: onTap,
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        mainAxisSize: MainAxisSize.max,
+        children: [
+          Row(
             children: [
               Container(
-                width: 42,
-                height: 42,
+                width: 38,
+                height: 38,
                 decoration: BoxDecoration(
-                  color: cardColor.withValues(alpha: 0.1),
+                  color: cardColor.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 alignment: Alignment.center,
-                child: Icon(
-                  icon,
-                  color: cardColor,
-                ),
+                child: Icon(icon, color: cardColor, size: 22),
               ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Long labels and large system font sizes must shrink
-                    // rather than overflow the card.
-                    Text(
-                      title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodyMedium
-                          ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-                    ),
-                    const SizedBox(height: 4),
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        value,
-                        maxLines: 1,
-                        style: theme.textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
+              const Spacer(),
+              // Long values and large system fonts shrink rather than clip.
+              Flexible(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerRight,
+                  child: countTo == null
+                      ? Text(
+                          value,
+                          maxLines: 1,
+                          style: theme.textTheme.headlineMedium?.copyWith(
+                            fontWeight: FontWeight.w800,
+                            color: cardColor,
+                          ),
+                        )
+                      : CountUpText(
+                          value: countTo!,
+                          style: theme.textTheme.headlineMedium?.copyWith(
+                            fontWeight: FontWeight.w800,
+                            color: cardColor,
+                          ),
                         ),
-                      ),
-                    ),
-                  ],
                 ),
               ),
             ],
           ),
-        ),
+          const SizedBox(height: 6),
+          Flexible(
+            child: Text(
+              title,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodyMedium
+                  ?.copyWith(fontWeight: FontWeight.w600, height: 1.2),
+            ),
+          ),
+        ],
       ),
     );
   }
 }
-

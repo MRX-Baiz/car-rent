@@ -1,6 +1,5 @@
 import 'package:sqflite/sqflite.dart';
 
-import '../../core/database/database_exception_extension.dart';
 import '../../core/database/database_helper.dart';
 import '../models/contract_model.dart';
 
@@ -116,6 +115,15 @@ class ContractRepository {
       if (existing.isNotEmpty) {
         throw Exception('This vehicle already has an active contract.');
       }
+      if (contract.chauffeurId != null) {
+        final driver = await txn.query('chauffeurs',
+            columns: ['status'],
+            where: 'id = ?',
+            whereArgs: [contract.chauffeurId],
+            limit: 1);
+        if (driver.isEmpty || driver.single['status'] != 'available')
+          throw Exception('Ce chauffeur n’est pas disponible.');
+      }
 
       try {
         final id = await txn.insert(
@@ -143,6 +151,16 @@ class ContractRepository {
           where: 'id = ?',
           whereArgs: [contract.vehicleId],
         );
+        if (contract.chauffeurId != null) {
+          await txn.update(
+              'chauffeurs',
+              {
+                'status': 'assigned',
+                'updated_at': DateTime.now().toIso8601String()
+              },
+              where: 'id = ?',
+              whereArgs: [contract.chauffeurId]);
+        }
 
         return id;
       } on DatabaseException catch (e) {
@@ -160,13 +178,22 @@ class ContractRepository {
     }
     try {
       final db = await _dbHelper.database;
-      return await db.update(
-        'contracts',
-        contract.toMap()..remove('id'),
-        where: 'id = ?',
-        whereArgs: [contract.id],
-        conflictAlgorithm: ConflictAlgorithm.abort,
-      );
+      return await db.transaction((txn) async {
+        final documents = await txn.query('contract_documents',
+            where: 'contract_id = ?', whereArgs: [contract.id]);
+        if (documents.isNotEmpty &&
+            documents.single['terms_json'] != contract.signingTermsJson) {
+          throw StateError('Le PDF de ce contrat est figé pour signature. '
+              'Créez un nouveau contrat pour modifier les conditions.');
+        }
+        return txn.update(
+          'contracts',
+          contract.toMap()..remove('id'),
+          where: 'id = ?',
+          whereArgs: [contract.id],
+          conflictAlgorithm: ConflictAlgorithm.abort,
+        );
+      });
     } on DatabaseException catch (e) {
       if (e.isUniqueConstraintError()) {
         throw Exception('A contract with this number already exists.');
@@ -178,7 +205,8 @@ class ContractRepository {
   }
 
   /// Atomically inserts a payment row AND increments amount_paid on the contract.
-  Future<void> addPaymentAndUpdateContract(int contractId, double amount) async {
+  Future<void> addPaymentAndUpdateContract(
+      int contractId, double amount) async {
     final db = await _dbHelper.database;
     await db.transaction((txn) async {
       // Insert payment record
@@ -200,7 +228,7 @@ class ContractRepository {
     await db.transaction((txn) async {
       final rows = await txn.query(
         'contracts',
-        columns: ['vehicle_id', 'status'],
+        columns: ['vehicle_id', 'chauffeur_id', 'status'],
         where: 'id = ?',
         whereArgs: [id],
         limit: 1,
@@ -229,6 +257,16 @@ class ContractRepository {
           where: 'id = ?',
           whereArgs: [rows.first['vehicle_id']],
         );
+        final chauffeurId = rows.first['chauffeur_id'] as int?;
+        if (chauffeurId != null)
+          await txn.update(
+              'chauffeurs',
+              {
+                'status': 'available',
+                'updated_at': DateTime.now().toIso8601String()
+              },
+              where: 'id = ?',
+              whereArgs: [chauffeurId]);
       }
     });
   }
@@ -259,6 +297,15 @@ class ContractRepository {
         where: 'id = ?',
         whereArgs: [id],
       );
+      if (contract.chauffeurId != null)
+        await txn.update(
+            'chauffeurs',
+            {
+              'status': 'available',
+              'updated_at': DateTime.now().toIso8601String()
+            },
+            where: 'id = ?',
+            whereArgs: [contract.chauffeurId]);
 
       // Update vehicle status back to 'available'
       await txn.update(
@@ -339,4 +386,3 @@ class ContractRepository {
     }
   }
 }
-

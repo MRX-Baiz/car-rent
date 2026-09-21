@@ -50,10 +50,11 @@
         <receiver
             android:exported="false"
             android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />
-        <!-- Alarms do not survive a reboot; this re-registers them. -->
+        <!-- Alarms do not survive a reboot. This restores future alarms and
+             immediately shows a reminder that elapsed while the phone was off. -->
         <receiver
             android:exported="false"
-            android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver">
+            android:name="com.dexterous.flutterlocalnotifications.MissedNotificationBootReceiver">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED"/>
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>

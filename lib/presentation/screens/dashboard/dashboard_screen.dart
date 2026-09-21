@@ -1,223 +1,191 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
-import 'dart:ui';
 
+import '../../../core/constants/app_colors.dart';
+import '../../../core/utils/contract_insights.dart';
+import '../../../core/utils/format_utils.dart';
+import '../../../core/utils/vehicle_maintenance.dart';
+import '../../../data/models/contract_model.dart';
+import '../../../data/models/vehicle_model.dart';
 import '../../providers/app_settings_provider.dart';
 import '../../providers/contract_provider.dart';
 import '../../providers/dashboard_provider.dart';
-import '../../providers/client_provider.dart';
-import '../../widgets/common/app_button.dart';
-import '../../widgets/common/empty_state_widget.dart';
-import '../../widgets/common/app_shimmer.dart';
-import '../../widgets/dashboard/revenue_chart.dart';
-import '../../widgets/common/global_search_delegate.dart';
+import '../../providers/lookup_provider.dart';
+import '../../providers/vehicle_provider.dart';
 import '../../widgets/common/adaptive_layout.dart';
-import '../../widgets/common/status_badge.dart';
+import '../../widgets/common/app_card.dart';
+import '../../widgets/common/app_shimmer.dart';
+import '../../widgets/common/global_search_delegate.dart';
+import '../../widgets/common/section_header.dart';
+import '../../widgets/common/status_chip.dart';
+import '../../widgets/contracts/contract_card.dart';
+import '../../widgets/dashboard/revenue_chart.dart';
 import '../../widgets/dashboard/stat_card.dart';
-import '../../../core/ocr/ocr_service.dart';
+import '../../widgets/motion/motion.dart';
 
-class DashboardScreen extends ConsumerWidget {
+class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends ConsumerState<DashboardScreen>
+    with SingleTickerProviderStateMixin {
+  late final AmbientController _ambient = AmbientController(vsync: this);
+
+  @override
+  void dispose() {
+    _ambient.dispose();
+    super.dispose();
+  }
+
+  Future<void> _refresh() async {
+    await Future.wait([
+      ref.read(dashboardProvider.notifier).refresh(),
+      ref.read(contractsProvider.notifier).loadContracts(),
+      ref.read(vehiclesProvider.notifier).loadVehicles(),
+    ]);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final statsAsync = ref.watch(dashboardProvider);
-    final companyNameAsync = ref.watch(companyNameProvider);
+    final companyName = ref.watch(companyNameProvider).value ?? '';
     final contractsAsync = ref.watch(contractsProvider);
-    final theme = Theme.of(context);
-    final dateFormat = DateFormat('dd/MM/yyyy');
+    final vehicles = ref.watch(vehiclesProvider).value ?? const [];
+    final lookups = ref.watch(lookupsProvider).value ?? const Lookups();
+    final top = MediaQuery.paddingOf(context).top + kToolbarHeight;
 
     return AdaptiveLayout(
       child: Scaffold(
+        // The photograph runs under the app bar, which turns white as the page
+        // scrolls up beneath it.
         extendBodyBehindAppBar: true,
-        appBar: AppBar(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          flexibleSpace: ClipRect(
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-              child: Container(color: const Color(0xFFB9AFA6).withValues(alpha: 0.85)),
-            ),
+        appBar: PreferredSize(
+          preferredSize: const Size.fromHeight(kToolbarHeight),
+          child: AnimatedBuilder(
+            animation: _ambient,
+            builder: (context, _) {
+              final solid = (_ambient.scrollOffset / 80).clamp(0.0, 1.0);
+              return AppBar(
+                backgroundColor: Colors.white.withValues(alpha: solid),
+                scrolledUnderElevation: 0,
+                elevation: 0,
+                shape: Border(
+                  bottom: BorderSide(
+                    color: AppColors.gold.withValues(alpha: 0.5 * solid),
+                  ),
+                ),
+                leading: IconButton(
+                  icon: const Icon(Icons.arrow_back),
+                  onPressed: () => context.go('/license'),
+                  tooltip: 'Retour',
+                ),
+                title: Text(
+                    companyName.isNotEmpty ? companyName : 'CarRent Manager'),
+                actions: [
+                  IconButton(
+                    icon: const Icon(Icons.search),
+                    onPressed: () => showSearch(
+                      context: context,
+                      delegate: GlobalSearchDelegate(ref),
+                    ),
+                    tooltip: 'Recherche globale',
+                  ),
+                ],
+              );
+            },
           ),
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
-            onPressed: () => context.go('/license'),
-            tooltip: 'Retour',
-          ),
-          title: companyNameAsync.when(
-            data: (name) => Text(
-              name.isNotEmpty ? name : 'CarRent Manager',
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-            loading: () => const Text('CarRent Manager'),
-            error: (_, __) => const Text('CarRent Manager'),
-          ),
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.search),
-              onPressed: () => showSearch(
-                context: context,
-                delegate: GlobalSearchDelegate(ref),
-              ),
-              tooltip: 'Recherche globale',
-            ),
-          ],
         ),
-        body: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 110, 16, 16),
-          children: [
-            Text(
-              'Bonjour 👋',
-              style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Voici un aperçu de votre activité aujourd\'hui.',
-              style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-            ),
-            const SizedBox(height: 24),
-
-            // Statistics Grid with Glassmorphism-lite
-            statsAsync.when(
-              data: (stats) => LayoutBuilder(
-                builder: (context, constraints) {
-                  final isWide = constraints.maxWidth > 700;
-                  final children = [
-                    StatCard(
-                      title: 'Véhicules dispo.',
-                      value: stats.availableVehicles.toString(),
-                      icon: Icons.directions_car,
-                      color: const Color(0xFF4CAF50),
-                      onTap: () => context.go('/vehicles'),
-                    ),
-                    StatCard(
-                      title: 'En location',
-                      value: stats.rentedVehicles.toString(),
-                      icon: Icons.directions_car_filled,
-                      color: const Color(0xFFFF9800),
-                      onTap: () => context.go('/vehicles'),
-                    ),
-                    StatCard(
-                      title: 'Contrats actifs',
-                      value: stats.activeContracts.toString(),
-                      icon: Icons.receipt_long,
-                      color: const Color(0xFF2196F3),
-                      onTap: () => context.go('/contracts'),
-                    ),
-                    StatCard(
-                      title: 'En retard',
-                      value: stats.lateContracts.toString(),
-                      icon: Icons.warning_amber_rounded,
-                      color: const Color(0xFFD32F2F),
-                      onTap: () => context.go('/contracts'),
-                    ),
-                  ];
-
-                  // A fixed aspect ratio ties card height to column width, so
-                  // narrow screens or a large system font clipped the labels.
-                  // Giving the row an explicit height keeps content intact.
-                  final textScale =
-                      MediaQuery.textScalerOf(context).scale(1.0);
-                  return GridView.count(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    crossAxisCount: isWide ? 4 : 2,
-                    // Tall enough for a two-line label plus the value; a
-                    // shorter cell clips them on narrow screens.
-                    mainAxisExtent: 118 * textScale.clamp(1.0, 1.6),
-                    mainAxisSpacing: 12,
-                    crossAxisSpacing: 12,
-                    children: children,
-                  );
-                },
+        body: AmbientListener(
+          controller: _ambient,
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: AmbientImage(
+                  controller: _ambient,
+                  asset: 'assets/backgrounds/bg_home.webp',
+                  alignment: const Alignment(0.85, -0.15),
+                ),
               ),
-              loading: () => AppShimmer.statsGrid(),
-              error: (_, __) => const SizedBox.shrink(),
-            ),
-
-            const SizedBox(height: 24),
-
-            // Revenue Section
-            Row(
-              children: [
-                const Icon(Icons.analytics_outlined, size: 20),
-                const SizedBox(width: 8),
-                Text(
-                  'Tendances des revenus (7j)',
-                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            statsAsync.when(
-              data: (stats) => RevenueChart(data: stats.weeklyRevenue),
-              loading: () => const AppShimmer.rectangular(height: 200),
-              error: (_, __) => const SizedBox.shrink(),
-            ),
-
-            const SizedBox(height: 24),
-
-            // Quick Actions
-            Text(
-              'Actions rapides',
-              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 12),
-            _buildQuickActionGrid(context),
-
-            const SizedBox(height: 24),
-
-            // Recent Contracts
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Contrats récents',
-                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-                ),
-                TextButton(
-                  onPressed: () => context.go('/contracts'),
-                  child: const Text('Voir tout'),
-                ),
-              ],
-            ),
-            contractsAsync.when(
-              data: (contracts) {
-                final recent = contracts.take(5).toList();
-                if (recent.isEmpty) {
-                  return const Center(child: Text('Aucun contrat récent.'));
-                }
-                return ListView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: recent.length,
-                  itemBuilder: (context, index) {
-                    final c = recent[index];
-                    return Card(
-                      margin: const EdgeInsets.symmetric(vertical: 4),
-                      child: ListTile(
-                        leading: Hero(
-                          tag: 'contract_${c.id}',
-                          child: const Icon(Icons.receipt_long),
-                        ),
-                        title: Text(c.contractNumber),
-                        subtitle: Text(
-                          '${dateFormat.format(c.startDate)} · ${c.remainingAmount.toInt()} MAD restant',
-                        ),
-                        trailing: StatusBadge(text: c.status),
-                        onTap: () => context.push('/contracts/${c.id}'),
+              Positioned.fill(child: AmbientGlints(controller: _ambient)),
+              RefreshIndicator(
+                edgeOffset: top,
+                onRefresh: _refresh,
+                child: ListView(
+                  padding: EdgeInsets.fromLTRB(16, top + 8, 16, 104),
+                  children: [
+                    Reveal(
+                      child: _Header(revenue: statsAsync.value?.totalRevenue),
+                    ),
+                    const SizedBox(height: 20),
+                    contractsAsync.when(
+                      data: (contracts) => _Priorities(
+                        contracts: contracts,
+                        vehicles: vehicles,
+                        lookups: lookups,
                       ),
-                    );
-                  },
-                );
-              },
-              loading: () => AppShimmer.listLayer(itemCount: 3),
-              error: (_, __) => const Text('Erreur de chargement des contrats.'),
-            ),
-            const SizedBox(height: 80), // Space for FAB
-          ],
+                      loading: () => const AppShimmer.rectangular(height: 140),
+                      error: (_, __) => const SizedBox.shrink(),
+                    ),
+                    const SizedBox(height: 8),
+                    const Reveal(
+                      child: SectionHeader(title: 'Vue d’ensemble'),
+                    ),
+                    statsAsync.when(
+                      data: (stats) => _StatsGrid(stats: stats),
+                      loading: () => AppShimmer.statsGrid(),
+                      error: (_, __) => const SizedBox.shrink(),
+                    ),
+                    const SizedBox(height: 12),
+                    const Reveal(
+                      child: SectionHeader(title: 'Actions rapides'),
+                    ),
+                    const _QuickActions(),
+                    const SizedBox(height: 12),
+                    Reveal(
+                      child: SectionHeader(
+                        title: 'Locations en cours',
+                        actionLabel: 'Voir tout',
+                        onAction: () => context.go('/contracts'),
+                      ),
+                    ),
+                    contractsAsync.when(
+                      data: (contracts) => _ActiveRentals(
+                        contracts: contracts,
+                        lookups: lookups,
+                      ),
+                      loading: () => AppShimmer.listLayer(itemCount: 2),
+                      error: (_, __) =>
+                          const Text('Erreur de chargement des contrats.'),
+                    ),
+                    const SizedBox(height: 12),
+                    const Reveal(
+                      child: SectionHeader(
+                        title: 'Encaissements',
+                        subtitle: '7 derniers jours',
+                      ),
+                    ),
+                    statsAsync.when(
+                      data: (stats) => Reveal(
+                        child: RevenueChart(data: stats.weeklyRevenue),
+                      ),
+                      loading: () => const AppShimmer.rectangular(height: 200),
+                      error: (_, __) => const SizedBox.shrink(),
+                    ),
+                  ],
+                ),
+              ),
+              Positioned(
+                right: 2,
+                top: 0,
+                bottom: 0,
+                child: Center(child: ScrollRail(controller: _ambient)),
+              ),
+            ],
+          ),
         ),
         floatingActionButton: FloatingActionButton.extended(
           onPressed: () => context.push('/contracts/new'),
@@ -227,79 +195,489 @@ class DashboardScreen extends ConsumerWidget {
       ),
     );
   }
+}
 
-  Widget _buildQuickActionGrid(BuildContext context) {
-    final textScale = MediaQuery.textScalerOf(context).scale(1.0);
-    return GridView.count(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      crossAxisCount: 3,
-      mainAxisExtent: 92 * textScale.clamp(1.0, 1.6),
-      mainAxisSpacing: 12,
-      crossAxisSpacing: 12,
+class _Header extends StatelessWidget {
+  const _Header({required this.revenue});
+  final double? revenue;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final hour = DateTime.now().hour;
+    final greeting = hour < 5 || hour >= 18 ? 'Bonsoir' : 'Bonjour';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _QuickActionCard(
-          icon: Icons.person_add_outlined,
-          label: 'Client',
-          onTap: () => context.push('/clients/add'),
+        Text(
+          formatLongDay(DateTime.now()).toUpperCase(),
+          style: const TextStyle(
+            color: AppColors.textSecondary,
+            fontSize: 11.5,
+            letterSpacing: 3,
+            fontWeight: FontWeight.w600,
+          ),
         ),
-        _QuickActionCard(
-          icon: Icons.directions_car_outlined,
-          label: 'Véhicule',
-          onTap: () => context.push('/vehicles/add'),
+        const SizedBox(height: 4),
+        Text(
+          greeting,
+          style: theme.textTheme.displaySmall?.copyWith(
+            fontWeight: FontWeight.w800,
+            color: AppColors.textPrimary,
+            height: 1.05,
+          ),
         ),
-        _QuickActionCard(
-          icon: Icons.receipt_long_outlined,
-          label: 'Contrat',
-          onTap: () => context.push('/contracts/new'),
+        const SizedBox(height: 10),
+        Container(
+          width: 56,
+          height: 2,
+          decoration: BoxDecoration(
+            color: AppColors.gold,
+            borderRadius: BorderRadius.circular(1),
+          ),
         ),
+        if (revenue != null) ...[
+          const SizedBox(height: 18),
+          AppCard(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppColors.gold.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(Icons.account_balance_wallet_outlined,
+                      color: AppColors.gold, size: 22),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Encaissé ce mois-ci',
+                        style: theme.textTheme.bodySmall
+                            ?.copyWith(color: AppColors.textSecondary),
+                      ),
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: CountUpText(
+                          value: revenue!,
+                          format: (v) => formatMad(v.round()),
+                          style: theme.textTheme.titleLarge,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ],
     );
   }
 }
 
-class _QuickActionCard extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
+/// What needs the operator today, in the order it costs money if ignored:
+/// vehicles that are late, balances still owed, then documents about to lapse.
+class _Priorities extends StatelessWidget {
+  const _Priorities({
+    required this.contracts,
+    required this.vehicles,
+    required this.lookups,
+  });
 
-  const _QuickActionCard({
-    required this.icon,
-    required this.label,
+  final List<ContractModel> contracts;
+  final List<VehicleModel> vehicles;
+  final Lookups lookups;
+
+  @override
+  Widget build(BuildContext context) {
+    final open = contracts.where((c) => c.status != 'completed').toList()
+      ..sort((a, b) => a.expectedReturnDate.compareTo(b.expectedReturnDate));
+    final late = open.where((c) => c.isLate).toList();
+    final unpaid = open.where((c) => c.remainingAmount > 0.009).toList()
+      ..sort((a, b) {
+        if (a.isLate != b.isLate) return a.isLate ? -1 : 1;
+        return a.expectedReturnDate.compareTo(b.expectedReturnDate);
+      });
+
+    final maintenance = <(VehicleModel, MaintenanceItem)>[];
+    for (final v in vehicles) {
+      for (final item in maintenanceAlerts(v)) {
+        maintenance.add((v, item));
+      }
+    }
+    maintenance.sort((a, b) => a.$2.urgency.compareTo(b.$2.urgency));
+
+    if (late.isEmpty && unpaid.isEmpty && maintenance.isEmpty) {
+      return AppCard(
+        child: Row(
+          children: [
+            Icon(AppTone.success.icon, color: AppTone.success.color, size: 28),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Tout est en ordre : aucun retard, aucun solde à encaisser '
+                'et aucun document à renouveler.',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SectionHeader(title: 'À traiter', icon: Icons.bolt_outlined),
+        if (late.isNotEmpty)
+          Reveal(
+            index: 0,
+            child: _PriorityCard(
+              tone: AppTone.danger,
+              icon: Icons.schedule,
+              title: 'Retours en retard',
+              count: late.length,
+              onSeeAll: () => context.go('/contracts'),
+              rows: [
+                for (final c in late.take(3))
+                  _PriorityRow(
+                    title: lookups.vehicleName(c.vehicleId),
+                    subtitle: lookups.clientName(c.primaryDriverId),
+                    chip: returnStatusOf(c).label,
+                    tone: AppTone.danger,
+                    onTap: () => context.push('/contracts/${c.id}'),
+                  ),
+              ],
+            ),
+          ),
+        if (unpaid.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Reveal(
+            index: 1,
+            child: _PriorityCard(
+              tone: AppTone.warning,
+              icon: Icons.payments_outlined,
+              title: 'Paiements à encaisser',
+              count: unpaid.length,
+              onSeeAll: () => context.go('/contracts'),
+              rows: [
+                for (final c in unpaid.take(3))
+                  _PriorityRow(
+                    title: lookups.vehicleName(c.vehicleId),
+                    subtitle: lookups.clientName(c.primaryDriverId),
+                    chip: formatMad(c.remainingAmount),
+                    tone: AppTone.warning,
+                    onTap: () => context.push('/contracts/${c.id}'),
+                  ),
+              ],
+            ),
+          ),
+        ],
+        if (maintenance.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Reveal(
+            index: 2,
+            child: _PriorityCard(
+              tone: maintenance.any((m) => m.$2.tone == AppTone.danger)
+                  ? AppTone.danger
+                  : AppTone.warning,
+              icon: Icons.build_outlined,
+              title: 'Entretien et documents',
+              count: maintenance.length,
+              onSeeAll: () => context.go('/vehicles'),
+              rows: [
+                for (final m in maintenance.take(3))
+                  _PriorityRow(
+                    title: '${m.$1.brand} ${m.$1.model}',
+                    subtitle: '${m.$2.label} · ${m.$1.registrationNumber}',
+                    chip: m.$2.status,
+                    tone: m.$2.tone,
+                    onTap: () => context.push('/vehicles/${m.$1.id}'),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _PriorityRow {
+  const _PriorityRow({
+    required this.title,
+    required this.subtitle,
+    required this.chip,
+    required this.tone,
     required this.onTap,
   });
+  final String title;
+  final String subtitle;
+  final String chip;
+  final AppTone tone;
+  final VoidCallback onTap;
+}
+
+class _PriorityCard extends StatelessWidget {
+  const _PriorityCard({
+    required this.tone,
+    required this.icon,
+    required this.title,
+    required this.count,
+    required this.rows,
+    required this.onSeeAll,
+  });
+
+  final AppTone tone;
+  final IconData icon;
+  final String title;
+  final int count;
+  final List<_PriorityRow> rows;
+  final VoidCallback onSeeAll;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Card(
-        margin: EdgeInsets.zero,
-        elevation: 1,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        child: Padding(
-          padding: const EdgeInsets.all(8),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 28, color: theme.colorScheme.primary),
-              const SizedBox(height: 8),
-              Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: theme.textTheme.bodySmall
-                    ?.copyWith(fontWeight: FontWeight.bold),
-              ),
-            ],
+    return AppCard(
+      accent: tone.color,
+      padding: const EdgeInsets.fromLTRB(18, 14, 8, 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: Row(
+              children: [
+                Icon(icon, color: tone.color, size: 22),
+                const SizedBox(width: 8),
+                Expanded(child: Text(title, style: theme.textTheme.titleSmall)),
+                StatusChip(label: '$count', tone: tone, dense: true),
+              ],
+            ),
           ),
-        ),
+          const SizedBox(height: 4),
+          for (final row in rows)
+            InkWell(
+              onTap: row.onTap,
+              borderRadius: BorderRadius.circular(10),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 56),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(row.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodyLarge
+                                  ?.copyWith(fontWeight: FontWeight.w700)),
+                          Text(row.subtitle,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodySmall
+                                  ?.copyWith(color: AppColors.textSecondary)),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      flex: 0,
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 140),
+                        child: StatusChip(
+                            label: row.chip, tone: row.tone, dense: true),
+                      ),
+                    ),
+                    const Icon(Icons.chevron_right,
+                        color: AppColors.textSecondary),
+                  ],
+                ),
+              ),
+            ),
+          if (count > rows.length)
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                onPressed: onSeeAll,
+                child: Text('Voir les $count'),
+              ),
+            ),
+        ],
       ),
     );
   }
 }
 
+class _StatsGrid extends StatelessWidget {
+  const _StatsGrid({required this.stats});
+  final DashboardStats stats;
+
+  @override
+  Widget build(BuildContext context) {
+    // The row height is explicit so a large system font grows the cell instead
+    // of clipping the two-line label.
+    final textScale = MediaQuery.textScalerOf(context).scale(1.0);
+    return LayoutBuilder(builder: (context, constraints) {
+      final isWide = constraints.maxWidth > 700;
+      return GridView.count(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        crossAxisCount: isWide ? 4 : 2,
+        mainAxisExtent: 124 * textScale.clamp(1.0, 1.6),
+        mainAxisSpacing: 12,
+        crossAxisSpacing: 12,
+        children: [
+          Reveal(
+            index: 0,
+            child: StatCard(
+              title: 'Disponibles',
+              countTo: stats.availableVehicles,
+              value: stats.availableVehicles.toString(),
+              icon: Icons.directions_car,
+              color: AppTone.success.color,
+              onTap: () => context.go('/vehicles'),
+            ),
+          ),
+          Reveal(
+            index: 1,
+            child: StatCard(
+              title: 'Loués',
+              countTo: stats.rentedVehicles,
+              value: stats.rentedVehicles.toString(),
+              icon: Icons.key_outlined,
+              color: AppTone.warning.color,
+              onTap: () => context.go('/vehicles'),
+            ),
+          ),
+          Reveal(
+            index: 2,
+            child: StatCard(
+              title: 'Contrats en cours',
+              countTo: stats.activeContracts,
+              value: stats.activeContracts.toString(),
+              icon: Icons.receipt_long,
+              color: AppTone.info.color,
+              onTap: () => context.go('/contracts'),
+            ),
+          ),
+          Reveal(
+            index: 3,
+            child: StatCard(
+              title: 'En retard',
+              countTo: stats.lateContracts,
+              value: stats.lateContracts.toString(),
+              icon: Icons.schedule,
+              color: stats.lateContracts > 0
+                  ? AppTone.danger.color
+                  : AppColors.textSecondary,
+              onTap: () => context.go('/contracts'),
+            ),
+          ),
+        ],
+      );
+    });
+  }
+}
+
+class _QuickActions extends StatelessWidget {
+  const _QuickActions();
+
+  @override
+  Widget build(BuildContext context) {
+    final actions = [
+      (Icons.person_add_outlined, 'Client', '/clients/add'),
+      (Icons.directions_car_outlined, 'Véhicule', '/vehicles/add'),
+      (Icons.badge_outlined, 'Chauffeurs', '/chauffeurs'),
+      (Icons.auto_awesome_outlined, 'Assistant', '/assistant'),
+    ];
+    return Reveal(
+      child: Row(
+        children: [
+          for (var i = 0; i < actions.length; i++) ...[
+            if (i > 0) const SizedBox(width: 10),
+            Expanded(
+              child: AppCard(
+                onTap: () => context.push(actions[i].$3),
+                padding:
+                    const EdgeInsets.symmetric(vertical: 14, horizontal: 4),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Icon(actions[i].$1, color: AppColors.pennyDark, size: 26),
+                    const SizedBox(height: 6),
+                    SizedBox(
+                      width: double.infinity,
+                      child: Text(
+                        actions[i].$2,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodySmall
+                            ?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _ActiveRentals extends StatelessWidget {
+  const _ActiveRentals({required this.contracts, required this.lookups});
+  final List<ContractModel> contracts;
+  final Lookups lookups;
+
+  @override
+  Widget build(BuildContext context) {
+    final open = contracts.where((c) => c.status != 'completed').toList()
+      ..sort((a, b) {
+        if (a.isLate != b.isLate) return a.isLate ? -1 : 1;
+        return a.expectedReturnDate.compareTo(b.expectedReturnDate);
+      });
+
+    if (open.isEmpty) {
+      return AppCard(
+        child: Text(
+          'Aucune location en cours. Créez un contrat pour démarrer.',
+          style: Theme.of(context).textTheme.bodyMedium,
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        for (final (i, c) in open.take(5).indexed)
+          Reveal(
+            index: i,
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: ContractCard(
+                contract: c,
+                lookups: lookups,
+                compact: true,
+                onTap: () => context.push('/contracts/${c.id}'),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}

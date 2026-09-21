@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 class AdaptiveLayout extends StatelessWidget {
@@ -19,6 +20,7 @@ class AdaptiveLayout extends StatelessWidget {
   }
 
   void _onDestinationSelected(BuildContext context, int index) {
+    HapticFeedback.selectionClick();
     switch (index) {
       case 0:
         context.go('/dashboard');
@@ -42,7 +44,8 @@ class AdaptiveLayout extends StatelessWidget {
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
     final isDesktop = size.width > 900;
-    final currentIndex = _indexForLocation(GoRouter.of(context).routeInformationProvider.value.uri.toString());
+    final currentIndex = _indexForLocation(
+        GoRouter.of(context).routeInformationProvider.value.uri.toString());
 
     // Hardware back for the tabs is handled by GoRoute.onExit in app.dart.
     // PopScope cannot be used here: when a tab is the only route, go_router's
@@ -56,24 +59,15 @@ class AdaptiveLayout extends StatelessWidget {
       return Row(
         children: [
           NavigationRail(
-            backgroundColor: const Color(0xFF2C2B28),
             selectedIndex: currentIndex,
             onDestinationSelected: (index) =>
                 _onDestinationSelected(context, index),
             labelType: NavigationRailLabelType.all,
-            indicatorColor: const Color(0xFFecf0ec).withValues(alpha: 0.2),
-            unselectedIconTheme: const IconThemeData(color: Color(0xFFecf0ec)),
-            selectedIconTheme: const IconThemeData(color: Color(0xFFecf0ec)),
-            unselectedLabelTextStyle: const TextStyle(color: Color(0xFFecf0ec)),
-            selectedLabelTextStyle: const TextStyle(
-              color: Color(0xFFecf0ec),
-              fontWeight: FontWeight.bold,
-            ),
             destinations: const [
               NavigationRailDestination(
                 icon: Icon(Icons.dashboard_outlined),
                 selectedIcon: Icon(Icons.dashboard),
-                label: Text('Dashboard'),
+                label: Text('Accueil'),
               ),
               NavigationRailDestination(
                 icon: Icon(Icons.directions_car_outlined),
@@ -104,56 +98,39 @@ class AdaptiveLayout extends StatelessWidget {
     } else {
       return Scaffold(
         body: child,
-        bottomNavigationBar: NavigationBarTheme(
-          data: NavigationBarThemeData(
-            backgroundColor: const Color(0xFF2C2B28),
-            indicatorColor: const Color(0xFFecf0ec).withValues(alpha: 0.2),
-            labelTextStyle: WidgetStateProperty.resolveWith((states) {
-              return const TextStyle(
-                color: Color(0xFFecf0ec),
-                fontWeight: FontWeight.bold,
-                fontSize: 12,
-              );
-            }),
-            iconTheme: WidgetStateProperty.all(
-              const IconThemeData(color: Color(0xFFecf0ec)),
+        bottomNavigationBar: NavigationBar(
+          selectedIndex: currentIndex,
+          onDestinationSelected: (index) =>
+              _onDestinationSelected(context, index),
+          destinations: const [
+            NavigationDestination(
+              icon: Icon(Icons.dashboard_outlined),
+              selectedIcon: Icon(Icons.dashboard),
+              label: 'Accueil',
             ),
-          ),
-          child: NavigationBar(
-            selectedIndex: currentIndex,
-            onDestinationSelected: (index) =>
-                _onDestinationSelected(context, index),
-            destinations: const [
-              NavigationDestination(
-                icon: Icon(Icons.dashboard_outlined),
-                selectedIcon: Icon(Icons.dashboard),
-                label: 'Dashboard',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.directions_car_outlined),
-                selectedIcon: Icon(Icons.directions_car),
-                label: 'Véhicules',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.person_outline),
-                selectedIcon: Icon(Icons.person),
-                label: 'Clients',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.receipt_long_outlined),
-                selectedIcon: Icon(Icons.receipt_long),
-                label: 'Contrats',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.settings_outlined),
-                selectedIcon: Icon(Icons.settings),
-                label: 'Paramètres',
-              ),
-            ],
-          ),
+            NavigationDestination(
+              icon: Icon(Icons.directions_car_outlined),
+              selectedIcon: Icon(Icons.directions_car),
+              label: 'Véhicules',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.person_outline),
+              selectedIcon: Icon(Icons.person),
+              label: 'Clients',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.receipt_long_outlined),
+              selectedIcon: Icon(Icons.receipt_long),
+              label: 'Contrats',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.settings_outlined),
+              selectedIcon: Icon(Icons.settings),
+              label: 'Paramètres',
+            ),
+          ],
         ),
       );
     }
   }
 }
-

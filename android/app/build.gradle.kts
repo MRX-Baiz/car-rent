@@ -25,7 +25,9 @@ android {
         applicationId = "com.example.car_rent_manager"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
+        // The local llama.cpp runtime uses Android SharedMemory, available
+        // from Android 8.0 (API 26). This keeps Gemma fully offline.
+        minSdk = 26
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
@@ -48,6 +50,8 @@ kotlin {
 
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+    // Reads the notification plugin's saved reminders after a phone restart.
+    implementation("com.google.code.gson:gson:2.8.9")
 }
 
 flutter {

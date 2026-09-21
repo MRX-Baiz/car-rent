@@ -6,7 +6,9 @@ import 'package:timezone/timezone.dart' as tz;
 
 import '../../data/repositories/app_settings_repository.dart';
 import '../../data/repositories/key_value_store.dart';
+import '../../data/models/vehicle_model.dart';
 import '../database/database_helper.dart';
+import 'android_daily_reminder.dart';
 import 'notification_preferences.dart';
 
 /// Route a notification tap should open, once the app is past the lock screen.
@@ -89,7 +91,6 @@ class NotificationService {
   /// Far above any plausible contract id, so fixed notifications never collide
   /// with a contract block.
   static const int _idLateDigest = 1000000001;
-  static const int _idTest = 1000000002;
   static const int _idLicenseBase = 1000000010;
 
   /// Days before licence expiry that earn a warning.
@@ -99,6 +100,10 @@ class NotificationService {
   static const String _channelLate = 'car_rent_late';
   static const String _channelPayments = 'car_rent_payments';
   static const String _channelLicense = 'car_rent_license';
+  static const String _channelVehicle = 'car_rent_vehicle';
+  static const int _idVehicleBase = 1100000000;
+  static const List<int> vehicleDateWarningDays = <int>[30, 14, 7, 1];
+  static const List<int> vehicleMileageWarningKm = <int>[1000, 500, 0];
 
   static const String _lateGroupKey = 'car_rent_late_group';
 
@@ -246,27 +251,6 @@ class NotificationService {
     await requestPermission();
   }
 
-  /// Fires a reminder shortly, to prove the whole chain works end to end.
-  Future<void> sendTestNotification({
-    Duration delay = const Duration(seconds: 15),
-  }) async {
-    await initialize();
-    if (!_available) return;
-
-    final when = tz.TZDateTime.now(tz.local).add(delay);
-    await _plugin.zonedSchedule(
-      _idTest,
-      'Test de notification',
-      'Si vous lisez ceci, les rappels fonctionnent.',
-      when,
-      _details(channel: _channelContracts, channelName: 'Contrats'),
-      payload: '/settings',
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
-    );
-  }
-
   /// True when the OS will actually deliver what we schedule.
   Future<bool> hasPermission() async {
     await initialize();
@@ -337,6 +321,7 @@ class NotificationService {
     required DateTime startDate,
     required DateTime expectedReturnDate,
     required double remainingAmount,
+    bool requestPermissions = true,
   }) async {
     await initialize();
     if (!_available) return;
@@ -350,7 +335,7 @@ class NotificationService {
     // Saving a contract is the natural moment to discover the permissions are
     // missing — the alternative is scheduling reminders Android will silently
     // never deliver.
-    await ensurePermissions();
+    if (requestPermissions) await ensurePermissions();
 
     try {
       final route = '/contracts/$contractId';
@@ -397,7 +382,7 @@ class NotificationService {
       // Daily nag while the vehicle is out, starting the day after the deadline.
       await _scheduleAt(
         id: base + _slotLateRepeat,
-        when: due.add(const Duration(days: 1)),
+        when: firstOverdueReminderAt(due),
         title: 'Véhicule en retard',
         body: 'Le véhicule $registrationNumber n\'a pas encore été retourné.',
         channel: _channelLate,
@@ -437,6 +422,98 @@ class NotificationService {
       }
     } catch (e) {
       if (kDebugMode) debugPrint('cancelContractNotifications: $e');
+    }
+  }
+
+  /// Date reminders are re-created every time a vehicle is saved. Mileage
+  /// reminders are evaluated at that same moment because the odometer is only
+  /// updated by the agency, not automatically by Android.
+  Future<void> scheduleVehicleMaintenanceReminders(VehicleModel vehicle,
+      {bool requestPermissions = true}) async {
+    if (vehicle.id == null) return;
+    await initialize();
+    if (!_available) return;
+    final preferences = await _preferencesRepository.load();
+    if (!preferences.enabled) return;
+    if (requestPermissions) await ensurePermissions();
+    final dates = <({String name, DateTime? date})>[
+      (name: 'Assurance', date: vehicle.insuranceExpiryDate),
+      (name: 'Visite technique', date: vehicle.technicalInspectionExpiryDate),
+      (name: 'Vignette', date: vehicle.vignetteDueDate),
+      (name: 'Vidange', date: vehicle.oilChangeDueDate),
+      (
+        name: 'Courroie / chaîne de distribution',
+        date: vehicle.distributionDueDate
+      ),
+    ];
+    for (var category = 0; category < dates.length; category++) {
+      for (var warning = 0;
+          warning < vehicleDateWarningDays.length;
+          warning++) {
+        final id = _idVehicleBase + vehicle.id! * 32 + category * 4 + warning;
+        await _plugin.cancel(id);
+        final due = dates[category].date;
+        if (due == null) continue;
+        final days = vehicleDateWarningDays[warning];
+        await _scheduleAt(
+          id: id,
+          when:
+              tz.TZDateTime.from(due, tz.local).subtract(Duration(days: days)),
+          title: '${dates[category].name} à renouveler',
+          body:
+              '${vehicle.registrationNumber} : échéance dans $days jour${days > 1 ? 's' : ''}.',
+          channel: _channelVehicle,
+          channelName: 'Véhicules',
+          route: '/vehicles/${vehicle.id}',
+          preferences: preferences,
+        );
+      }
+    }
+    await _evaluateMileageAlert(
+        vehicle, 'oil', 'Vidange', vehicle.oilChangeDueMileage, preferences, 0);
+    await _evaluateMileageAlert(vehicle, 'distribution', 'Courroie / chaîne',
+        vehicle.distributionDueMileage, preferences, 1);
+  }
+
+  Future<void> _evaluateMileageAlert(
+      VehicleModel vehicle,
+      String key,
+      String label,
+      int? dueMileage,
+      NotificationPreferences preferences,
+      int category) async {
+    if (vehicle.id == null || dueMileage == null) return;
+    final db = await DatabaseHelper.instance.database;
+    await db.delete('vehicle_alert_history',
+        where: 'vehicle_id = ? AND alert_key = ? AND due_mileage != ?',
+        whereArgs: [vehicle.id, key, dueMileage]);
+    final remaining = dueMileage - vehicle.currentMileage;
+    for (var i = 0; i < vehicleMileageWarningKm.length; i++) {
+      final threshold = vehicleMileageWarningKm[i];
+      if (remaining > threshold) continue;
+      final seen = await db.query('vehicle_alert_history',
+          where:
+              'vehicle_id = ? AND alert_key = ? AND threshold = ? AND due_mileage = ?',
+          whereArgs: [vehicle.id, key, threshold, dueMileage],
+          limit: 1);
+      if (seen.isNotEmpty) continue;
+      final body = remaining <= 0
+          ? '${vehicle.registrationNumber} : entretien à faire maintenant.'
+          : '${vehicle.registrationNumber} : entretien dans $remaining km.';
+      await _show(
+          id: _idVehicleBase + vehicle.id! * 32 + 24 + category * 3 + i,
+          title: label,
+          body: body,
+          channel: _channelVehicle,
+          channelName: 'Véhicules',
+          route: '/vehicles/${vehicle.id}',
+          preferences: preferences);
+      await db.insert('vehicle_alert_history', {
+        'vehicle_id': vehicle.id,
+        'alert_key': key,
+        'threshold': threshold,
+        'due_mileage': dueMileage
+      });
     }
   }
 
@@ -522,14 +599,21 @@ class NotificationService {
 
       final db = await DatabaseHelper.instance.database;
       final rows = await db.rawQuery('''
-        SELECT c.id AS contract_id, v.registration_number
+        SELECT c.id AS contract_id, c.expected_return_date, v.registration_number
         FROM contracts c
         JOIN vehicles v ON v.id = c.vehicle_id
         WHERE c.status = 'active' AND c.expected_return_date < ?
         ORDER BY c.expected_return_date ASC
       ''', [DateTime.now().toIso8601String()]);
 
-      if (rows.isEmpty) {
+      final now = tz.TZDateTime.now(tz.local);
+      final eligibleRows = rows.where((row) {
+        final due = tz.TZDateTime.from(
+            DateTime.parse(row['expected_return_date'] as String), tz.local);
+        return !firstOverdueReminderAt(due).isAfter(now);
+      }).toList();
+
+      if (eligibleRows.isEmpty) {
         await _plugin.cancel(_idLateDigest);
         await _store.deleteString(keyLateDigestSignature);
         return;
@@ -538,30 +622,31 @@ class NotificationService {
       // Nothing new is overdue since the last alert, so stay quiet. Showing
       // the same notification again would sound and vibrate afresh.
       final signature = digestSignature(
-        rows.map((row) => row['contract_id'] as int),
+        eligibleRows.map((row) => row['contract_id'] as int),
       );
       if (signature == await _store.getString(keyLateDigestSignature)) {
         return;
       }
       await _store.setString(keyLateDigestSignature, signature);
 
-      final plates = rows
+      final plates = eligibleRows
           .map((row) => row['registration_number'] as String?)
           .whereType<String>()
           .toList();
 
-      final single = rows.length == 1;
+      final single = eligibleRows.length == 1;
       await _show(
         id: _idLateDigest,
-        title: single ? 'Véhicule en retard' : '${rows.length} véhicules en retard',
+        title: single
+            ? 'Véhicule en retard'
+            : '${eligibleRows.length} véhicules en retard',
         body: single
             ? 'Le véhicule ${plates.first} est en retard de retour.'
-            : plates.take(4).join(', ') +
-                (plates.length > 4 ? '…' : ''),
+            : plates.take(4).join(', ') + (plates.length > 4 ? '…' : ''),
         channel: _channelLate,
         channelName: 'Retards',
         route: single
-            ? '/contracts/${rows.first['contract_id']}'
+            ? '/contracts/${eligibleRows.first['contract_id']}'
             : '/contracts',
         preferences: preferences,
       );
@@ -581,6 +666,11 @@ class NotificationService {
   }
 
   // ------------------------------------------------------------------ helpers
+
+  @visibleForTesting
+  static tz.TZDateTime firstOverdueReminderAt(tz.TZDateTime due) =>
+      tz.TZDateTime(due.location, due.year, due.month, due.day + 1, due.hour,
+          due.minute, due.second);
 
   static String _describeLead(int minutes) {
     if (minutes >= 1440) return 'demain';
@@ -640,9 +730,27 @@ class NotificationService {
     // A daily repeat anchored in the past never fires; walk it forward.
     if (repeatDaily) {
       while (!target.isAfter(now)) {
-        target = target.add(const Duration(days: 1));
+        target = firstOverdueReminderAt(target);
       }
     } else if (!target.isAfter(now)) {
+      return;
+    }
+
+    final details = _details(
+      channel: channel,
+      channelName: channelName,
+      grouped: channel == _channelLate,
+      withViewAction: withViewAction,
+    );
+    if (repeatDaily && defaultTargetPlatform == TargetPlatform.android) {
+      await AndroidDailyReminder.schedule(
+        id: id,
+        title: title,
+        body: body,
+        firstOccurrence: target,
+        details: details.android!,
+        route: route,
+      );
       return;
     }
 
@@ -651,12 +759,7 @@ class NotificationService {
       title,
       body,
       target,
-      _details(
-        channel: channel,
-        channelName: channelName,
-        grouped: channel == _channelLate,
-        withViewAction: withViewAction,
-      ),
+      details,
       payload: route,
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       matchDateTimeComponents: repeatDaily ? DateTimeComponents.time : null,

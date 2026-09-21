@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:math';
+import 'dart:typed_data';
 
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -44,6 +45,15 @@ class MediaStore {
 
   bool get isReady => _directory != null;
 
+  /// The directory whose files belong in a portable backup.
+  Directory get directory {
+    final directory = _directory;
+    if (directory == null) {
+      throw StateError('MediaStore.init() must run before accessing media');
+    }
+    return directory;
+  }
+
   /// Copies [source] into permanent storage and returns the name to persist.
   ///
   /// Throws [StateError] if [init] has not run — losing the picture silently is
@@ -62,6 +72,17 @@ class MediaStore {
         '${Random().nextInt(0xFFFF).toRadixString(16)}$suffix';
 
     await source.copy(p.join(directory.path, name));
+    return name;
+  }
+
+  Future<String> saveBytes(Uint8List bytes,
+      {required String prefix, String extension = 'png'}) async {
+    final directory = _directory;
+    if (directory == null)
+      throw StateError('MediaStore.init() must run before saving attachments');
+    final name =
+        '${prefix}_${DateTime.now().millisecondsSinceEpoch}_${Random().nextInt(0xFFFF).toRadixString(16)}.$extension';
+    await File(p.join(directory.path, name)).writeAsBytes(bytes, flush: true);
     return name;
   }
 

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/models/vehicle_model.dart';
 import '../../data/repositories/vehicle_repository.dart';
+import '../../core/notifications/notification_service.dart';
 
 final vehiclesProvider =
     AsyncNotifierProvider<VehicleNotifier, List<VehicleModel>>(
@@ -34,6 +35,8 @@ class VehicleNotifier extends AsyncNotifier<List<VehicleModel>> {
       );
       final id = await _repository.insertVehicle(vehicleToInsert);
       final inserted = vehicleToInsert.copyWith(id: id);
+      await NotificationService.instance
+          .scheduleVehicleMaintenanceReminders(inserted);
       return [inserted, ...current];
     });
   }
@@ -45,6 +48,8 @@ class VehicleNotifier extends AsyncNotifier<List<VehicleModel>> {
       final now = DateTime.now();
       final updatedVehicle = vehicle.copyWith(updatedAt: now);
       await _repository.updateVehicle(updatedVehicle);
+      await NotificationService.instance
+          .scheduleVehicleMaintenanceReminders(updatedVehicle);
       return current
           .map(
             (v) => v.id == updatedVehicle.id ? updatedVehicle : v,
@@ -80,4 +85,3 @@ class VehicleNotifier extends AsyncNotifier<List<VehicleModel>> {
     });
   }
 }
-

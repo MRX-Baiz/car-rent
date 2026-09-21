@@ -31,6 +31,6 @@ void main() {
     expect(find.text('Add your first item'), findsOneWidget);
     expect(find.text('Save'), findsOneWidget);
     expect(find.byIcon(Icons.save_outlined), findsOneWidget);
-    expect(find.text('active'), findsOneWidget);
+    expect(find.text('En cours'), findsOneWidget);
   });
 }

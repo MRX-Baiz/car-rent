@@ -234,4 +234,12 @@ void main() {
       expect(days, sorted);
     });
   });
+
+  test('first overdue reminder keeps local time when the UTC offset changes',
+      () {
+    final due = tz.TZDateTime(casablanca, 2026, 2, 14, 17, 13);
+    final first = NotificationService.firstOverdueReminderAt(due);
+    expect(first, tz.TZDateTime(casablanca, 2026, 2, 15, 17, 13));
+    expect(first.difference(due), const Duration(hours: 25));
+  });
 }
