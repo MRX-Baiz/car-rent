@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:car_rent_manager/presentation/widgets/common/form_section.dart';
 import 'package:car_rent_manager/presentation/widgets/dashboard/stat_card.dart';
 
 /// Renders widgets at real phone dimensions. Flutter reports a RenderFlex
@@ -229,6 +230,81 @@ void main() {
         ),
       );
       expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('Contract detail bottom action bar', () {
+    // A contract used to be closable at any time, in one tap. A stricter
+    // build once hid that button behind completing the departure inspection
+    // first, which took the option away rather than improving it (a real
+    // regression, reported by the user). Close must fit next to the
+    // departure-inspection button on a narrow phone, not just be present.
+    testWidgets(
+        'before the departure check: "État des lieux départ" and "Clôturer" '
+        'fit side by side on a 360dp phone', (tester) async {
+      await tester.pumpWidget(
+        wrap(
+          BottomActionBar(
+            child: Row(
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: FilledButton.icon(
+                    onPressed: () {},
+                    icon: const Icon(Icons.key_outlined),
+                    label: const Text('État des lieux départ'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  flex: 2,
+                  child: OutlinedButton.icon(
+                    onPressed: () {},
+                    icon: const Icon(Icons.lock_outline),
+                    label: const Text('Clôturer'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      expect(tester.takeException(), isNull);
+      expect(find.text('Clôturer'), findsOneWidget);
+      expect(find.text('État des lieux départ'), findsOneWidget);
+    });
+
+    testWidgets(
+        'after the departure check: "Retour" and "Clôturer le contrat" fit '
+        'side by side on a 360dp phone', (tester) async {
+      await tester.pumpWidget(
+        wrap(
+          BottomActionBar(
+            child: Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () {},
+                    icon: const Icon(Icons.assignment_return_outlined),
+                    label: const Text('Retour'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  flex: 2,
+                  child: FilledButton.icon(
+                    onPressed: () {},
+                    icon: const Icon(Icons.lock_outline),
+                    label: const Text('Clôturer le contrat'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      expect(tester.takeException(), isNull);
+      expect(find.text('Clôturer le contrat'), findsOneWidget);
     });
   });
 }

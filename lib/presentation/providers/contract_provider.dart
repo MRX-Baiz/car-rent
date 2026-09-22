@@ -7,6 +7,8 @@ import '../../data/models/contract_model.dart';
 import '../../data/repositories/contract_repository.dart';
 import '../../data/repositories/payment_repository.dart';
 import '../../data/repositories/vehicle_repository.dart';
+import 'chauffeur_provider.dart';
+import 'vehicle_provider.dart';
 
 final contractsProvider =
     AsyncNotifierProvider<ContractNotifier, List<ContractModel>>(
@@ -52,6 +54,19 @@ class ContractNotifier extends AsyncNotifier<List<ContractModel>> {
           )
           .toList();
     });
+    // Without this, a failed edit (frozen terms, a vehicle already booked
+    // elsewhere...) looked like a success: AsyncValue.guard swallows the
+    // error into `state` rather than throwing, so the editing screen's own
+    // try/catch never ran.
+    if (state is AsyncError) {
+      final err = (state as AsyncError).error;
+      state = AsyncValue.data(current);
+      throw err is Exception ? err : Exception(err.toString());
+    }
+    // Reassigning the vehicle/chauffeur on an active contract flips their
+    // status in the database; refresh the lists that cache it separately, or
+    // the vehicles/chauffeurs screens keep showing the old assignment.
+    await _refreshRelated();
   }
 
   Future<void> restoreReminders() async {
@@ -105,6 +120,12 @@ class ContractNotifier extends AsyncNotifier<List<ContractModel>> {
           )
           .toList();
     });
+    if (state is AsyncError) {
+      final err = (state as AsyncError).error;
+      state = AsyncValue.data(current);
+      throw err is Exception ? err : Exception(err.toString());
+    }
+    await _refreshRelated();
   }
 
   Future<void> deleteContract(int id) async {
@@ -115,6 +136,20 @@ class ContractNotifier extends AsyncNotifier<List<ContractModel>> {
       await NotificationService.instance.cancelContractNotifications(id);
       return current.where((c) => c.id != id).toList();
     });
+    if (state is AsyncError) {
+      final err = (state as AsyncError).error;
+      state = AsyncValue.data(current);
+      throw err is Exception ? err : Exception(err.toString());
+    }
+    await _refreshRelated();
+  }
+
+  /// Vehicles and chauffeurs are cached in their own providers; a contract
+  /// mutation that the repository is known to flip their status for (create,
+  /// edit, close, delete) has to pull those caches back in sync.
+  Future<void> _refreshRelated() async {
+    await ref.read(vehiclesProvider.notifier).loadVehicles();
+    await ref.read(chauffeursProvider.notifier).load();
   }
 
   Future<void> refreshPaymentsForContract(int contractId) async {

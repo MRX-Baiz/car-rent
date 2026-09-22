@@ -7,7 +7,9 @@ import 'core/navigation/tab_back_button_dispatcher.dart';
 import 'core/notifications/notification_service.dart';
 import 'data/models/client_model.dart';
 import 'data/models/vehicle_model.dart';
+import 'data/models/contract_model.dart';
 import 'presentation/screens/contracts/contract_detail_screen.dart';
+import 'presentation/screens/contracts/contract_edit_screen.dart';
 import 'presentation/screens/contracts/contract_form_screen.dart';
 import 'presentation/screens/contracts/contracts_list_screen.dart';
 import 'presentation/screens/contracts/inspection_form_screen.dart';
@@ -190,6 +192,17 @@ final _router = GoRouter(
                     return const SplashScreen();
                   return InspectionFormScreen(contractId: id, type: type!);
                 }),
+            GoRoute(
+              path: 'edit',
+              builder: (context, state) {
+                final id = int.tryParse(state.pathParameters['id'] ?? '');
+                final contract = state.extra as ContractModel?;
+                if (id == null || contract == null) {
+                  return const SplashScreen();
+                }
+                return ContractEditScreen(contract: contract);
+              },
+            ),
           ],
         ),
       ],

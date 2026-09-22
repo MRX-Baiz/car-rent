@@ -172,6 +172,15 @@ class ContractRepository {
     });
   }
 
+  /// Updates a contract's own fields, and — for an active contract — keeps
+  /// the vehicle's/chauffeur's `rented`/`assigned` flag pointed at whoever it
+  /// now names, the same bookkeeping [insertContract] does for a new one.
+  ///
+  /// Two things can make this fail on purpose, both surfaced as a plain
+  /// message rather than a stack trace: the terms are frozen once a PDF has
+  /// been prepared for this contract (a changed [ContractModel.signingTermsJson]
+  /// no longer matches what was archived), or the target vehicle/chauffeur is
+  /// already committed to a different active contract.
   Future<int> updateContract(ContractModel contract) async {
     if (contract.id == null) {
       throw ArgumentError('Contract id is required for update');
@@ -179,6 +188,17 @@ class ContractRepository {
     try {
       final db = await _dbHelper.database;
       return await db.transaction((txn) async {
+        final beforeRows = await txn.query(
+          'contracts',
+          where: 'id = ?',
+          whereArgs: [contract.id],
+          limit: 1,
+        );
+        if (beforeRows.isEmpty) {
+          throw Exception('Contract not found');
+        }
+        final before = ContractModel.fromMap(beforeRows.first);
+
         final documents = await txn.query('contract_documents',
             where: 'contract_id = ?', whereArgs: [contract.id]);
         if (documents.isNotEmpty &&
@@ -186,19 +206,78 @@ class ContractRepository {
           throw StateError('Le PDF de ce contrat est figé pour signature. '
               'Créez un nouveau contrat pour modifier les conditions.');
         }
-        return txn.update(
+
+        if (contract.status == 'active' &&
+            contract.vehicleId != before.vehicleId) {
+          final clash = await txn.query(
+            'contracts',
+            columns: ['id'],
+            where: 'vehicle_id = ? AND status = ? AND id != ?',
+            whereArgs: [contract.vehicleId, 'active', contract.id],
+            limit: 1,
+          );
+          if (clash.isNotEmpty) {
+            throw Exception('Ce véhicule a déjà un contrat actif.');
+          }
+        }
+        if (contract.status == 'active' &&
+            contract.chauffeurId != null &&
+            contract.chauffeurId != before.chauffeurId) {
+          final driver = await txn.query('chauffeurs',
+              columns: ['status'],
+              where: 'id = ?',
+              whereArgs: [contract.chauffeurId],
+              limit: 1);
+          if (driver.isEmpty || driver.single['status'] != 'available') {
+            throw Exception('Ce chauffeur n’est pas disponible.');
+          }
+        }
+
+        final count = await txn.update(
           'contracts',
           contract.toMap()..remove('id'),
           where: 'id = ?',
           whereArgs: [contract.id],
           conflictAlgorithm: ConflictAlgorithm.abort,
         );
+
+        if (contract.status == 'active') {
+          final now = DateTime.now().toIso8601String();
+          if (contract.vehicleId != before.vehicleId) {
+            await txn.update(
+                'vehicles', {'status': 'available', 'updated_at': now},
+                where: 'id = ?', whereArgs: [before.vehicleId]);
+            await txn.update(
+                'vehicles', {'status': 'rented', 'updated_at': now},
+                where: 'id = ?', whereArgs: [contract.vehicleId]);
+          }
+          if (contract.chauffeurId != before.chauffeurId) {
+            if (before.chauffeurId != null) {
+              await txn.update(
+                  'chauffeurs', {'status': 'available', 'updated_at': now},
+                  where: 'id = ?', whereArgs: [before.chauffeurId]);
+            }
+            if (contract.chauffeurId != null) {
+              await txn.update(
+                  'chauffeurs', {'status': 'assigned', 'updated_at': now},
+                  where: 'id = ?', whereArgs: [contract.chauffeurId]);
+            }
+          }
+        }
+
+        return count;
       });
     } on DatabaseException catch (e) {
       if (e.isUniqueConstraintError()) {
         throw Exception('A contract with this number already exists.');
       }
       throw Exception('Failed to update contract: $e');
+    } on Exception {
+      // Our own validation above (frozen terms, a vehicle/chauffeur already
+      // committed elsewhere) already has a clear message; only StateError
+      // still gets wrapped below, matching the type callers have always
+      // caught here (contract_signing_test.dart asserts on it).
+      rethrow;
     } catch (e) {
       throw Exception('Failed to update contract: $e');
     }

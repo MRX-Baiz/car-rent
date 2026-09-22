@@ -15,6 +15,7 @@ import 'package:car_rent_manager/presentation/providers/lookup_provider.dart';
 import 'package:car_rent_manager/presentation/providers/vehicle_provider.dart';
 import 'package:car_rent_manager/presentation/screens/dashboard/dashboard_screen.dart';
 import 'package:car_rent_manager/presentation/screens/splash/splash_screen.dart';
+import 'package:car_rent_manager/presentation/screens/vehicles/vehicle_detail_screen.dart';
 import 'package:car_rent_manager/presentation/screens/vehicles/vehicles_list_screen.dart';
 import 'package:car_rent_manager/presentation/widgets/common/app_card.dart';
 import 'package:car_rent_manager/presentation/widgets/motion/motion.dart';
@@ -419,6 +420,39 @@ void main() {
     await _frames(tester, 1.0);
     await _shot(tester, key, 'list_1_scrolled');
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'Vehicle detail: maintenance section is collapsed, with a status badge, '
+      'and opens on tap', (tester) async {
+    final vehicles = _vehicles(photo);
+    final key = await _pumpApp(
+      tester,
+      screen: const VehicleDetailScreen(vehicleId: 1),
+      overrides: [
+        vehiclesProvider.overrideWith(() => _FakeVehicles(vehicles)),
+        contractsProvider.overrideWith(() => _FakeContracts([_contract])),
+        lookupsProvider.overrideWith((ref) async => _lookups(vehicles)),
+      ],
+    );
+    await _frames(tester, 1.5);
+    expect(tester.takeException(), isNull);
+    // The full breakdown must not be on screen yet — only the summary.
+    expect(find.textContaining('Expire dans'), findsNothing);
+    await _shot(tester, key, 'vehicle_detail_0_collapsed');
+
+    // The section sits below the fold on a phone-height screen.
+    await tester.dragUntilVisible(
+      find.text('Entretien et documents légaux'),
+      find.byType(Scrollable).first,
+      const Offset(0, -300),
+    );
+    await _frames(tester, 0.3);
+    await tester.tap(find.text('Entretien et documents légaux'));
+    await _frames(tester, 0.4);
+    expect(tester.takeException(), isNull);
+    expect(find.textContaining('Expire dans'), findsOneWidget);
+    await _shot(tester, key, 'vehicle_detail_1_expanded');
   });
 }
 

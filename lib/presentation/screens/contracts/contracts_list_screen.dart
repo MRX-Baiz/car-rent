@@ -10,6 +10,7 @@ import '../../widgets/common/adaptive_layout.dart';
 import '../../widgets/common/app_shimmer.dart';
 import '../../widgets/common/empty_state_widget.dart';
 import '../../widgets/contracts/contract_card.dart';
+import '../../widgets/contracts/contract_delete_dialog.dart';
 import '../../widgets/motion/backdrop_page.dart';
 
 class ContractsListScreen extends ConsumerStatefulWidget {
@@ -59,29 +60,7 @@ class _ContractsListScreenState extends ConsumerState<ContractsListScreen>
         lookups.clientName(c.primaryDriverId).toLowerCase().contains(_query);
   }
 
-  Future<void> _confirmDelete(ContractModel contract) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Supprimer le contrat ?'),
-        content: Text(
-            'Voulez-vous vraiment supprimer le contrat n° ${contract.contractNumber} ? Cette action supprimera également les paiements associés et est irréversible.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Annuler'),
-          ),
-          FilledButton(
-            style:
-                FilledButton.styleFrom(backgroundColor: AppTone.danger.color),
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Supprimer'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed != true || !mounted) return;
+  Future<void> _delete(ContractModel contract) async {
     try {
       await ref.read(contractsProvider.notifier).deleteContract(contract.id!);
       if (mounted) {
@@ -245,17 +224,31 @@ class _ContractsListScreenState extends ConsumerState<ContractsListScreen>
               final contract = filtered[index];
               return Padding(
                 padding: const EdgeInsets.only(bottom: 12),
-                child: ContractCard(
-                  contract: contract,
-                  lookups: lookups,
-                  onTap: () {
-                    if (contract.id != null) {
-                      context.push('/contracts/${contract.id}');
-                    }
-                  },
-                  onDelete: contract.status == 'completed'
-                      ? () => _confirmDelete(contract)
-                      : null,
+                child: Dismissible(
+                  key: ValueKey(contract.id ?? index),
+                  direction: DismissDirection.endToStart,
+                  background: Container(
+                    decoration: BoxDecoration(
+                      color: AppTone.danger.color,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    alignment: Alignment.centerRight,
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child:
+                        const Icon(Icons.delete_forever, color: Colors.white),
+                  ),
+                  confirmDismiss: (_) =>
+                      confirmDeleteContract(context, contract),
+                  onDismissed: (_) => _delete(contract),
+                  child: ContractCard(
+                    contract: contract,
+                    lookups: lookups,
+                    onTap: () {
+                      if (contract.id != null) {
+                        context.push('/contracts/${contract.id}');
+                      }
+                    },
+                  ),
                 ),
               );
             },

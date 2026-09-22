@@ -202,11 +202,47 @@ rewrite the archived PDF. Related client/agency edits also leave it intact.
 PDF fonts are bundled Roboto (Apache 2.0, assets/fonts/LICENSE.txt) for offline
 use. Dates/times and amounts in the PDF use the saved contract values.
 
+**Editing and deleting a contract** (`ContractEditScreen`, reached from a
+"Modifier" icon on the contract detail page) exists for the case this section
+doesn't cover: a contract created outright wrong (wrong car, wrong client,
+wrong dates), not one whose terms need to change after signing. It's gated on
+`ContractProgress.document == null` — no PDF prepared yet — so it never
+collides with the frozen-terms rule above; `updateContract` itself enforces
+that same check server-side, so the UI gate is a courtesy, not the only guard.
+Reassigning the vehicle or chauffeur on an *active* contract through this
+screen re-syncs their `rented`/`assigned` status the same way creating or
+closing one does, and is refused (whole update rolled back) if the target is
+already committed to a different active contract — mirroring the check
+`insertContract` already made for a brand new one. `amountPaid` is shown but
+not editable here; it's owned by the `payments` table via
+`addPaymentAndUpdateContract`, not by this form. Deleting a contract (also
+on the detail page, and by swiping it in the list) works at any status now,
+not just `completed` — it always frees the vehicle/chauffeur if the contract
+was active, so there was no technical reason to gate it. `ContractNotifier`'s
+`updateContract`/`closeContract`/`deleteContract` propagate a failed operation
+to the caller (mirroring `ClientNotifier.updateClient`); before this they
+didn't, so a screen's own try/catch never fired — worth remembering if you add
+another mutation there.
+
+**"Clôturer le contrat" is reachable at any time — don't gate it on the
+departure/return inspections.** A rewrite of the contract detail page once
+made the close button wait on the departure inspection being done first,
+hiding it entirely behind a single "État des lieux de départ" button until
+then. That looked like reasonable sequencing (do the checklist, then close)
+but was a regression: closing had always been a one-tap action, and this
+silently took that away — the user caught it precisely because they'd relied
+on it. `ContractDetailScreen._buildActionBar` now always offers Close
+alongside whichever inspection step is next, and `test/contract_detail_controls_test.dart`
+guards against reintroducing the hide-until-done version (it asserts on the
+method's source directly, since the screen's own database calls make it
+impractical to render whole in a widget test here).
+
 Tests: `contract_signing_test.dart` covers capture/import, frozen terms,
 unchanged original, corrupted files, v5 migration and restore after deleting
 media. `client_signature_screen_test.dart` checks empty-signature prevention,
-clear, and a narrow phone layout. Real device signing/Adobe round-trip still
-needs manual validation.
+clear, and a narrow phone layout. `contract_repository_test.dart` covers the
+edit-time vehicle/chauffeur reassignment and double-booking guards. Real
+device signing/Adobe round-trip still needs manual validation.
 
 ### Licensing: RSA-4096, device-bound, offline
 
@@ -281,7 +317,7 @@ Full list in `pubspec.yaml`.
 6. **Verify the checkout is healthy**:
    ```
    flutter analyze      # expect 0 errors
-   flutter test         # expect 143 passing
+   flutter test         # expect 208 passing
    ```
 7. **Run it**:
    ```
@@ -336,7 +372,7 @@ scripts/
   make_icon_assets.py       launcher icon from source art
   make_notification_icon.py status-bar icon (monochrome silhouette)
 
-test/                     143 tests; see §7
+test/                     208 tests; see §7
 ```
 
 ---
@@ -345,7 +381,7 @@ test/                     143 tests; see §7
 
 ```
 flutter analyze     # must be 0 errors before committing
-flutter test         # 143 tests as of this writing
+flutter test         # 208 tests as of this writing
 ```
 
 Every security-relevant piece has a test that fails without the fix it's

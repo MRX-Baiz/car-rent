@@ -13,6 +13,7 @@ import '../../providers/vehicle_provider.dart';
 import '../../widgets/common/alert_banner.dart';
 import '../../widgets/common/app_card.dart';
 import '../../widgets/common/app_shimmer.dart';
+import '../../widgets/common/collapsible_section.dart';
 import '../../widgets/common/detail_row.dart';
 import '../../widgets/common/empty_state_widget.dart';
 import '../../widgets/common/form_section.dart';
@@ -295,14 +296,29 @@ class _Body extends ConsumerWidget {
                   ],
                 ),
               ),
-              const SectionHeader(
-                title: 'Entretien et documents légaux',
-                padding: EdgeInsets.fromLTRB(4, 20, 4, 10),
-              ),
-              AppCard(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                child: DetailList(
+              Padding(
+                padding: const EdgeInsets.fromLTRB(4, 20, 4, 0),
+                // Collapsed by default — the alert banner above already
+                // surfaces anything urgent; this is the full breakdown for
+                // when the operator actually wants it, not a wall of dates
+                // shown whether needed or not.
+                child: CollapsibleSection(
+                  icon: Icons.build_outlined,
+                  title: 'Entretien et documents légaux',
+                  subtitle: alerts.isEmpty
+                      ? 'À jour'
+                      : '${alerts.length} '
+                          '${alerts.length > 1 ? 'points' : 'point'} à surveiller',
+                  badge: StatusChip(
+                    label: alerts.isEmpty ? 'À jour' : '${alerts.length}',
+                    tone: alerts.isEmpty
+                        ? AppTone.success
+                        : (alerts.any((a) => a.tone == AppTone.danger)
+                            ? AppTone.danger
+                            : AppTone.warning),
+                    icon: alerts.isEmpty ? Icons.check : null,
+                    dense: true,
+                  ),
                   children: [
                     for (final item in items)
                       DetailRow(

@@ -18,6 +18,7 @@ import '../../providers/lookup_provider.dart';
 import '../../widgets/common/alert_banner.dart';
 import '../../widgets/common/app_card.dart';
 import '../../widgets/common/app_shimmer.dart';
+import '../../widgets/common/collapsible_section.dart';
 import '../../widgets/common/detail_row.dart';
 import '../../widgets/common/empty_state_widget.dart';
 import '../../widgets/common/form_section.dart';
@@ -26,6 +27,7 @@ import '../../widgets/common/section_header.dart';
 import '../../widgets/common/status_badge.dart';
 import '../../widgets/common/status_chip.dart';
 import '../../widgets/common/vehicle_photo.dart';
+import '../../widgets/contracts/contract_delete_dialog.dart';
 import 'contract_signature_card.dart';
 import '../../widgets/motion/backdrop_page.dart';
 
@@ -239,10 +241,38 @@ class _ContractDetailScreenState extends ConsumerState<ContractDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final contractsAsync = ref.watch(contractsProvider);
+    final contract = contractsAsync.maybeWhen(
+      data: (contracts) => _findContract(contracts, widget.contractId),
+      orElse: () => null,
+    );
+    // Watched here too (not just inside _buildActionBar) so the AppBar can
+    // decide whether editing is still safe: once a PDF exists for this
+    // contract, ContractRepository.updateContract freezes its terms.
+    final progress = contract == null
+        ? null
+        : ref.watch(contractProgressProvider(widget.contractId)).value;
+    final canEdit = contract != null &&
+        contract.status != 'completed' &&
+        progress?.document == null;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Contrat'),
+        actions: contract == null || contract.status == 'completed'
+            ? null
+            : [
+                IconButton(
+                  icon: const Icon(Icons.edit_outlined),
+                  tooltip: canEdit
+                      ? 'Modifier le contrat'
+                      : 'Conditions figées — créez un nouveau contrat pour '
+                          'les modifier',
+                  onPressed: canEdit
+                      ? () => context.push('/contracts/${contract.id}/edit',
+                          extra: contract)
+                      : null,
+                ),
+              ],
       ),
       body: BackdropPage(
           child: contractsAsync.when(
@@ -279,20 +309,41 @@ class _ContractDetailScreenState extends ConsumerState<ContractDetailScreen> {
     );
   }
 
-  /// One contextual action at the counter: before the keys leave it is the
-  /// departure check; afterwards it is the return check and closing.
+  /// The departure/return checks are encouraged here, never required to
+  /// close: closing a contract was always a one-tap action, at any time —
+  /// a stricter build once made it wait on the departure check first, which
+  /// took away a working option rather than improving it. `progress == null`
+  /// (still loading, or a read that failed) is treated the same as "not done
+  /// yet" so Close never silently disappears.
   Widget _buildActionBar(ContractModel contract) {
     final progress =
         ref.watch(contractProgressProvider(widget.contractId)).value;
     final id = contract.id!;
-    if (progress == null) return const SizedBox.shrink();
+    final departureDone = progress?.departureDone ?? false;
+    final returnDone = progress?.returnDone ?? false;
 
-    if (!progress.departureDone) {
+    if (!departureDone) {
       return BottomActionBar(
-        child: FilledButton.icon(
-          onPressed: () => _openInspection(id, 'departure'),
-          icon: const Icon(Icons.key_outlined),
-          label: const Text('Faire l’état des lieux de départ'),
+        child: Row(
+          children: [
+            Expanded(
+              flex: 3,
+              child: FilledButton.icon(
+                onPressed: () => _openInspection(id, 'departure'),
+                icon: const Icon(Icons.key_outlined),
+                label: const Text('État des lieux départ'),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              flex: 2,
+              child: OutlinedButton.icon(
+                onPressed: () => _closeContract(contract),
+                icon: const Icon(Icons.lock_outline),
+                label: const Text('Clôturer'),
+              ),
+            ),
+          ],
         ),
       );
     }
@@ -303,10 +354,10 @@ class _ContractDetailScreenState extends ConsumerState<ContractDetailScreen> {
           Expanded(
             child: OutlinedButton.icon(
               onPressed: () => _openInspection(id, 'return'),
-              icon: Icon(progress.returnDone
+              icon: Icon(returnDone
                   ? Icons.check_circle_outline
                   : Icons.assignment_return_outlined),
-              label: Text(progress.returnDone ? 'Retour fait' : 'Retour'),
+              label: Text(returnDone ? 'Retour fait' : 'Retour'),
             ),
           ),
           const SizedBox(width: 12),
@@ -612,9 +663,41 @@ class _ContractDetailScreenState extends ConsumerState<ContractDetailScreen> {
               ]),
             ),
           ],
+          const SizedBox(height: 20),
+          OutlinedButton.icon(
+            onPressed: () => _deleteContract(contract),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppTone.danger.color,
+              side: BorderSide(color: AppTone.danger.color),
+            ),
+            icon: const Icon(Icons.delete_outline),
+            label: const Text('Supprimer ce contrat'),
+          ),
         ],
       ),
     );
+  }
+
+  /// Reachable at any status, not just completed — the operator can create a
+  /// contract by mistake and needs a way out that doesn't involve waiting for
+  /// the rental period to run its course.
+  Future<void> _deleteContract(ContractModel contract) async {
+    final confirmed = await confirmDeleteContract(context, contract);
+    if (!confirmed || !mounted) return;
+    try {
+      await ref.read(contractsProvider.notifier).deleteContract(contract.id!);
+      await ref.read(dashboardProvider.notifier).refresh();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Contrat supprimé avec succès.')),
+      );
+      context.go('/contracts');
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur lors de la suppression : $e')),
+      );
+    }
   }
 
   Widget _buildPayments(
@@ -693,7 +776,16 @@ class _ContractDetailScreenState extends ConsumerState<ContractDetailScreen> {
                       ?.copyWith(color: AppColors.textSecondary),
                 );
               }
-              return DetailList(
+              return CollapsibleSection(
+                wrapInCard: false,
+                icon: Icons.receipt_long_outlined,
+                title: 'Historique des paiements',
+                subtitle: '${payments.length} '
+                    'versement${payments.length > 1 ? 's' : ''}',
+                badge: StatusChip(
+                    label: '${payments.length}',
+                    tone: AppTone.info,
+                    dense: true),
                 children: [
                   for (final p in payments)
                     DetailRow(

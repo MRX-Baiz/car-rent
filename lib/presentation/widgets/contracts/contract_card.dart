@@ -18,16 +18,12 @@ class ContractCard extends StatelessWidget {
     required this.contract,
     required this.lookups,
     this.onTap,
-    this.onDelete,
     this.compact = false,
   });
 
   final ContractModel contract;
   final Lookups lookups;
   final VoidCallback? onTap;
-
-  /// Only offered for closed contracts; shown as a trailing icon button.
-  final VoidCallback? onDelete;
 
   /// Drops the dates and payment row; used where space is short (dashboard).
   final bool compact;
@@ -98,12 +94,6 @@ class ContractCard extends StatelessWidget {
                 )
               else
                 StatusBadge(text: contract.displayStatus),
-              if (onDelete != null)
-                IconButton(
-                  tooltip: 'Supprimer le contrat',
-                  icon: Icon(Icons.delete_outline, color: AppTone.danger.color),
-                  onPressed: onDelete,
-                ),
             ],
           ),
           const SizedBox(height: 12),
