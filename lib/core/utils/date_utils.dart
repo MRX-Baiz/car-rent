@@ -4,7 +4,8 @@ import 'package:intl/intl.dart';
 class AppDateUtils {
   static final DateFormat _dateFormat = DateFormat('dd/MM/yyyy');
   static final DateFormat _dateTimeFormat = DateFormat('dd/MM/yyyy HH:mm');
-  static final DateFormat _isoFormat = DateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
+  static final DateFormat _isoFormat =
+      DateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
 
   /// Formats [date] as dd/MM/yyyy.
   static String formatDate(DateTime date) => _dateFormat.format(date);

@@ -29,4 +29,3 @@ extension VehicleStatusX on VehicleStatus {
     }
   }
 }
-

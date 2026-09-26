@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:car_rent_manager/presentation/widgets/common/app_text.dart';
 
 import '../../../core/constants/app_colors.dart';
 import 'ambient_controller.dart';
@@ -208,7 +209,7 @@ class HeroHeaderDelegate extends SliverPersistentHeaderDelegate {
                       Expanded(
                         child: Opacity(
                           opacity: _smooth(t, 0.75, 1),
-                          child: Text(
+                          child: AppText(
                             title,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -330,8 +331,8 @@ class AnimatedTitleState extends State<AnimatedTitle>
             eyebrow,
             Padding(
               padding: const EdgeInsets.only(bottom: 6),
-              child: Text(
-                widget.eyebrow!.toUpperCase(),
+              child: AppText(
+                widget.eyebrow!,
                 style: TextStyle(
                   color: widget.color.withValues(alpha: 0.85),
                   fontSize: 11.5,
@@ -343,7 +344,7 @@ class AnimatedTitleState extends State<AnimatedTitle>
           ),
         lift(
           title,
-          Text(
+          AppText(
             widget.title,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
@@ -371,7 +372,7 @@ class AnimatedTitleState extends State<AnimatedTitle>
             subtitle,
             Padding(
               padding: const EdgeInsets.only(top: 10),
-              child: Text(
+              child: AppText(
                 widget.subtitle!,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,

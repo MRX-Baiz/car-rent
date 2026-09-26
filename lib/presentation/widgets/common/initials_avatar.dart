@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:car_rent_manager/presentation/widgets/common/app_text.dart';
 
 import '../../../core/constants/app_colors.dart';
 
@@ -23,7 +24,7 @@ class InitialsAvatar extends StatelessWidget {
       radius: radius,
       backgroundColor: AppColors.primary.withValues(alpha: 0.1),
       foregroundColor: AppColors.primary,
-      child: Text(
+      child: AppText(
         _initials,
         style: TextStyle(fontSize: radius * 0.7, fontWeight: FontWeight.w800),
       ),

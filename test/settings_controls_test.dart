@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 
@@ -31,7 +32,9 @@ void main() {
 
   controls.forEach((label, wiring) {
     test('Settings keeps "$label" wired to $wiring', () {
-      expect(source, contains(label), reason: 'the "$label" control is gone');
+      final aliases = jsonDecode(File('lib/l10n/legacy_sources.json').readAsStringSync()) as Map<String, dynamic>;
+      final entry = aliases.entries.firstWhere((e) => e.key.startsWith(label.replaceAll("'", '’')));
+      expect(source, contains('AppCopy.${entry.value}'), reason: 'the "$label" control is gone');
       expect(source, contains(wiring),
           reason: '"$label" is no longer connected to $wiring');
     });

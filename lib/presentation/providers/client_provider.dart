@@ -43,6 +43,22 @@ class ClientNotifier extends AsyncNotifier<List<ClientModel>> {
     }
   }
 
+  /// Creates a client for a workflow that must immediately reference its id,
+  /// such as creating a contract with a new primary driver.
+  Future<int> createClientAndReturnId(ClientModel client) async {
+    final current = state.value ?? const <ClientModel>[];
+    final now = DateTime.now();
+    final toInsert = client.copyWith(updatedAt: now);
+    try {
+      final id = await _repository.insertClient(toInsert);
+      state = AsyncValue.data([toInsert.copyWith(id: id), ...current]);
+      return id;
+    } catch (error, stackTrace) {
+      state = AsyncValue.error(error, stackTrace);
+      rethrow;
+    }
+  }
+
   Future<void> updateClient(ClientModel client) async {
     final current = state.value ?? const <ClientModel>[];
     state = const AsyncLoading();
@@ -81,4 +97,3 @@ class ClientNotifier extends AsyncNotifier<List<ClientModel>> {
     state = await AsyncValue.guard(() => _repository.searchClients(query));
   }
 }
-

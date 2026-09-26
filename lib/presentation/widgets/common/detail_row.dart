@@ -1,4 +1,6 @@
+import '../../../core/localization/app_localizations.dart';
 import 'package:flutter/material.dart';
+import 'package:car_rent_manager/presentation/widgets/common/app_text.dart';
 
 import '../../../core/constants/app_colors.dart';
 
@@ -13,6 +15,7 @@ class DetailRow extends StatelessWidget {
     this.trailing,
     this.onTap,
     this.mono = false,
+    this.translateValue = false,
   });
 
   final String label;
@@ -21,6 +24,7 @@ class DetailRow extends StatelessWidget {
   final Widget? trailing;
   final VoidCallback? onTap;
   final bool mono;
+  final bool translateValue;
 
   @override
   Widget build(BuildContext context) {
@@ -42,12 +46,12 @@ class DetailRow extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(label,
+                    AppText(label,
                         style: theme.textTheme.bodySmall
                             ?.copyWith(color: AppColors.textSecondary)),
                     const SizedBox(height: 2),
                     Text(
-                      value.isEmpty ? '—' : value,
+                      value.isEmpty ? '—' : translateValue ? context.tr(value) : value,
                       style: theme.textTheme.bodyLarge?.copyWith(
                         fontWeight: FontWeight.w700,
                         fontFamily: mono ? 'monospace' : null,
@@ -137,14 +141,14 @@ class _MetricTile extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+                AppText(
                   item.value,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.bodyLarge
                       ?.copyWith(fontWeight: FontWeight.w800),
                 ),
-                Text(
+                AppText(
                   item.label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,

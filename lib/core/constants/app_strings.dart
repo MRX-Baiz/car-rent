@@ -23,4 +23,3 @@ class AppStrings {
   static const String confirmDeleteContract =
       'Supprimer ce contrat ?\nهل تريد حذف هذا العقد؟\nDelete this contract?';
 }
-

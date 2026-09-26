@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:car_rent_manager/presentation/widgets/common/app_text.dart';
 import 'package:printing/printing.dart';
 
 class ContractPdfScreen extends StatefulWidget {
@@ -25,7 +26,7 @@ class _ContractPdfScreenState extends State<ContractPdfScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: Text(widget.title)),
+        appBar: AppBar(title: AppText(widget.title)),
         body: Column(children: [
           Expanded(
               child: PdfPreview(
@@ -46,7 +47,7 @@ class _ContractPdfScreenState extends State<ContractPdfScreen> {
                       value: _confirmed,
                       onChanged: (value) =>
                           setState(() => _confirmed = value ?? false),
-                      title: Text(widget.confirmationText ??
+                      title: AppText(widget.confirmationText ??
                           'J’ai lu le contrat et accepté ses conditions.'),
                       controlAffinity: ListTileControlAffinity.leading,
                       contentPadding: EdgeInsets.zero,
@@ -55,7 +56,7 @@ class _ContractPdfScreenState extends State<ContractPdfScreen> {
                       onPressed: _confirmed
                           ? () => Navigator.of(context).pop(true)
                           : null,
-                      child: Text(widget.confirmLabel!),
+                      child: AppText(widget.confirmLabel!),
                     ),
                   ]),
                 )),

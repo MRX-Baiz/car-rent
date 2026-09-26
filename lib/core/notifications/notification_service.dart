@@ -6,8 +6,10 @@ import 'package:timezone/timezone.dart' as tz;
 
 import '../../data/repositories/app_settings_repository.dart';
 import '../../data/repositories/key_value_store.dart';
-import '../../data/models/vehicle_model.dart';
+import '../../domain/entities/notification_diagnostics.dart';
+import '../../domain/entities/reminder_plans.dart';
 import '../database/database_helper.dart';
+import '../localization/app_localizations.dart';
 import 'android_daily_reminder.dart';
 import 'notification_preferences.dart';
 
@@ -17,32 +19,6 @@ import 'notification_preferences.dart';
 /// the destination would be lost. The app watches this instead and replays it
 /// after unlocking.
 final pendingNotificationRoute = ValueNotifier<String?>(null);
-
-/// Whether a reminder scheduled now would actually arrive on time.
-class NotificationDiagnostics {
-  const NotificationDiagnostics({
-    required this.available,
-    required this.notificationsAllowed,
-    required this.exactAlarmsAllowed,
-    required this.pending,
-  });
-
-  /// False on platforms with no local-notification support.
-  final bool available;
-
-  /// Android 13+ blocks everything until the user has been asked.
-  final bool notificationsAllowed;
-
-  /// Without this, Android 12+ downgrades an exact alarm to an inexact one and
-  /// Doze holds it until the device next wakes — so a reminder set for 14:37
-  /// can arrive whenever the phone is picked up, with no error anywhere.
-  final bool exactAlarmsAllowed;
-
-  /// How many reminders are currently queued with the OS.
-  final int pending;
-
-  bool get isFullyGranted => notificationsAllowed && exactAlarmsAllowed;
-}
 
 /// Local reminders: vehicle returns, overdue vehicles, payments, licence expiry.
 ///
@@ -331,6 +307,7 @@ class NotificationService {
 
     final preferences = await _preferencesRepository.load();
     if (!preferences.enabled) return;
+    final language = await _language();
 
     // Saving a contract is the natural moment to discover the permissions are
     // missing — the alternative is scheduling reminders Android will silently
@@ -347,10 +324,16 @@ class NotificationService {
       await _scheduleAt(
         id: base + _slotPickup,
         when: pickup.subtract(Duration(minutes: preferences.leadMinutes)),
-        title: 'Départ prévu',
-        body: 'Le véhicule $registrationNumber doit être remis au client.',
+        title:
+            _copy(language, 'Départ prévu', 'Scheduled pickup', 'استلام مقرر'),
+        body: _copy(
+          language,
+          'Le véhicule $registrationNumber doit être remis au client.',
+          'Vehicle $registrationNumber must be handed to the client.',
+          'يجب تسليم المركبة $registrationNumber إلى العميل.',
+        ),
         channel: _channelContracts,
-        channelName: 'Contrats',
+        channelName: _copy(language, 'Contrats', 'Contracts', 'العقود'),
         route: route,
         preferences: preferences,
       );
@@ -358,11 +341,16 @@ class NotificationService {
       await _scheduleAt(
         id: base + _slotReturnLead,
         when: due.subtract(Duration(minutes: preferences.leadMinutes)),
-        title: 'Retour du véhicule',
-        body: 'Le véhicule $registrationNumber doit être retourné '
-            '${_describeLead(preferences.leadMinutes)}.',
+        title: _copy(
+            language, 'Retour du véhicule', 'Vehicle return', 'إرجاع المركبة'),
+        body: _copy(
+          language,
+          'Le véhicule $registrationNumber doit être retourné ${_describeLead(preferences.leadMinutes, language)}.',
+          'Vehicle $registrationNumber must be returned ${_describeLead(preferences.leadMinutes, language)}.',
+          'يجب إرجاع المركبة $registrationNumber ${_describeLead(preferences.leadMinutes, language)}.',
+        ),
         channel: _channelContracts,
-        channelName: 'Contrats',
+        channelName: _copy(language, 'Contrats', 'Contracts', 'العقود'),
         route: route,
         preferences: preferences,
       );
@@ -370,10 +358,16 @@ class NotificationService {
       await _scheduleAt(
         id: base + _slotReturnDue,
         when: due,
-        title: 'Retour du véhicule',
-        body: 'Le véhicule $registrationNumber doit être retourné maintenant.',
+        title: _copy(
+            language, 'Retour du véhicule', 'Vehicle return', 'إرجاع المركبة'),
+        body: _copy(
+          language,
+          'Le véhicule $registrationNumber doit être retourné maintenant.',
+          'Vehicle $registrationNumber must be returned now.',
+          'يجب إرجاع المركبة $registrationNumber الآن.',
+        ),
         channel: _channelContracts,
-        channelName: 'Contrats',
+        channelName: _copy(language, 'Contrats', 'Contracts', 'العقود'),
         route: route,
         preferences: preferences,
         withViewAction: true,
@@ -383,10 +377,16 @@ class NotificationService {
       await _scheduleAt(
         id: base + _slotLateRepeat,
         when: firstOverdueReminderAt(due),
-        title: 'Véhicule en retard',
-        body: 'Le véhicule $registrationNumber n\'a pas encore été retourné.',
+        title: _copy(
+            language, 'Véhicule en retard', 'Late vehicle', 'مركبة متأخرة'),
+        body: _copy(
+          language,
+          'Le véhicule $registrationNumber n\'a pas encore été retourné.',
+          'Vehicle $registrationNumber has not been returned yet.',
+          'لم تتم إعادة المركبة $registrationNumber بعد.',
+        ),
         channel: _channelLate,
-        channelName: 'Retards',
+        channelName: _copy(language, 'Retards', 'Late returns', 'التأخيرات'),
         route: route,
         preferences: preferences,
         repeatDaily: true,
@@ -398,11 +398,16 @@ class NotificationService {
         await _scheduleAt(
           id: base + _slotPayment,
           when: due,
-          title: 'Paiement en attente',
-          body: '${remainingAmount.toStringAsFixed(0)} MAD restent à encaisser '
-              'sur le contrat du véhicule $registrationNumber.',
+          title: _copy(language, 'Paiement en attente', 'Payment pending',
+              'دفع قيد الانتظار'),
+          body: _copy(
+            language,
+            '${remainingAmount.toStringAsFixed(0)} MAD restent à encaisser sur le contrat du véhicule $registrationNumber.',
+            '${remainingAmount.toStringAsFixed(0)} MAD remain to be collected for vehicle $registrationNumber.',
+            'يتبقى تحصيل ${remainingAmount.toStringAsFixed(0)} MAD لعقد المركبة $registrationNumber.',
+          ),
           channel: _channelPayments,
-          channelName: 'Paiements',
+          channelName: _copy(language, 'Paiements', 'Payments', 'المدفوعات'),
           route: route,
           preferences: preferences,
         );
@@ -428,29 +433,29 @@ class NotificationService {
   /// Date reminders are re-created every time a vehicle is saved. Mileage
   /// reminders are evaluated at that same moment because the odometer is only
   /// updated by the agency, not automatically by Android.
-  Future<void> scheduleVehicleMaintenanceReminders(VehicleModel vehicle,
+  Future<void> scheduleVehicleMaintenanceReminders(VehicleMaintenancePlan plan,
       {bool requestPermissions = true}) async {
-    if (vehicle.id == null) return;
     await initialize();
     if (!_available) return;
     final preferences = await _preferencesRepository.load();
     if (!preferences.enabled) return;
+    final language = await _language();
     if (requestPermissions) await ensurePermissions();
     final dates = <({String name, DateTime? date})>[
-      (name: 'Assurance', date: vehicle.insuranceExpiryDate),
-      (name: 'Visite technique', date: vehicle.technicalInspectionExpiryDate),
-      (name: 'Vignette', date: vehicle.vignetteDueDate),
-      (name: 'Vidange', date: vehicle.oilChangeDueDate),
+      (name: 'Assurance', date: plan.insuranceExpiryDate),
+      (name: 'Visite technique', date: plan.technicalInspectionExpiryDate),
+      (name: 'Vignette', date: plan.vignetteDueDate),
+      (name: 'Vidange', date: plan.oilChangeDueDate),
       (
         name: 'Courroie / chaîne de distribution',
-        date: vehicle.distributionDueDate
+        date: plan.distributionDueDate
       ),
     ];
     for (var category = 0; category < dates.length; category++) {
       for (var warning = 0;
           warning < vehicleDateWarningDays.length;
           warning++) {
-        final id = _idVehicleBase + vehicle.id! * 32 + category * 4 + warning;
+        final id = _idVehicleBase + plan.vehicleId * 32 + category * 4 + warning;
         await _plugin.cancel(id);
         final due = dates[category].date;
         if (due == null) continue;
@@ -459,57 +464,72 @@ class NotificationService {
           id: id,
           when:
               tz.TZDateTime.from(due, tz.local).subtract(Duration(days: days)),
-          title: '${dates[category].name} à renouveler',
-          body:
-              '${vehicle.registrationNumber} : échéance dans $days jour${days > 1 ? 's' : ''}.',
+          title: _renewalTitle(language, dates[category].name),
+          body: _copy(
+            language,
+            '${plan.registrationNumber} : échéance dans $days jour${days > 1 ? 's' : ''}.',
+            '${plan.registrationNumber}: due in $days day${days > 1 ? 's' : ''}.',
+            '${plan.registrationNumber}: الاستحقاق خلال $days يوم.',
+          ),
           channel: _channelVehicle,
-          channelName: 'Véhicules',
-          route: '/vehicles/${vehicle.id}',
+          channelName: _copy(language, 'Véhicules', 'Vehicles', 'المركبات'),
+          route: '/vehicles/${plan.vehicleId}',
           preferences: preferences,
         );
       }
     }
-    await _evaluateMileageAlert(
-        vehicle, 'oil', 'Vidange', vehicle.oilChangeDueMileage, preferences, 0);
-    await _evaluateMileageAlert(vehicle, 'distribution', 'Courroie / chaîne',
-        vehicle.distributionDueMileage, preferences, 1);
+    await _evaluateMileageAlert(plan, 'oil', 'Vidange',
+        plan.oilChangeDueMileage, preferences, 0, language);
+    await _evaluateMileageAlert(plan, 'distribution', 'Courroie / chaîne',
+        plan.distributionDueMileage, preferences, 1, language);
   }
 
   Future<void> _evaluateMileageAlert(
-      VehicleModel vehicle,
+      VehicleMaintenancePlan plan,
       String key,
       String label,
       int? dueMileage,
       NotificationPreferences preferences,
-      int category) async {
-    if (vehicle.id == null || dueMileage == null) return;
+      int category,
+      AppLanguage language) async {
+    if (dueMileage == null) return;
     final db = await DatabaseHelper.instance.database;
     await db.delete('vehicle_alert_history',
         where: 'vehicle_id = ? AND alert_key = ? AND due_mileage != ?',
-        whereArgs: [vehicle.id, key, dueMileage]);
-    final remaining = dueMileage - vehicle.currentMileage;
+        whereArgs: [plan.vehicleId, key, dueMileage]);
+    final remaining = dueMileage - plan.currentMileage;
     for (var i = 0; i < vehicleMileageWarningKm.length; i++) {
       final threshold = vehicleMileageWarningKm[i];
       if (remaining > threshold) continue;
       final seen = await db.query('vehicle_alert_history',
           where:
               'vehicle_id = ? AND alert_key = ? AND threshold = ? AND due_mileage = ?',
-          whereArgs: [vehicle.id, key, threshold, dueMileage],
+          whereArgs: [plan.vehicleId, key, threshold, dueMileage],
           limit: 1);
       if (seen.isNotEmpty) continue;
       final body = remaining <= 0
-          ? '${vehicle.registrationNumber} : entretien à faire maintenant.'
-          : '${vehicle.registrationNumber} : entretien dans $remaining km.';
+          ? _copy(
+              language,
+              '${plan.registrationNumber} : entretien à faire maintenant.',
+              '${plan.registrationNumber}: maintenance is due now.',
+              '${plan.registrationNumber}: الصيانة مستحقة الآن.',
+            )
+          : _copy(
+              language,
+              '${plan.registrationNumber} : entretien dans $remaining km.',
+              '${plan.registrationNumber}: maintenance due in $remaining km.',
+              '${plan.registrationNumber}: الصيانة مستحقة خلال $remaining كم.',
+            );
       await _show(
-          id: _idVehicleBase + vehicle.id! * 32 + 24 + category * 3 + i,
-          title: label,
+          id: _idVehicleBase + plan.vehicleId * 32 + 24 + category * 3 + i,
+          title: _t(language, label),
           body: body,
           channel: _channelVehicle,
-          channelName: 'Véhicules',
-          route: '/vehicles/${vehicle.id}',
+          channelName: _copy(language, 'Véhicules', 'Vehicles', 'المركبات'),
+          route: '/vehicles/${plan.vehicleId}',
           preferences: preferences);
       await db.insert('vehicle_alert_history', {
-        'vehicle_id': vehicle.id,
+        'vehicle_id': plan.vehicleId,
         'alert_key': key,
         'threshold': threshold,
         'due_mileage': dueMileage
@@ -529,6 +549,7 @@ class NotificationService {
 
       final preferences = await _preferencesRepository.load();
       if (!preferences.enabled || !preferences.licenseAlerts) return;
+      final language = await _language();
 
       final expiry = tz.TZDateTime.from(expiryDate, tz.local);
       for (var i = 0; i < licenseWarningDays.length; i++) {
@@ -545,13 +566,23 @@ class NotificationService {
         await _scheduleAt(
           id: _idLicenseBase + i,
           when: when,
-          title: 'Licence bientôt expirée',
+          title: _copy(language, 'Licence bientôt expirée',
+              'Licence expiring soon', 'الترخيص سينتهي قريباً'),
           body: days == 1
-              ? 'Votre licence expire demain. Contactez votre fournisseur.'
-              : 'Votre licence expire dans $days jours. '
-                  'Pensez à la renouveler.',
+              ? _copy(
+                  language,
+                  'Votre licence expire demain. Contactez votre fournisseur.',
+                  'Your licence expires tomorrow. Contact your provider.',
+                  'سينتهي ترخيصك غداً. تواصل مع مزودك.',
+                )
+              : _copy(
+                  language,
+                  'Votre licence expire dans $days jours. Pensez à la renouveler.',
+                  'Your licence expires in $days days. Remember to renew it.',
+                  'سينتهي ترخيصك خلال $days أيام. تذكّر تجديده.',
+                ),
           channel: _channelLicense,
-          channelName: 'Licence',
+          channelName: _copy(language, 'Licence', 'Licence', 'الترخيص'),
           route: '/settings',
           preferences: preferences,
         );
@@ -596,6 +627,7 @@ class NotificationService {
     try {
       final preferences = await _preferencesRepository.load();
       if (!preferences.enabled) return;
+      final language = await _language();
 
       final db = await DatabaseHelper.instance.database;
       final rows = await db.rawQuery('''
@@ -638,13 +670,24 @@ class NotificationService {
       await _show(
         id: _idLateDigest,
         title: single
-            ? 'Véhicule en retard'
-            : '${eligibleRows.length} véhicules en retard',
+            ? _copy(
+                language, 'Véhicule en retard', 'Late vehicle', 'مركبة متأخرة')
+            : _copy(
+                language,
+                '${eligibleRows.length} véhicules en retard',
+                '${eligibleRows.length} late vehicles',
+                '${eligibleRows.length} مركبات متأخرة',
+              ),
         body: single
-            ? 'Le véhicule ${plates.first} est en retard de retour.'
+            ? _copy(
+                language,
+                'Le véhicule ${plates.first} est en retard de retour.',
+                'Vehicle ${plates.first} has a late return.',
+                'إرجاع المركبة ${plates.first} متأخر.',
+              )
             : plates.take(4).join(', ') + (plates.length > 4 ? '…' : ''),
         channel: _channelLate,
-        channelName: 'Retards',
+        channelName: _copy(language, 'Retards', 'Late returns', 'التأخيرات'),
         route: single
             ? '/contracts/${eligibleRows.first['contract_id']}'
             : '/contracts',
@@ -672,13 +715,45 @@ class NotificationService {
       tz.TZDateTime(due.location, due.year, due.month, due.day + 1, due.hour,
           due.minute, due.second);
 
-  static String _describeLead(int minutes) {
-    if (minutes >= 1440) return 'demain';
+  static String _describeLead(int minutes, AppLanguage language) {
+    if (minutes >= 1440) {
+      return _copy(language, 'demain', 'tomorrow', 'غداً');
+    }
     if (minutes >= 60) {
       final hours = minutes ~/ 60;
-      return 'dans $hours heure${hours > 1 ? 's' : ''}';
+      return _copy(
+        language,
+        'dans $hours heure${hours > 1 ? 's' : ''}',
+        'in $hours hour${hours > 1 ? 's' : ''}',
+        'خلال $hours ساعة',
+      );
     }
-    return 'dans $minutes minutes';
+    return _copy(language, 'dans $minutes minutes', 'in $minutes minutes',
+        'خلال $minutes دقيقة');
+  }
+
+  Future<AppLanguage> _language() async => AppLanguage.fromCode(await _store
+      .getString(AppSettingsRepository.keyLanguage, defaultValue: 'fr'));
+
+  static String _t(AppLanguage language, String source) =>
+      AppLocalizations.translate(language.locale, source);
+
+  static String _copy(
+    AppLanguage language,
+    String french,
+    String english,
+    String arabic,
+  ) =>
+      switch (language) {
+        AppLanguage.french => french,
+        AppLanguage.english => english,
+        AppLanguage.arabic => arabic,
+      };
+
+  static String _renewalTitle(AppLanguage language, String document) {
+    final name = _t(language, document);
+    return _copy(
+        language, '$document à renouveler', '$name to renew', '$name للتجديد');
   }
 
   /// Moves [when] out of the user's quiet window, to the hour it ends.

@@ -1,4 +1,6 @@
+import 'package:car_rent_manager/core/localization/app_localizations.dart';
 import 'package:flutter/material.dart';
+import 'package:car_rent_manager/presentation/widgets/common/app_text.dart';
 import 'package:flutter/services.dart';
 
 /// The filled/empty dots above the keypad.
@@ -17,7 +19,8 @@ class PinDots extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final activeColor = error ? theme.colorScheme.error : theme.colorScheme.primary;
+    final activeColor =
+        error ? theme.colorScheme.error : theme.colorScheme.primary;
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -110,7 +113,7 @@ class PinPad extends StatelessWidget {
                     keySize,
                     Icons.fingerprint,
                     enabled ? onBiometric : null,
-                    tooltip: 'Déverrouiller par empreinte',
+                    tooltip: context.tr(AppCopy.unlockWithFingerprint),
                   )
                 else
                   SizedBox(width: keySize, height: keySize),
@@ -120,7 +123,7 @@ class PinPad extends StatelessWidget {
                   keySize,
                   Icons.backspace_outlined,
                   enabled && value.isNotEmpty ? _backspace : null,
-                  tooltip: 'Effacer',
+                  tooltip: context.tr(AppCopy.clear),
                 ),
               ]),
             ],
@@ -152,7 +155,7 @@ class PinPad extends StatelessWidget {
         child: InkWell(
           onTap: enabled ? () => _append(digit) : null,
           child: Center(
-            child: Text(
+            child: AppText(
               digit,
               style: theme.textTheme.headlineSmall?.copyWith(
                 fontWeight: FontWeight.w500,

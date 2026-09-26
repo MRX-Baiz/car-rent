@@ -68,7 +68,8 @@ class VehicleRepository {
     } on DatabaseException catch (e) {
       // Surface unique constraint violations clearly; UI can localize messages.
       if (e.isUniqueConstraintError()) {
-        throw Exception('A vehicle with this registration number already exists.');
+        throw Exception(
+            'A vehicle with this registration number already exists.');
       }
       throw Exception('Failed to insert vehicle: $e');
     } catch (e) {
@@ -91,7 +92,8 @@ class VehicleRepository {
       );
     } on DatabaseException catch (e) {
       if (e.isUniqueConstraintError()) {
-        throw Exception('A vehicle with this registration number already exists.');
+        throw Exception(
+            'A vehicle with this registration number already exists.');
       }
       throw Exception('Failed to update vehicle: $e');
     } catch (e) {
@@ -130,17 +132,18 @@ class VehicleRepository {
   }
 
   Future<int> getAvailableVehiclesCount() async {
-      try {
-        final db = await _dbHelper.database;
-        final result = await db.rawQuery(
-          'SELECT COUNT(*) AS count FROM vehicles WHERE status = ?',
-          ['available'],
-        );
-        final value = result.first['count'] as int? ?? (result.first['count'] as num).toInt();
-        return value;
-      } catch (e) {
-        throw Exception('Failed to get available vehicles count: $e');
-      }
+    try {
+      final db = await _dbHelper.database;
+      final result = await db.rawQuery(
+        'SELECT COUNT(*) AS count FROM vehicles WHERE status = ?',
+        ['available'],
+      );
+      final value = result.first['count'] as int? ??
+          (result.first['count'] as num).toInt();
+      return value;
+    } catch (e) {
+      throw Exception('Failed to get available vehicles count: $e');
+    }
   }
 
   Future<int> getRentedVehiclesCount() async {
@@ -150,7 +153,8 @@ class VehicleRepository {
         'SELECT COUNT(*) AS count FROM vehicles WHERE status = ?',
         ['rented'],
       );
-      final value = result.first['count'] as int? ?? (result.first['count'] as num).toInt();
+      final value = result.first['count'] as int? ??
+          (result.first['count'] as num).toInt();
       return value;
     } catch (e) {
       throw Exception('Failed to get rented vehicles count: $e');
@@ -172,4 +176,3 @@ class VehicleRepository {
     }
   }
 }
-

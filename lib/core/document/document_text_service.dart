@@ -63,6 +63,5 @@ class DocumentTextService {
       [..._imageExtensions, ..._pdfExtensions, ..._docxExtensions];
 
   /// Human-readable type filter label for file picker.
-  String get fileTypeLabel =>
-      'Image, PDF ou Word (.jpg, .png, .pdf, .docx)';
+  String get fileTypeLabel => 'Image, PDF ou Word (.jpg, .png, .pdf, .docx)';
 }

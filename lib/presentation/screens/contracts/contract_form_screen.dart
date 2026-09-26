@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:car_rent_manager/core/localization/app_localizations.dart';
+import 'package:car_rent_manager/presentation/widgets/common/app_text.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
@@ -12,10 +14,9 @@ import '../../../core/ocr/ocr_service.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../widgets/common/camera_capture_dialog.dart';
 import '../../../data/models/contract_model.dart';
+import '../../../domain/entities/reservation.dart';
 import '../../../data/models/vehicle_model.dart';
 import '../../../data/models/client_model.dart';
-import '../../../data/repositories/contract_repository.dart';
-import '../../../data/repositories/client_repository.dart';
 import '../../providers/contract_provider.dart';
 import '../../providers/dashboard_provider.dart';
 import '../../providers/vehicle_provider.dart';
@@ -33,10 +34,19 @@ import '../../widgets/common/status_chip.dart';
 import '../../widgets/common/vehicle_photo.dart';
 
 class ContractFormScreen extends ConsumerStatefulWidget {
-  const ContractFormScreen({super.key, this.initialVehicleId});
+  const ContractFormScreen({
+    super.key,
+    this.initialVehicleId,
+    this.reservation,
+  });
 
   /// Set when the form is opened from a vehicle's page.
   final int? initialVehicleId;
+
+  /// A confirmed quote carries its vehicle, dates, price and optional client
+  /// straight into the contract form. The quote is marked converted only when
+  /// this form successfully saves the contract.
+  final Reservation? reservation;
 
   @override
   ConsumerState<ContractFormScreen> createState() => _ContractFormScreenState();
@@ -141,20 +151,37 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
   @override
   void initState() {
     super.initState();
+    final reservation = widget.reservation;
+    if (reservation != null) {
+      _startDate = reservation.startDate;
+      _expectedReturnDate = reservation.expectedReturnDate;
+      _durationDays = reservation.rentalDays;
+      _dailyPrice = reservation.dailyPrice;
+      _totalPrice = reservation.totalPrice;
+      _dailyPriceController.text = reservation.dailyPrice.toStringAsFixed(2);
+      _totalPriceController.text = reservation.totalPrice.toStringAsFixed(2);
+    }
     Future.microtask(() async {
       await ref.read(vehiclesProvider.notifier).loadVehicles();
       await ref.read(clientsProvider.notifier).loadClients();
       await ref.read(chauffeursProvider.notifier).load();
       if (mounted) {
-        final preselected = widget.initialVehicleId;
+        final preselected =
+            widget.reservation?.vehicleId ?? widget.initialVehicleId;
         if (preselected != null) {
           final vehicles = ref.read(vehiclesProvider).value ?? [];
           final match = vehicles
-              .where((v) => v.id == preselected && v.status == 'available')
+              .where((v) =>
+                  v.id == preselected &&
+                  (widget.reservation != null || v.status == 'available'))
               .firstOrNull;
           if (match != null) setState(() => _selectedVehicle = match);
         }
         final clients = ref.read(clientsProvider).value ?? [];
+        final reservedClient = _clientWithId(clients, reservation?.clientId);
+        if (reservedClient != null) {
+          setState(() => _primaryDriver = reservedClient);
+        }
         if (clients.isEmpty) {
           setState(() {
             _isNewPrimaryDriver = true;
@@ -234,14 +261,14 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
             children: [
               ListTile(
                 leading: const Icon(Icons.camera_alt_outlined),
-                title: const Text('Prendre une photo'),
-                subtitle: const Text('Utiliser la cam\u00e9ra'),
+                title: const AppText(AppCopy.takeAPhoto),
+                subtitle: const AppText(AppCopy.useCamera),
                 onTap: () => Navigator.pop(ctx, true),
               ),
               ListTile(
                 leading: const Icon(Icons.folder_outlined),
-                title: const Text('Choisir un fichier'),
-                subtitle: const Text('Image depuis l\'appareil'),
+                title: const AppText(AppCopy.chooseAFile),
+                subtitle: const AppText(AppCopy.imageFromDevice),
                 onTap: () => Navigator.pop(ctx, false),
               ),
             ],
@@ -273,8 +300,7 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-                content: Text(
-                    'Caméra non disponible. Sélection depuis les fichiers.')),
+                content: AppText(AppCopy.cameraUnavailableChooseAFileInstead)),
           );
         }
       }
@@ -323,7 +349,7 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
       if (text.trim().isEmpty) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Aucun texte extrait.')));
+              const SnackBar(content: AppText(AppCopy.noTextExtracted)));
         }
         return;
       }
@@ -367,14 +393,14 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
         });
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-              content: Text('Champs remplis selon le document.')));
+              content: AppText(AppCopy.fieldsFilledFromTheDocument)));
         }
       } else {
         final cin = (data['cin'] ?? '').trim();
         if (cin.isEmpty && !isPermis) {
           if (mounted)
-            ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('CIN non reconnu.')));
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                content: AppText(AppCopy.nationalIDNotRecognised)));
           return;
         }
         ClientModel? matched;
@@ -396,16 +422,16 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-                content: Text(matched != null
-                    ? 'Conducteur sélectionné.'
-                    : 'Client non trouvé dans la base.')),
+                content: AppText(matched != null
+                    ? AppCopy.driverSelected
+                    : AppCopy.clientNotFoundInTheDatabase)),
           );
         }
       }
     } catch (e) {
       if (mounted)
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Erreur import: $e')));
+            .showSnackBar(SnackBar(content: AppText(context.trError(e))));
     } finally {
       if (mounted) setState(() => _isImportingOcr = false);
     }
@@ -484,7 +510,7 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
       if (text.trim().isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-              content: Text('Aucun texte extrait. Essayez un autre fichier.')),
+              content: AppText(AppCopy.noTextExtractedTryAnotherFile)),
         );
         return;
       }
@@ -520,10 +546,10 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
+            content: AppText(
               matched != null
-                  ? 'Client et données remplis à partir du document.'
-                  : 'Données extraites. Vérifiez et sélectionnez le client si besoin.',
+                  ? AppCopy.clientAndDetailsFilledFromTheDocument
+                  : AppCopy.dataExtractedVerifyItAndSelectTheClient,
             ),
           ),
         );
@@ -531,7 +557,7 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur import: $e')),
+          SnackBar(content: AppText(context.trError(e))),
         );
       }
     } finally {
@@ -596,7 +622,7 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
 
     if (_selectedVehicle == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Sélectionnez un véhicule.')));
+          const SnackBar(content: AppText(AppCopy.selectAVehicle)));
       return;
     }
 
@@ -606,14 +632,13 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
           _newPrimaryCin.text.trim().isEmpty ||
           _newPrimaryLicense.text.trim().isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text(
-                'Nom, Prénom, CIN et Permis sont requis pour le conducteur principal.')));
+            content: AppText(AppCopy.lastNameFirstNameNationalIDAndLicence)));
         return;
       }
     } else {
       if (_primaryDriver == null) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('Sélectionnez un conducteur principal.')));
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: AppText(AppCopy.selectAMainDriver)));
         return;
       }
     }
@@ -624,8 +649,8 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
           _newSecondaryCin.text.trim().isEmpty ||
           _newSecondaryLicense.text.trim().isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text(
-                'Nom, Prénom, CIN et Permis sont requis pour le conducteur secondaire.')));
+            content:
+                AppText(AppCopy.lastNameFirstNameNationalIDAndLicence40cf2a)));
         return;
       }
     }
@@ -649,7 +674,7 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
         pCin == sCin &&
         pCin != null &&
         pCin.isNotEmpty) {
-      warnings.add('Le conducteur principal et secondaire sont identiques.');
+      warnings.add(AppCopy.theMainAndAdditionalDriversAreTheSame);
     }
 
     // 2. License expiry check
@@ -657,8 +682,8 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
         ? _newPrimaryLicenseExpiry
         : _primaryDriver?.licenseExpiryDate;
     if (pExpiry != null && pExpiry.isBefore(DateTime.now())) {
-      warnings.add(
-          'Le permis du conducteur principal est expiré (${DateFormat('dd/MM/yyyy').format(pExpiry)}).');
+      warnings.add(context.messages.mainLicenceExpired(
+          (DateFormat('dd/MM/yyyy').format(pExpiry)).toString()));
     }
 
     final sExpiry = _hasSecondaryDriver
@@ -667,8 +692,8 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
             : _secondaryDriver?.licenseExpiryDate)
         : null;
     if (sExpiry != null && sExpiry.isBefore(DateTime.now())) {
-      warnings.add(
-          'Le permis du conducteur secondaire est expiré (${DateFormat('dd/MM/yyyy').format(sExpiry)}).');
+      warnings.add(context.messages.additionalLicenceExpired(
+          (DateFormat('dd/MM/yyyy').format(sExpiry)).toString()));
     }
 
     if (warnings.isNotEmpty) {
@@ -679,7 +704,7 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
             children: [
               Icon(Icons.warning_amber_rounded, color: Colors.orange),
               SizedBox(width: 8),
-              Text('Avertissements'),
+              AppText(AppCopy.warnings),
             ],
           ),
           content: Column(
@@ -688,19 +713,19 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
             children: warnings
                 .map<Widget>((w) => Padding(
                       padding: const EdgeInsets.only(bottom: 8.0),
-                      child: Text('• $w'),
+                      child: AppText('• ${context.tr(w)}'),
                     ))
                 .toList()
-              ..add(const Text('\nSouhaitez-vous quand même continuer ?')),
+              ..add(const AppText(AppCopy.doYouStillWantToContinue)),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text('ANNULER'),
+              child: const AppText(AppCopy.cancele326f7),
             ),
             ElevatedButton(
               onPressed: () => Navigator.pop(context, true),
-              child: const Text('CONTINUER'),
+              child: const AppText(AppCopy.continue71e092),
             ),
           ],
         ),
@@ -713,8 +738,8 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
     // --- END SMART VALIDATION ---
 
     try {
-      final repo = ContractRepository.instance;
-      final contractNumber = await repo.generateContractNumber();
+      final contractNumber =
+          await ref.read(contractsProvider.notifier).generateContractNumber();
       final rawNow = DateTime.now();
       DateTime adjustedNow = rawNow;
       if (rawNow.hour >= 18) {
@@ -725,24 +750,25 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
       }
       final now = adjustedNow;
 
-      final clientRepo = ClientRepository.instance;
       int primaryId;
       if (_isNewPrimaryDriver) {
         final pCin = _newPrimaryCin.text.trim();
         final pLic = _newPrimaryLicense.text.trim();
         final pPhone = _newPrimaryPhone.text.trim();
-        primaryId = await clientRepo.insertClient(ClientModel(
-          firstName: _newPrimaryFirstName.text.trim(),
-          lastName: _newPrimaryLastName.text.trim(),
-          cin: pCin.isEmpty
-              ? 'NON_RENSEIGNE_${now.millisecondsSinceEpoch}'
-              : pCin,
-          licenseNumber: pLic,
-          licenseExpiryDate: _newPrimaryLicenseExpiry,
-          phone: pPhone.isEmpty ? '0000000000' : pPhone,
-          createdAt: now,
-          updatedAt: now,
-        ));
+        primaryId = await ref
+            .read(clientsProvider.notifier)
+            .createClientAndReturnId(ClientModel(
+              firstName: _newPrimaryFirstName.text.trim(),
+              lastName: _newPrimaryLastName.text.trim(),
+              cin: pCin.isEmpty
+                  ? 'NON_RENSEIGNE_${now.millisecondsSinceEpoch}'
+                  : pCin,
+              licenseNumber: pLic,
+              licenseExpiryDate: _newPrimaryLicenseExpiry,
+              phone: pPhone.isEmpty ? '0000000000' : pPhone,
+              createdAt: now,
+              updatedAt: now,
+            ));
       } else {
         primaryId = _primaryDriver!.id!;
       }
@@ -753,22 +779,22 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
           final sCin = _newSecondaryCin.text.trim();
           final sLic = _newSecondaryLicense.text.trim();
           final sPhone = _newSecondaryPhone.text.trim();
-          secondaryId = await clientRepo.insertClient(ClientModel(
-            firstName: _newSecondaryFirstName.text.trim(),
-            lastName: _newSecondaryLastName.text.trim(),
-            cin: sCin,
-            licenseNumber: sLic,
-            licenseExpiryDate: _newSecondaryLicenseExpiry,
-            phone: sPhone.isEmpty ? '0000000000' : sPhone,
-            createdAt: now,
-            updatedAt: now,
-          ));
+          secondaryId = await ref
+              .read(clientsProvider.notifier)
+              .createClientAndReturnId(ClientModel(
+                firstName: _newSecondaryFirstName.text.trim(),
+                lastName: _newSecondaryLastName.text.trim(),
+                cin: sCin,
+                licenseNumber: sLic,
+                licenseExpiryDate: _newSecondaryLicenseExpiry,
+                phone: sPhone.isEmpty ? '0000000000' : sPhone,
+                createdAt: now,
+                updatedAt: now,
+              ));
         } else {
           secondaryId = _secondaryDriver?.id;
         }
       }
-
-      await ref.read(clientsProvider.notifier).loadClients();
 
       final contract = ContractModel(
         id: null,
@@ -790,29 +816,23 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
         updatedAt: now,
       );
 
-      final newId = await repo.insertContract(contract);
-      await ref.read(contractsProvider.notifier).loadContracts();
+      await ref.read(contractsProvider.notifier).addContract(
+            contract,
+            sourceReservationId: widget.reservation?.id,
+          );
       await ref.read(dashboardProvider.notifier).refresh();
-
-      // Reminders are armed by the contracts notifier, so every path that
-      // creates or edits a contract gets them, not just this screen.
-      await ref
-          .read(contractsProvider.notifier)
-          .syncReminders(contract.copyWith(id: newId));
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text(AppStrings.successSaved)),
+        const SnackBar(content: AppText(AppStrings.successSaved)),
       );
       context.go('/contracts');
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            'Erreur lors de la création du contrat.\n'
-            'حدث خطأ أثناء إنشاء العقد.\n'
-            'Contract creation error: $e',
+          content: AppText(
+            context.trError(e),
           ),
         ),
       );
@@ -857,8 +877,11 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
     final chauffeurs =
         ref.watch(chauffeursProvider).value ?? const <ChauffeurModel>[];
 
+    final sourceVehicleId = widget.reservation?.vehicleId;
     final availableVehicles = (vehiclesAsync.value ?? const <VehicleModel>[])
-        .where((v) => v.status == 'available')
+        .where((v) =>
+            v.status == 'available' ||
+            (v.id == sourceVehicleId && v.status != 'maintenance'))
         .toList();
     final showForm = vehiclesAsync.hasValue &&
         clientsAsync.hasValue &&
@@ -866,7 +889,7 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Nouveau contrat'),
+        title: const AppText(AppCopy.newContract),
       ),
       bottomNavigationBar: showForm ? _buildSubmitBar(context) : null,
       body: vehiclesAsync.when(
@@ -875,10 +898,10 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
             return Padding(
               padding: const EdgeInsets.all(16),
               child: EmptyStateWidget(
-                title: 'Aucun véhicule disponible.',
-                subtitle: 'Ajoutez un véhicule ou libérez un contrat existant.',
+                title: AppCopy.noVehicleIsAvailable,
+                subtitle: AppCopy.addAVehicleOrCloseAnExistingContract,
                 icon: Icons.directions_car_filled_outlined,
-                actionLabel: 'Ajouter un véhicule',
+                actionLabel: AppCopy.addAVehicle,
                 onAction: () => context.push('/vehicles/add'),
               ),
             );
@@ -889,10 +912,8 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
                 _buildForm(context, availableVehicles, clients, chauffeurs),
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (error, _) => Center(
-              child: Text(
-                'Erreur lors du chargement des clients.\n'
-                'خطأ أثناء تحميل الزبناء.\n'
-                'Clients loading error: $error',
+              child: AppText(
+                context.trError(error),
                 textAlign: TextAlign.center,
               ),
             ),
@@ -900,10 +921,8 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
         },
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) => Center(
-          child: Text(
-            'Erreur lors du chargement des véhicules.\n'
-            'خطأ أثناء تحميل السيارات.\n'
-            'Vehicles loading error: $error',
+          child: AppText(
+            context.trError(error),
             textAlign: TextAlign.center,
           ),
         ),
@@ -923,14 +942,17 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text('Total ${formatMad(_totalPrice)}',
+                AppText(
+                    context.messages
+                        .totalAmount((context.money(_totalPrice)).toString()),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.titleMedium),
-                Text(
+                AppText(
                   _remaining <= 0.009
-                      ? 'Entièrement payé'
-                      : 'Reste ${formatMad(_remaining)}',
+                      ? AppCopy.paidInFull
+                      : context.messages.balanceAmount(
+                          (context.money(_remaining)).toString()),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.bodySmall?.copyWith(
@@ -954,7 +976,7 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
                         strokeWidth: 2, color: Colors.white),
                   )
                 : const Icon(Icons.check_circle_outline),
-            label: const Text('Créer le contrat'),
+            label: const AppText(AppCopy.createContract),
           ),
         ],
       ),
@@ -983,8 +1005,9 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
               children: [
                 FormSection(
                   step: 1,
-                  title: 'Véhicule',
-                  subtitle: '${availableVehicles.length} disponible(s)',
+                  title: AppCopy.vehicle,
+                  subtitle: context.messages
+                      .availableCount((availableVehicles.length).toString()),
                   children: [
                     DropdownButtonFormField<VehicleModel>(
                       isExpanded: true,
@@ -1001,8 +1024,8 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
                           )
                           .toList(),
                       onChanged: (v) => setState(() => _selectedVehicle = v),
-                      decoration: const InputDecoration(
-                        labelText: 'Choisir un véhicule',
+                      decoration: InputDecoration(
+                        labelText: context.tr(AppCopy.chooseAVehicle),
                         prefixIcon: Icon(Icons.directions_car_outlined),
                       ),
                     ),
@@ -1012,14 +1035,14 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
                 const SizedBox(height: 16),
                 FormSection(
                   step: 2,
-                  title: 'Client (conducteur principal)',
+                  title: AppCopy.clientMainDriver,
                   children: _driverFields(isPrimary: true, clients: clients),
                 ),
                 const SizedBox(height: 16),
                 FormSection(
                   step: 3,
-                  title: 'Conducteur secondaire',
-                  subtitle: 'Optionnel',
+                  title: AppCopy.additionalDriver,
+                  subtitle: AppCopy.optional,
                   trailing: Switch(
                     value: _hasSecondaryDriver,
                     onChanged: (v) => setState(() => _hasSecondaryDriver = v),
@@ -1031,25 +1054,25 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
                 const SizedBox(height: 16),
                 FormSection(
                   step: 4,
-                  title: 'Chauffeur de l’agence',
-                  subtitle: 'Optionnel · facturé à l’heure',
+                  title: AppCopy.agencyDriver,
+                  subtitle: AppCopy.optionalBilledHourly,
                   children: [
                     DropdownButtonFormField<ChauffeurModel?>(
                       isExpanded: true,
                       value: _chauffeur,
-                      decoration: const InputDecoration(
-                        labelText: 'Chauffeur',
+                      decoration: InputDecoration(
+                        labelText: context.tr(AppCopy.driver),
                         prefixIcon: Icon(Icons.badge_outlined),
                       ),
                       items: [
                         const DropdownMenuItem<ChauffeurModel?>(
-                            value: null, child: Text('Sans chauffeur')),
+                            value: null, child: AppText(AppCopy.noDriver)),
                         ...chauffeurs
                             .where((c) => c.status == 'available')
                             .map((c) => DropdownMenuItem(
                                   value: c,
                                   child: Text(
-                                    '${c.fullName} — ${formatMad(c.hourlyRate)}/h',
+                                    '${c.fullName} — ${context.money(c.hourlyRate)}/h',
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 )),
@@ -1062,8 +1085,8 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
                     if (_chauffeur != null)
                       TextFormField(
                         controller: _chauffeurHoursController,
-                        decoration: const InputDecoration(
-                          labelText: 'Nombre d’heures chauffeur',
+                        decoration: InputDecoration(
+                          labelText: context.tr(AppCopy.numberOfDriverHours),
                           suffixText: 'h',
                           prefixIcon: Icon(Icons.schedule),
                         ),
@@ -1076,23 +1099,25 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
                 const SizedBox(height: 16),
                 FormSection(
                   step: 5,
-                  title: 'Période de location',
-                  subtitle: 'Durée : $_rentalDays jour(s)',
+                  title: AppCopy.rentalPeriod,
+                  subtitle:
+                      context.messages.durationDays((_rentalDays).toString()),
                   children: [
                     _DateField(
-                      label: 'Début',
+                      label: AppCopy.start,
                       value: _dateFormatter.format(_startDate),
                       onTap: _pickStartDate,
                     ),
                     _DateField(
-                      label: 'Retour prévu',
+                      label: AppCopy.expectedReturn,
                       value: _dateFormatter.format(_expectedReturnDate),
                       onTap: _pickExpectedReturnDate,
                     ),
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Durée rapide', style: theme.textTheme.titleSmall),
+                        AppText(AppCopy.quickDuration,
+                            style: theme.textTheme.titleSmall),
                         const SizedBox(height: 8),
                         Wrap(
                           spacing: 8,
@@ -1100,7 +1125,8 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
                           children: [
                             for (final d in _allowedDurations)
                               ChoiceChip(
-                                label: Text('$d j'),
+                                label: AppText(
+                                    context.messages.dayShort((d).toString())),
                                 selected: _durationDays == d,
                                 onSelected: (_) {
                                   setState(() {
@@ -1120,12 +1146,12 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
                 const SizedBox(height: 16),
                 FormSection(
                   step: 6,
-                  title: 'Paiement',
+                  title: AppCopy.payment,
                   children: [
                     TextFormField(
                       controller: _dailyPriceController,
-                      decoration: const InputDecoration(
-                        labelText: 'Prix par jour',
+                      decoration: InputDecoration(
+                        labelText: context.tr(AppCopy.dailyPrice),
                         suffixText: 'MAD',
                         prefixIcon: Icon(Icons.sell_outlined),
                       ),
@@ -1140,12 +1166,12 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
                     ),
                     TextFormField(
                       controller: _totalPriceController,
-                      decoration: const InputDecoration(
-                        labelText: 'Prix total du contrat',
+                      decoration: InputDecoration(
+                        labelText: context.tr(AppCopy.contractTotal),
                         suffixText: 'MAD',
                         prefixIcon: Icon(Icons.calculate_outlined),
-                        helperText:
-                            'Calculé automatiquement, modifiable à la main.',
+                        helperText: context.tr(AppCopy
+                            .calculatedAutomaticallyYouCanEditItManually),
                       ),
                       keyboardType:
                           const TextInputType.numberWithOptions(decimal: true),
@@ -1163,8 +1189,8 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
                     ),
                     TextFormField(
                       controller: _amountPaidController,
-                      decoration: const InputDecoration(
-                        labelText: 'Montant payé maintenant',
+                      decoration: InputDecoration(
+                        labelText: context.tr(AppCopy.amountPaidNow),
                         suffixText: 'MAD',
                         prefixIcon: Icon(Icons.payments_outlined),
                       ),
@@ -1182,14 +1208,14 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
                       children: [
                         ActionChip(
                           avatar: const Icon(Icons.done_all, size: 18),
-                          label: const Text('Tout payer'),
+                          label: const AppText(AppCopy.payAll),
                           onPressed: _totalPrice > 0
                               ? () => _setPaid(_totalPrice)
                               : null,
                         ),
                         ActionChip(
                           avatar: const Icon(Icons.money_off, size: 18),
-                          label: const Text('Aucun acompte'),
+                          label: const AppText(AppCopy.noDeposit),
                           onPressed: () => _setPaid(0),
                         ),
                       ],
@@ -1197,7 +1223,7 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
                     if (_remaining < -0.009)
                       const AlertBanner(
                         tone: AppTone.warning,
-                        title: 'Le montant payé dépasse le total.',
+                        title: AppCopy.theAmountPaidExceedsTheTotal,
                       ),
                   ],
                 ),
@@ -1225,8 +1251,8 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
       SegmentedButton<bool>(
         showSelectedIcon: false,
         segments: const [
-          ButtonSegment(value: false, label: Text('Client existant')),
-          ButtonSegment(value: true, label: Text('Nouveau client')),
+          ButtonSegment(value: false, label: AppText(AppCopy.existingClient)),
+          ButtonSegment(value: true, label: AppText(AppCopy.newClient)),
         ],
         selected: {isNew},
         onSelectionChanged: (value) => setState(() {
@@ -1248,7 +1274,7 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
                   : () => _importDriverOcr(
                       isPrimary: isPrimary, isPermis: false, clients: clients),
               icon: const Icon(Icons.document_scanner_outlined, size: 20),
-              label: const Text('Scanner la CIN'),
+              label: const AppText(AppCopy.scanNationalID),
             ),
             OutlinedButton.icon(
               onPressed: _isImportingOcr
@@ -1256,7 +1282,7 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
                   : () => _importDriverOcr(
                       isPrimary: isPrimary, isPermis: true, clients: clients),
               icon: const Icon(Icons.credit_card, size: 20),
-              label: const Text('Scanner le permis'),
+              label: const AppText(AppCopy.scanDrivingLicence),
             ),
           ] else
             OutlinedButton.icon(
@@ -1265,7 +1291,7 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
                   : () => _importDriverOcr(
                       isPrimary: isPrimary, isPermis: false, clients: clients),
               icon: const Icon(Icons.document_scanner_outlined, size: 20),
-              label: const Text('Retrouver par scan de CIN'),
+              label: const AppText(AppCopy.findByScanningNationalID),
             ),
         ],
       ),
@@ -1279,7 +1305,8 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
               child: TextFormField(
                 controller: firstName,
                 textCapitalization: TextCapitalization.words,
-                decoration: const InputDecoration(labelText: 'Prénom'),
+                decoration:
+                    InputDecoration(labelText: context.tr(AppCopy.firstName)),
               ),
             ),
             const SizedBox(width: 10),
@@ -1287,7 +1314,8 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
               child: TextFormField(
                 controller: lastName,
                 textCapitalization: TextCapitalization.characters,
-                decoration: const InputDecoration(labelText: 'Nom'),
+                decoration:
+                    InputDecoration(labelText: context.tr(AppCopy.name)),
               ),
             ),
           ],
@@ -1295,33 +1323,33 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
         TextFormField(
           controller: cin,
           textCapitalization: TextCapitalization.characters,
-          decoration: const InputDecoration(
-            labelText: 'CIN',
+          decoration: InputDecoration(
+            labelText: context.tr('CIN'),
             prefixIcon: Icon(Icons.badge_outlined),
           ),
         ),
         TextFormField(
           controller: license,
-          decoration: const InputDecoration(
-            labelText: 'Numéro de permis',
+          decoration: InputDecoration(
+            labelText: context.tr(AppCopy.drivingLicenceNumber),
             prefixIcon: Icon(Icons.credit_card),
           ),
         ),
         TextFormField(
           controller: phone,
           keyboardType: TextInputType.phone,
-          decoration: const InputDecoration(
-            labelText: 'Téléphone (optionnel)',
+          decoration: InputDecoration(
+            labelText: context.tr(AppCopy.phoneOptional),
             prefixIcon: Icon(Icons.phone_outlined),
           ),
         ),
       ] else ...[
         TextFormField(
           decoration: InputDecoration(
-            labelText: isPrimary
-                ? 'Rechercher un client'
-                : 'Rechercher un conducteur secondaire',
-            hintText: 'Nom ou CIN',
+            labelText: context.tr(isPrimary
+                ? AppCopy.searchForAClient
+                : AppCopy.searchForAnAdditionalDriver),
+            hintText: context.tr(AppCopy.nameOrNationalID),
             prefixIcon: const Icon(Icons.search),
           ),
           onChanged: (value) {
@@ -1362,7 +1390,8 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
                 }
               });
             },
-            decoration: const InputDecoration(labelText: 'Choisir un client'),
+            decoration:
+                InputDecoration(labelText: context.tr(AppCopy.chooseAClient)),
           )
         else
           DropdownButtonFormField<ClientModel?>(
@@ -1370,7 +1399,7 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
             value: _secondaryDropdownValue(clients),
             items: [
               const DropdownMenuItem<ClientModel?>(
-                  value: null, child: Text('Aucun')),
+                  value: null, child: AppText(AppCopy.none)),
               ..._uniqueClients(clients, _secondaryClientSearchQuery)
                   .where((c) =>
                       _primaryDriver == null || c.id != _primaryDriver!.id)
@@ -1380,8 +1409,8 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
                           overflow: TextOverflow.ellipsis))),
             ],
             onChanged: (ClientModel? c) => setState(() => _secondaryDriver = c),
-            decoration:
-                const InputDecoration(labelText: 'Conducteur secondaire'),
+            decoration: InputDecoration(
+                labelText: context.tr(AppCopy.additionalDriver)),
           ),
         if (selected != null) _ClientHint(client: selected),
       ],
@@ -1416,9 +1445,9 @@ class _VehicleSummary extends StatelessWidget {
               children: [
                 PlateBadge(vehicle.registrationNumber),
                 const SizedBox(height: 6),
-                Text(
-                  '${formatKm(vehicle.currentMileage)} · '
-                  '${fuelTypeName(vehicle.fuelType)} ${vehicle.fuelLevel} %',
+                AppText(
+                  '${context.distance(vehicle.currentMileage)} · '
+                  '${context.tr(fuelTypeName(vehicle.fuelType))} ${vehicle.fuelLevel} %',
                   style: theme.textTheme.bodySmall,
                 ),
                 const SizedBox(height: 4),
@@ -1455,7 +1484,8 @@ class _ClientHint extends StatelessWidget {
             label: client.phone, icon: Icons.phone_outlined, dense: true),
         if (client.licenseExpiryDate != null)
           StatusChip(
-            label: 'Permis · ${licence.label}',
+            label: context.messages
+                .licenceStatus(context.tr((licence.label).toString())),
             tone: licence.tone,
             icon: Icons.credit_card,
             dense: true,
@@ -1483,11 +1513,11 @@ class _DateField extends StatelessWidget {
       borderRadius: BorderRadius.circular(12),
       child: InputDecorator(
         decoration: InputDecoration(
-          labelText: label,
+          labelText: context.tr(label),
           prefixIcon: const Icon(Icons.event_outlined),
           suffixIcon: const Icon(Icons.edit_calendar_outlined),
         ),
-        child: Text(value,
+        child: AppText(value,
             style: Theme.of(context)
                 .textTheme
                 .bodyLarge

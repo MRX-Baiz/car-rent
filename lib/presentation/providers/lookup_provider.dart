@@ -1,3 +1,5 @@
+import 'package:flutter/widgets.dart';
+import '../../core/localization/app_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/models/chauffeur_model.dart';
@@ -31,6 +33,10 @@ class Lookups {
   VehicleModel? vehicle(int? id) => id == null ? null : vehicles[id];
   ClientModel? client(int? id) => id == null ? null : clients[id];
   ChauffeurModel? chauffeur(int? id) => id == null ? null : chauffeurs[id];
+
+  String vehicleNameFor(BuildContext context, int id) => vehicles[id] == null
+      ? context.messages.vehicleNumber(id.toString()) : vehicleName(id);
+  String clientNameFor(BuildContext context, int id) => clients[id]?.fullName ?? context.messages.clientNumber(id.toString());
 
   String vehicleName(int id) {
     final v = vehicles[id];

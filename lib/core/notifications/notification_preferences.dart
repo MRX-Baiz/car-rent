@@ -1,65 +1,14 @@
 import '../../data/repositories/app_settings_repository.dart';
 import '../../data/repositories/key_value_store.dart';
+import '../../domain/entities/notification_preferences.dart';
+import '../../domain/repositories/reminder_preferences_repository.dart';
 
-/// What the user has chosen about reminders.
-class NotificationPreferences {
-  const NotificationPreferences({
-    this.enabled = true,
-    this.leadMinutes = 60,
-    this.paymentReminders = true,
-    this.licenseAlerts = true,
-    this.quietHoursEnabled = false,
-    this.quietStartHour = 22,
-    this.quietEndHour = 7,
-  });
+// The entity lives in the domain; re-exported so the notification code and its
+// tests can keep importing it from here.
+export '../../domain/entities/notification_preferences.dart';
 
-  /// Master switch. Off means nothing is scheduled and nothing is shown.
-  final bool enabled;
-
-  /// How long before a return deadline the first reminder fires.
-  final int leadMinutes;
-
-  final bool paymentReminders;
-  final bool licenseAlerts;
-
-  final bool quietHoursEnabled;
-  final int quietStartHour;
-  final int quietEndHour;
-
-  /// True when [hour] falls inside the quiet window, which may wrap midnight.
-  bool isQuiet(int hour) {
-    if (!quietHoursEnabled || quietStartHour == quietEndHour) {
-      return false;
-    }
-    if (quietStartHour < quietEndHour) {
-      return hour >= quietStartHour && hour < quietEndHour;
-    }
-    // Wraps midnight, e.g. 22:00 to 07:00.
-    return hour >= quietStartHour || hour < quietEndHour;
-  }
-
-  NotificationPreferences copyWith({
-    bool? enabled,
-    int? leadMinutes,
-    bool? paymentReminders,
-    bool? licenseAlerts,
-    bool? quietHoursEnabled,
-    int? quietStartHour,
-    int? quietEndHour,
-  }) {
-    return NotificationPreferences(
-      enabled: enabled ?? this.enabled,
-      leadMinutes: leadMinutes ?? this.leadMinutes,
-      paymentReminders: paymentReminders ?? this.paymentReminders,
-      licenseAlerts: licenseAlerts ?? this.licenseAlerts,
-      quietHoursEnabled: quietHoursEnabled ?? this.quietHoursEnabled,
-      quietStartHour: quietStartHour ?? this.quietStartHour,
-      quietEndHour: quietEndHour ?? this.quietEndHour,
-    );
-  }
-}
-
-class NotificationPreferencesRepository {
+class NotificationPreferencesRepository
+    implements ReminderPreferencesRepository {
   NotificationPreferencesRepository({KeyValueStore? store})
       : _store = store ?? AppSettingsRepository.instance;
 
@@ -76,9 +25,9 @@ class NotificationPreferencesRepository {
   static const String keyQuietStart = 'notif_quiet_start';
   static const String keyQuietEnd = 'notif_quiet_end';
 
-  /// Lead times offered in settings, in minutes.
-  static const List<int> leadChoices = <int>[15, 30, 60, 120, 1440];
+  static const List<int> leadChoices = NotificationPreferences.leadChoices;
 
+  @override
   Future<NotificationPreferences> load() async {
     const defaults = NotificationPreferences();
     return NotificationPreferences(
@@ -93,6 +42,7 @@ class NotificationPreferencesRepository {
     );
   }
 
+  @override
   Future<void> save(NotificationPreferences preferences) async {
     await _store.setString(keyEnabled, preferences.enabled.toString());
     await _store.setString(keyLeadMinutes, preferences.leadMinutes.toString());

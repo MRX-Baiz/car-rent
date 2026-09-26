@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:car_rent_manager/presentation/widgets/common/app_text.dart';
 
 import '../../../core/constants/app_colors.dart';
 
@@ -17,7 +18,7 @@ class PlateBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(6),
         border: Border.all(color: AppColors.textPrimary, width: 1.2),
       ),
-      child: Text(
+      child: AppText(
         text,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,

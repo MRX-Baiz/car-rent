@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:car_rent_manager/core/localization/app_localizations.dart';
+import 'package:car_rent_manager/presentation/widgets/common/app_text.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -53,10 +55,7 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
   String? _pageError;
 
   String _humanizeError(Object e) {
-    final raw = e.toString();
-    // Most thrown Exceptions become "Exception: message"
-    final msg = raw.startsWith('Exception: ') ? raw.substring(11) : raw;
-    return msg.trim().isEmpty ? 'Une erreur est survenue.' : msg.trim();
+    return context.trError(e);
   }
 
   final DocumentTextService _documentTextService = DocumentTextService.instance;
@@ -114,7 +113,7 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Caméra non disponible. Sélection depuis les fichiers.'),
+            content: AppText(AppCopy.cameraUnavailableChooseAFileInstead),
           ),
         );
       }
@@ -137,15 +136,15 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(
+              AppText(
                 title,
                 style: Theme.of(context).textTheme.titleMedium,
               ),
               const SizedBox(height: 16),
               ListTile(
                 leading: const Icon(Icons.folder_outlined),
-                title: const Text('Importer depuis l\'appareil'),
-                subtitle: const Text('Fichier image, PDF ou Word'),
+                title: const AppText(AppCopy.importFromDevice),
+                subtitle: const AppText(AppCopy.imagePDFOrWordFile),
                 onTap: () async {
                   Navigator.of(context).pop();
                   final file = await _pickDocumentAsReadableFile();
@@ -155,8 +154,8 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
               ),
               ListTile(
                 leading: const Icon(Icons.camera_alt_outlined),
-                title: const Text('Utiliser la caméra'),
-                subtitle: const Text('Prendre une photo'),
+                title: const AppText(AppCopy.useCamera),
+                subtitle: const AppText(AppCopy.takeAPhoto),
                 onTap: () async {
                   Navigator.of(context).pop();
                   final file = await _pickImageFromCamera(ImageSource.camera);
@@ -174,7 +173,7 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
   Future<void> _importCin() async {
     if (_isLoadingOcr) return;
     _showImportSourceSheet(
-      title: 'Importer CIN',
+      title: AppCopy.importNationalID,
       onFileReady: (file) async {
         final ext = file.path.split('.').last.toLowerCase();
         if (_imageExtensions.contains(ext)) {
@@ -188,7 +187,7 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
   Future<void> _importPermis() async {
     if (_isLoadingOcr) return;
     _showImportSourceSheet(
-      title: 'Importer Permis',
+      title: AppCopy.importDrivingLicence,
       onFileReady: (file) async {
         final ext = file.path.split('.').last.toLowerCase();
         if (_imageExtensions.contains(ext)) {
@@ -237,8 +236,8 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text(
-                'Aucun texte extrait. Essayez une image plus nette ou un autre fichier.',
+              content: AppText(
+                AppCopy.noTextExtractedTryAClearerImageOr,
               ),
             ),
           );
@@ -251,22 +250,25 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
           (data['cin'] ?? '').isNotEmpty;
       if (mounted) {
         setState(() {
-          if ((data['firstName'] ?? '').isNotEmpty) _firstNameController.text = data['firstName']!;
-          if ((data['lastName'] ?? '').isNotEmpty) _lastNameController.text = data['lastName']!;
-          if ((data['cin'] ?? '').isNotEmpty) _cinController.text = data['cin']!;
+          if ((data['firstName'] ?? '').isNotEmpty)
+            _firstNameController.text = data['firstName']!;
+          if ((data['lastName'] ?? '').isNotEmpty)
+            _lastNameController.text = data['lastName']!;
+          if ((data['cin'] ?? '').isNotEmpty)
+            _cinController.text = data['cin']!;
         });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(hasData
-                ? 'Informations extraites avec succès.'
-                : 'Texte extrait mais format CIN non reconnu. Vérifiez et complétez.'),
+            content: AppText(hasData
+                ? AppCopy.informationExtractedSuccessfully
+                : AppCopy.textExtractedButNationalIDFormatWasNot),
           ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur extraction: $e')),
+          SnackBar(content: AppText(context.trError(e))),
         );
       }
     } finally {
@@ -282,8 +284,8 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text(
-                'Aucun texte extrait. Essayez une image plus nette ou un autre fichier.',
+              content: AppText(
+                AppCopy.noTextExtractedTryAClearerImageOr,
               ),
             ),
           );
@@ -299,25 +301,27 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
           if ((data['licenseNumber'] ?? '').isNotEmpty) {
             _licenseNumberController.text = data['licenseNumber']!;
           }
-          if ((data['firstName'] ?? '').isNotEmpty && _firstNameController.text.trim().isEmpty) {
+          if ((data['firstName'] ?? '').isNotEmpty &&
+              _firstNameController.text.trim().isEmpty) {
             _firstNameController.text = data['firstName']!;
           }
-          if ((data['lastName'] ?? '').isNotEmpty && _lastNameController.text.trim().isEmpty) {
+          if ((data['lastName'] ?? '').isNotEmpty &&
+              _lastNameController.text.trim().isEmpty) {
             _lastNameController.text = data['lastName']!;
           }
         });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(hasData
-                ? 'Informations extraites avec succès.'
-                : 'Texte extrait mais format permis non reconnu. Vérifiez et complétez.'),
+            content: AppText(hasData
+                ? AppCopy.informationExtractedSuccessfully
+                : AppCopy.textExtractedButDrivingLicenceFormatWasNot),
           ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur extraction: $e')),
+          SnackBar(content: AppText(context.trError(e))),
         );
       }
     } finally {
@@ -383,9 +387,8 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
         // is what made attachments disappear between sessions.
         cinImagePath: await _storeAttachment(_cinImageFile, 'cin') ??
             widget.client?.cinImagePath,
-        licenseImagePath:
-            await _storeAttachment(_licenseImageFile, 'permis') ??
-                widget.client?.licenseImagePath,
+        licenseImagePath: await _storeAttachment(_licenseImageFile, 'permis') ??
+            widget.client?.licenseImagePath,
         createdAt: widget.client?.createdAt ?? now,
         updatedAt: now,
       );
@@ -400,7 +403,7 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text(AppStrings.successSaved)),
+        const SnackBar(content: AppText(AppStrings.successSaved)),
       );
       context.pop();
     } catch (e) {
@@ -433,7 +436,8 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(isEditing ? 'Modifier un client' : 'Nouveau client'),
+        title:
+            AppText(isEditing ? AppCopy.editClient58dfe3 : AppCopy.newClient),
       ),
       body: SingleChildScrollView(
         controller: _scrollController,
@@ -472,15 +476,15 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                'Impossible d’enregistrer le client',
+                              AppText(
+                                AppCopy.unableToSaveTheClient,
                                 style: theme.textTheme.titleSmall?.copyWith(
                                   fontWeight: FontWeight.w700,
                                   color: theme.colorScheme.onErrorContainer,
                                 ),
                               ),
                               const SizedBox(height: 4),
-                              Text(
+                              AppText(
                                 _pageError!,
                                 style: theme.textTheme.bodyMedium?.copyWith(
                                   color: theme.colorScheme.onErrorContainer,
@@ -490,7 +494,7 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
                           ),
                         ),
                         IconButton(
-                          tooltip: 'Fermer',
+                          tooltip: context.tr(AppCopy.close),
                           onPressed: () => setState(() => _pageError = null),
                           icon: Icon(
                             Icons.close,
@@ -515,12 +519,12 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
                               children: [
                                 AppTextField(
                                   controller: _firstNameController,
-                                  label: 'Prénom',
+                                  label: AppCopy.firstName,
                                   prefixIcon: Icons.person_outline,
                                   validator: (value) {
-                                    if (value == null ||
-                                        value.trim().isEmpty) {
-                                      return 'Le prénom est requis.';
+                                    if (value == null || value.trim().isEmpty) {
+                                      return context
+                                          .tr(AppCopy.firstNameIsRequired);
                                     }
                                     return null;
                                   },
@@ -528,12 +532,12 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
                                 const SizedBox(height: 12),
                                 AppTextField(
                                   controller: _lastNameController,
-                                  label: 'Nom',
+                                  label: AppCopy.name,
                                   prefixIcon: Icons.person,
                                   validator: (value) {
-                                    if (value == null ||
-                                        value.trim().isEmpty) {
-                                      return 'Le nom est requis.';
+                                    if (value == null || value.trim().isEmpty) {
+                                      return context
+                                          .tr(AppCopy.lastNameIsRequired);
                                     }
                                     return null;
                                   },
@@ -541,12 +545,12 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
                                 const SizedBox(height: 12),
                                 AppTextField(
                                   controller: _cinController,
-                                  label: 'CIN',
+                                  label: AppCopy.nationalIDCard,
                                   prefixIcon: Icons.badge_outlined,
                                   validator: (value) {
-                                    if (value == null ||
-                                        value.trim().isEmpty) {
-                                      return 'Le CIN est requis.';
+                                    if (value == null || value.trim().isEmpty) {
+                                      return context
+                                          .tr(AppCopy.nationalIDIsRequired);
                                     }
                                     return null;
                                   },
@@ -554,12 +558,12 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
                                 const SizedBox(height: 12),
                                 AppTextField(
                                   controller: _licenseNumberController,
-                                  label: 'Numéro de permis',
+                                  label: AppCopy.drivingLicenceNumber,
                                   prefixIcon: Icons.credit_card,
                                   validator: (value) {
-                                    if (value == null ||
-                                        value.trim().isEmpty) {
-                                      return 'Le numéro de permis est requis.';
+                                    if (value == null || value.trim().isEmpty) {
+                                      return context.tr(AppCopy
+                                          .drivingLicenceNumberIsRequired);
                                     }
                                     return null;
                                   },
@@ -567,18 +571,21 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
                                 const SizedBox(height: 12),
                                 AppTextField(
                                   controller: _phoneController,
-                                  label: 'Téléphone',
+                                  label: AppCopy.phone,
                                   keyboardType: TextInputType.phone,
                                   prefixIcon: Icons.phone,
                                   inputFormatters: [
                                     FilteringTextInputFormatter.digitsOnly,
                                   ],
-                                  validator: Validators.phone,
+                                  validator: (value) => Validators.phone(
+                                    value,
+                                    context: context,
+                                  ),
                                 ),
                                 const SizedBox(height: 12),
                                 AppTextField(
                                   controller: _emailController,
-                                  label: 'Email',
+                                  label: AppCopy.email,
                                   keyboardType: TextInputType.emailAddress,
                                   prefixIcon: Icons.email_outlined,
                                 ),
@@ -588,7 +595,7 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
                           const SizedBox(width: 16),
                           Column(
                             children: [
-                              Text(
+                              AppText(
                                 'CIN',
                                 style: theme.textTheme.bodyMedium,
                               ),
@@ -598,7 +605,8 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
                                 height: 80,
                                 decoration: BoxDecoration(
                                   borderRadius: BorderRadius.circular(8),
-                                  color: theme.colorScheme.surfaceContainerHighest,
+                                  color:
+                                      theme.colorScheme.surfaceContainerHighest,
                                 ),
                                 clipBehavior: Clip.antiAlias,
                                 child: _attachmentPreview(
@@ -612,11 +620,11 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
                               OutlinedButton.icon(
                                 onPressed: _isLoadingOcr ? null : _importCin,
                                 icon: const Icon(Icons.upload_file, size: 18),
-                                label: const Text('Importer CIN'),
+                                label: const AppText(AppCopy.importNationalID),
                               ),
                               const SizedBox(height: 16),
-                              Text(
-                                'Permis',
+                              AppText(
+                                AppCopy.drivingLicence,
                                 style: theme.textTheme.bodyMedium,
                               ),
                               const SizedBox(height: 4),
@@ -625,7 +633,8 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
                                 height: 80,
                                 decoration: BoxDecoration(
                                   borderRadius: BorderRadius.circular(8),
-                                  color: theme.colorScheme.surfaceContainerHighest,
+                                  color:
+                                      theme.colorScheme.surfaceContainerHighest,
                                 ),
                                 clipBehavior: Clip.antiAlias,
                                 child: _attachmentPreview(
@@ -639,7 +648,8 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
                               OutlinedButton.icon(
                                 onPressed: _isLoadingOcr ? null : _importPermis,
                                 icon: const Icon(Icons.upload_file, size: 18),
-                                label: const Text('Importer Permis'),
+                                label:
+                                    const AppText(AppCopy.importDrivingLicence),
                               ),
                             ],
                           ),
@@ -652,7 +662,7 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
                         ),
                       const SizedBox(height: 24),
                       AppButton(
-                        label: isEditing ? 'Enregistrer' : 'Créer',
+                        label: isEditing ? AppCopy.save : AppCopy.create,
                         icon: Icons.save,
                         isLoading: _isSubmitting,
                         onPressed: _submit,
@@ -668,4 +678,3 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
     );
   }
 }
-

@@ -1,7 +1,9 @@
+import 'package:car_rent_manager/core/localization/app_localizations.dart';
 import 'dart:io';
 import 'package:camera/camera.dart';
 import 'package:camera_macos/camera_macos.dart';
 import 'package:flutter/material.dart';
+import 'package:car_rent_manager/presentation/widgets/common/app_text.dart';
 
 class CameraCaptureDialog extends StatefulWidget {
   const CameraCaptureDialog({super.key});
@@ -39,7 +41,7 @@ class _CameraCaptureDialogState extends State<CameraCaptureDialog> {
       _cameras = await availableCameras();
       if (_cameras.isEmpty) {
         setState(() {
-          _error = 'Aucune caméra disponible.';
+          _error = AppCopy.noCameraAvailable;
           _isInitializing = false;
         });
         return;
@@ -57,7 +59,7 @@ class _CameraCaptureDialogState extends State<CameraCaptureDialog> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = 'Erreur d\'initialisation: $e';
+          _error = context.trError(e);
         });
       }
     } finally {
@@ -83,7 +85,8 @@ class _CameraCaptureDialogState extends State<CameraCaptureDialog> {
         final CameraMacOSFile? captured = await _macOSController!.takePicture();
         if (captured != null && captured.bytes != null) {
           final tempDir = Directory.systemTemp;
-          final tmpFile = File('${tempDir.path}/carrent_camera_${DateTime.now().millisecondsSinceEpoch}.jpg');
+          final tmpFile = File(
+              '${tempDir.path}/carrent_camera_${DateTime.now().millisecondsSinceEpoch}.jpg');
           await tmpFile.writeAsBytes(captured.bytes!);
           if (mounted) {
             Navigator.of(context).pop(tmpFile);
@@ -91,14 +94,17 @@ class _CameraCaptureDialogState extends State<CameraCaptureDialog> {
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur de capture macOS: $e')));
+          ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: AppText(context.trError(e))));
         }
       }
       return;
     }
 
     // Windows / other OS
-    if (_controller == null || !_controller!.value.isInitialized || _controller!.value.isTakingPicture) {
+    if (_controller == null ||
+        !_controller!.value.isInitialized ||
+        _controller!.value.isTakingPicture) {
       return;
     }
     try {
@@ -109,7 +115,7 @@ class _CameraCaptureDialogState extends State<CameraCaptureDialog> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur de capture : $e')),
+          SnackBar(content: AppText(context.trError(e))),
         );
       }
     }
@@ -117,8 +123,8 @@ class _CameraCaptureDialogState extends State<CameraCaptureDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final bool canTakePicture = Platform.isMacOS 
-        ? _macOSController != null 
+    final bool canTakePicture = Platform.isMacOS
+        ? _macOSController != null
         : _controller?.value.isInitialized == true;
 
     // A fixed 600x600 box is wider than most phone screens; bound it to the
@@ -135,8 +141,8 @@ class _CameraCaptureDialogState extends State<CameraCaptureDialog> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'Capture Caméra',
+                AppText(
+                  AppCopy.cameraCapture,
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
                 IconButton(
@@ -157,9 +163,10 @@ class _CameraCaptureDialogState extends State<CameraCaptureDialog> {
               FilledButton.icon(
                 onPressed: _takePicture,
                 icon: const Icon(Icons.camera_alt),
-                label: const Text('Prendre la photo'),
+                label: const AppText(AppCopy.takePhoto),
                 style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
                 ),
               ),
           ],
@@ -190,14 +197,14 @@ class _CameraCaptureDialogState extends State<CameraCaptureDialog> {
     }
     if (_error != null) {
       return Center(
-        child: Text(
+        child: AppText(
           _error!,
           style: TextStyle(color: Theme.of(context).colorScheme.error),
         ),
       );
     }
     if (_controller == null || !_controller!.value.isInitialized) {
-      return const Center(child: Text('Préparation...'));
+      return const Center(child: AppText(AppCopy.preparing));
     }
     return CameraPreview(_controller!);
   }

@@ -1,6 +1,8 @@
+import 'package:car_rent_manager/core/localization/app_localizations.dart';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:car_rent_manager/presentation/widgets/common/app_text.dart';
 
 /// Full-screen viewer for a scanned document, with pinch-to-zoom and pan.
 ///
@@ -25,7 +27,7 @@ class DocumentViewer extends StatelessWidget {
     if (imagePath == null || imagePath.isEmpty) return;
     if (!File(imagePath).existsSync()) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Image introuvable : $title')),
+        SnackBar(content: AppText(context.messages.missingImage((title).toString()))),
       );
       return;
     }
@@ -43,7 +45,7 @@ class DocumentViewer extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
-        title: Text(title),
+        title: AppText(title),
       ),
       body: SafeArea(
         child: Center(
@@ -57,8 +59,8 @@ class DocumentViewer extends StatelessWidget {
                 fit: BoxFit.contain,
                 errorBuilder: (context, _, __) => const Padding(
                   padding: EdgeInsets.all(24),
-                  child: Text(
-                    'Impossible d\'ouvrir cette image.',
+                  child: AppText(
+                    AppCopy.unableToOpenThisImage,
                     style: TextStyle(color: Colors.white),
                   ),
                 ),

@@ -1,5 +1,7 @@
+import 'package:car_rent_manager/core/localization/app_localizations.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:car_rent_manager/presentation/widgets/common/app_text.dart';
 import 'package:intl/intl.dart';
 
 class RevenueChart extends StatelessWidget {
@@ -14,7 +16,7 @@ class RevenueChart extends StatelessWidget {
     final dateFormat = DateFormat('dd/MM');
 
     if (data.isEmpty) {
-      return const Center(child: Text('Pas de données de revenus.'));
+      return const Center(child: AppText(AppCopy.noRevenueData));
     }
 
     final maxY = data.map((e) => e.value).reduce((a, b) => a > b ? a : b);
@@ -39,8 +41,10 @@ class RevenueChart extends StatelessWidget {
           gridData: const FlGridData(show: false),
           titlesData: FlTitlesData(
             show: true,
-            rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            rightTitles:
+                const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            topTitles:
+                const AxisTitles(sideTitles: SideTitles(showTitles: false)),
             bottomTitles: AxisTitles(
               sideTitles: SideTitles(
                 showTitles: true,
@@ -50,12 +54,15 @@ class RevenueChart extends StatelessWidget {
                   final index = value.toInt();
                   if (index >= 0 && index < data.length) {
                     // Only show 1st, middle, and last date for clarity
-                    if (index == 0 || index == data.length ~/ 2 || index == data.length - 1) {
+                    if (index == 0 ||
+                        index == data.length ~/ 2 ||
+                        index == data.length - 1) {
                       return Padding(
                         padding: const EdgeInsets.only(top: 8.0),
-                        child: Text(
+                        child: AppText(
                           dateFormat.format(data[index].key),
-                          style: theme.textTheme.bodySmall?.copyWith(fontSize: 10),
+                          style:
+                              theme.textTheme.bodySmall?.copyWith(fontSize: 10),
                         ),
                       );
                     }
@@ -69,8 +76,10 @@ class RevenueChart extends StatelessWidget {
                 showTitles: true,
                 interval: displayMaxY / 4,
                 getTitlesWidget: (value, meta) {
-                  return Text(
-                    value >= 1000 ? '${(value / 1000).toStringAsFixed(1)}k' : value.toInt().toString(),
+                  return AppText(
+                    value >= 1000
+                        ? '${(value / 1000).toStringAsFixed(1)}k'
+                        : value.toInt().toString(),
                     style: theme.textTheme.bodySmall?.copyWith(fontSize: 10),
                   );
                 },
@@ -118,11 +127,12 @@ class RevenueChart extends StatelessWidget {
                 return touchedSpots.map((spot) {
                   final date = data[spot.x.toInt()].key;
                   return LineTooltipItem(
-                    '${DateFormat('dd MMM').format(date)}\n',
-                    theme.textTheme.bodySmall!.copyWith(fontWeight: FontWeight.bold),
+                    '${DateFormat('dd MMM', Localizations.localeOf(context).languageCode).format(date)}\n',
+                    theme.textTheme.bodySmall!
+                        .copyWith(fontWeight: FontWeight.bold),
                     children: [
                       TextSpan(
-                        text: '${spot.y.toStringAsFixed(2)} MAD',
+                        text: context.money(spot.y),
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: colorScheme.primary,
                           fontWeight: FontWeight.bold,

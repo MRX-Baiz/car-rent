@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:car_rent_manager/presentation/widgets/common/app_text.dart';
 
 class AppButton extends StatelessWidget {
   const AppButton({
@@ -32,7 +33,7 @@ class AppButton extends StatelessWidget {
                 Icon(icon, size: 18),
                 const SizedBox(width: 8),
               ],
-              Text(label),
+              AppText(label),
             ],
           );
 
@@ -55,4 +56,3 @@ class AppButton extends StatelessWidget {
     }
   }
 }
-

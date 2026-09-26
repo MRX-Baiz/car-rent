@@ -118,6 +118,7 @@ class GemmaRuntimeService extends ChangeNotifier {
   Future<String> improveAnswer({
     required String question,
     required String facts,
+    String languageCode = 'fr',
   }) async {
     if (!_status.isLoaded) return facts;
     await _controller.clearContext();
@@ -127,7 +128,7 @@ class GemmaRuntimeService extends ChangeNotifier {
         ChatMessage(
           role: 'system',
           content: 'Tu es l’assistant local d’une agence de location. '
-              'Réponds en français simple, en 3 phrases maximum. '
+              'Réponds en ${_responseLanguage(languageCode)}, en 3 phrases maximum. '
               'Utilise uniquement les faits fournis. Si les faits ne répondent '
               'pas à la question, dis clairement que l’information est absente. '
               'Ne crée aucune donnée, ne donne aucune instruction dangereuse.',
@@ -149,7 +150,7 @@ class GemmaRuntimeService extends ChangeNotifier {
   }
 
   /// Answers general questions without agency data.
-  Future<String> answerGeneralQuestion(String question) async {
+  Future<String> answerGeneralQuestion(String question, {String languageCode = 'fr'}) async {
     if (!_status.isLoaded) {
       throw StateError('Chargez le modèle avant de poser une question.');
     }
@@ -160,7 +161,7 @@ class GemmaRuntimeService extends ChangeNotifier {
         ChatMessage(
           role: 'system',
           content: 'Tu es un assistant utile. Réponds directement à la '
-              'question dans la même langue que l’utilisateur. Sois court, '
+              'question en ${_responseLanguage(languageCode)}. Sois court, '
               'clair et poli. Si tu ne connais pas la réponse, dis-le.',
         ),
         ChatMessage(role: 'user', content: question),
@@ -175,6 +176,8 @@ class GemmaRuntimeService extends ChangeNotifier {
     final answer = result.toString().trim();
     return answer.isEmpty ? 'Le modèle n’a pas produit de réponse.' : answer;
   }
+
+  static String _responseLanguage(String code) => switch (code) { 'ar' => 'arabe', 'en' => 'anglais', _ => 'français' };
 
   void _setError(String message, {bool notify = true}) {
     _status = AssistantModelStatus(path: _status.path, error: message);

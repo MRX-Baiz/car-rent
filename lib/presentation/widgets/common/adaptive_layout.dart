@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:car_rent_manager/presentation/widgets/common/app_text.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+
+import '../../../core/localization/app_localizations.dart';
 
 class AdaptiveLayout extends StatelessWidget {
   const AdaptiveLayout({
@@ -15,6 +18,7 @@ class AdaptiveLayout extends StatelessWidget {
     if (location.startsWith('/vehicles')) return 1;
     if (location.startsWith('/clients')) return 2;
     if (location.startsWith('/contracts')) return 3;
+    if (location.startsWith('/availability')) return 3;
     if (location.startsWith('/settings')) return 4;
     return 0;
   }
@@ -67,27 +71,27 @@ class AdaptiveLayout extends StatelessWidget {
               NavigationRailDestination(
                 icon: Icon(Icons.dashboard_outlined),
                 selectedIcon: Icon(Icons.dashboard),
-                label: Text('Accueil'),
+                label: AppText(AppCopy.home),
               ),
               NavigationRailDestination(
                 icon: Icon(Icons.directions_car_outlined),
                 selectedIcon: Icon(Icons.directions_car),
-                label: Text('Véhicules'),
+                label: AppText(AppCopy.vehicles),
               ),
               NavigationRailDestination(
                 icon: Icon(Icons.person_outline),
                 selectedIcon: Icon(Icons.person),
-                label: Text('Clients'),
+                label: AppText(AppCopy.clients),
               ),
               NavigationRailDestination(
                 icon: Icon(Icons.receipt_long_outlined),
                 selectedIcon: Icon(Icons.receipt_long),
-                label: Text('Contrats'),
+                label: AppText(AppCopy.contracts),
               ),
               NavigationRailDestination(
                 icon: Icon(Icons.settings_outlined),
                 selectedIcon: Icon(Icons.settings),
-                label: Text('Paramètres'),
+                label: AppText(AppCopy.settings),
               ),
             ],
           ),
@@ -102,31 +106,31 @@ class AdaptiveLayout extends StatelessWidget {
           selectedIndex: currentIndex,
           onDestinationSelected: (index) =>
               _onDestinationSelected(context, index),
-          destinations: const [
+          destinations: [
             NavigationDestination(
-              icon: Icon(Icons.dashboard_outlined),
-              selectedIcon: Icon(Icons.dashboard),
-              label: 'Accueil',
+              icon: const Icon(Icons.dashboard_outlined),
+              selectedIcon: const Icon(Icons.dashboard),
+              label: context.tr(AppCopy.home),
             ),
             NavigationDestination(
-              icon: Icon(Icons.directions_car_outlined),
-              selectedIcon: Icon(Icons.directions_car),
-              label: 'Véhicules',
+              icon: const Icon(Icons.directions_car_outlined),
+              selectedIcon: const Icon(Icons.directions_car),
+              label: context.tr(AppCopy.vehicles),
             ),
             NavigationDestination(
-              icon: Icon(Icons.person_outline),
-              selectedIcon: Icon(Icons.person),
-              label: 'Clients',
+              icon: const Icon(Icons.person_outline),
+              selectedIcon: const Icon(Icons.person),
+              label: context.tr(AppCopy.clients),
             ),
             NavigationDestination(
-              icon: Icon(Icons.receipt_long_outlined),
-              selectedIcon: Icon(Icons.receipt_long),
-              label: 'Contrats',
+              icon: const Icon(Icons.receipt_long_outlined),
+              selectedIcon: const Icon(Icons.receipt_long),
+              label: context.tr(AppCopy.contracts),
             ),
             NavigationDestination(
-              icon: Icon(Icons.settings_outlined),
-              selectedIcon: Icon(Icons.settings),
-              label: 'Paramètres',
+              icon: const Icon(Icons.settings_outlined),
+              selectedIcon: const Icon(Icons.settings),
+              label: context.tr(AppCopy.settings),
             ),
           ],
         ),

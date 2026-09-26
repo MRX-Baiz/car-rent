@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:car_rent_manager/presentation/widgets/common/app_text.dart';
 
 import '../../../core/constants/app_colors.dart';
 
@@ -44,14 +45,14 @@ class AlertBanner extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
+                    AppText(
                       title,
                       style: theme.textTheme.titleSmall?.copyWith(
                           color: tone.color, fontWeight: FontWeight.w800),
                     ),
                     if (message != null) ...[
                       const SizedBox(height: 2),
-                      Text(
+                      AppText(
                         message!,
                         style: theme.textTheme.bodyMedium
                             ?.copyWith(color: AppColors.textPrimary),
@@ -66,7 +67,7 @@ class AlertBanner extends StatelessWidget {
                           foregroundColor: Colors.white,
                           minimumSize: const Size(0, 44),
                         ),
-                        child: Text(actionLabel!),
+                        child: AppText(actionLabel!),
                       ),
                     ],
                   ],

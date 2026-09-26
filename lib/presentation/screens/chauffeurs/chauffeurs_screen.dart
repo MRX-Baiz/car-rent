@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:car_rent_manager/core/localization/app_localizations.dart';
+import 'package:car_rent_manager/presentation/widgets/common/app_text.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
@@ -32,10 +34,10 @@ class _ChauffeursScreenState extends ConsumerState<ChauffeursScreen> {
     final data = ref.watch(chauffeursProvider);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Chauffeurs'),
+        title: const AppText(AppCopy.drivers),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          tooltip: 'Retour',
+          tooltip: context.tr(AppCopy.back),
           onPressed: () =>
               context.canPop() ? context.pop() : context.go('/dashboard'),
         ),
@@ -44,12 +46,12 @@ class _ChauffeursScreenState extends ConsumerState<ChauffeursScreen> {
           child: data.when(
         data: (items) => _content(context, items),
         loading: () => AppShimmer.listLayer(),
-        error: (e, _) => Center(child: Text('Erreur : $e')),
+        error: (e, _) => Center(child: AppText(context.trError(e))),
       )),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => context.push('/chauffeurs/form'),
         icon: const Icon(Icons.person_add_alt_1_outlined),
-        label: const Text('Nouveau chauffeur'),
+        label: const AppText(AppCopy.newDriver),
       ),
     );
   }
@@ -57,20 +59,19 @@ class _ChauffeursScreenState extends ConsumerState<ChauffeursScreen> {
   Widget _content(BuildContext context, List<ChauffeurModel> items) {
     if (items.isEmpty) {
       return EmptyStateWidget(
-        title: 'Aucun chauffeur.',
-        subtitle:
-            'Ajoutez les chauffeurs de votre agence pour les proposer dans les contrats.',
+        title: AppCopy.noDrivers,
+        subtitle: AppCopy.addYourAgencyDriversSoTheyCanBe,
         icon: Icons.badge_outlined,
-        actionLabel: 'Ajouter un chauffeur',
+        actionLabel: AppCopy.addADriver,
         onAction: () => context.push('/chauffeurs/form'),
       );
     }
 
     final available = items.where((c) => c.status == 'available').length;
     final filters = [
-      ('Tous', 'all', items.length),
-      ('Disponibles', 'available', available),
-      ('Occupés', 'assigned', items.length - available),
+      (AppCopy.all, 'all', items.length),
+      (AppCopy.available61af94, 'available', available),
+      (AppCopy.busy9fadb4, 'assigned', items.length - available),
     ];
     final q = _query.toLowerCase();
     final filtered = items.where((c) {
@@ -87,9 +88,9 @@ class _ChauffeursScreenState extends ConsumerState<ChauffeursScreen> {
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
           child: TextField(
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               prefixIcon: Icon(Icons.search),
-              hintText: 'Nom, CIN ou téléphone',
+              hintText: context.tr(AppCopy.nameNationalIDOrPhone),
             ),
             onChanged: (v) => setState(() => _query = v.trim()),
           ),
@@ -101,9 +102,9 @@ class _ChauffeursScreenState extends ConsumerState<ChauffeursScreen> {
             children: [
               for (final f in filters)
                 Padding(
-                  padding: const EdgeInsets.only(right: 8),
+                  padding: const EdgeInsetsDirectional.only(end: 8),
                   child: ChoiceChip(
-                    label: Text('${f.$1} (${f.$3})'),
+                    label: AppText('${context.tr(f.$1)} (${f.$3})'),
                     selected: _filter == f.$2,
                     onSelected: (_) => setState(() => _filter = f.$2),
                   ),
@@ -114,8 +115,8 @@ class _ChauffeursScreenState extends ConsumerState<ChauffeursScreen> {
         Expanded(
           child: filtered.isEmpty
               ? const EmptyStateWidget(
-                  title: 'Aucun chauffeur trouvé.',
-                  subtitle: 'Modifiez la recherche ou le filtre.',
+                  title: AppCopy.noDriversFound,
+                  subtitle: AppCopy.changeTheSearchOrFilter,
                   icon: Icons.badge_outlined,
                 )
               : RefreshIndicator(
@@ -191,10 +192,10 @@ class ChauffeurCard extends StatelessWidget {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Text(formatMad(c.hourlyRate),
+                  AppText(context.money(c.hourlyRate),
                       style: theme.textTheme.titleMedium
                           ?.copyWith(color: AppColors.primary)),
-                  Text('par heure',
+                  AppText(AppCopy.perHour,
                       style: theme.textTheme.bodySmall
                           ?.copyWith(color: AppColors.textSecondary)),
                 ],
@@ -211,7 +212,8 @@ class ChauffeurCard extends StatelessWidget {
               if (c.licenseExpiryDate != null)
                 Flexible(
                   child: StatusChip(
-                    label: 'Permis · ${licence.label}',
+                    label: context.messages
+                        .licenceStatus(context.tr((licence.label).toString())),
                     tone: licence.tone,
                     icon: Icons.credit_card,
                     dense: true,
@@ -221,7 +223,7 @@ class ChauffeurCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Align(
-            alignment: Alignment.centerRight,
+            alignment: AlignmentDirectional.centerEnd,
             child: TextButton.icon(
               onPressed: onToggleStatus,
               icon: Icon(
@@ -229,7 +231,8 @@ class ChauffeurCard extends StatelessWidget {
                       ? Icons.do_not_disturb_on_outlined
                       : Icons.check_circle_outline,
                   size: 20),
-              label: Text(free ? 'Marquer occupé' : 'Marquer disponible'),
+              label:
+                  AppText(free ? AppCopy.markAsBusy : AppCopy.markAsAvailable),
             ),
           ),
         ],
@@ -305,7 +308,7 @@ class _ChauffeurFormScreenState extends ConsumerState<ChauffeurFormScreen> {
     } catch (e) {
       if (mounted)
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Erreur : $e')));
+            .showSnackBar(SnackBar(content: AppText(context.trError(e))));
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -319,11 +322,11 @@ class _ChauffeurFormScreenState extends ConsumerState<ChauffeurFormScreen> {
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           ListTile(
               leading: const Icon(Icons.camera_alt_outlined),
-              title: const Text('Prendre une photo'),
+              title: const AppText(AppCopy.takeAPhoto),
               onTap: () => Navigator.pop(sheetContext, ImageSource.camera)),
           ListTile(
               leading: const Icon(Icons.photo_library_outlined),
-              title: const Text('Choisir une photo'),
+              title: const AppText(AppCopy.chooseAPhoto),
               onTap: () => Navigator.pop(sheetContext, ImageSource.gallery)),
         ]),
       ),
@@ -347,13 +350,12 @@ class _ChauffeurFormScreenState extends ConsumerState<ChauffeurFormScreen> {
           _license.text = data['licenseNumber']!;
       });
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text(
-              'Informations remplies depuis le document. Vérifiez-les avant d’enregistrer.')));
+          content:
+              AppText(AppCopy.detailsFilledFromTheDocumentCheckThemBefore)));
     } catch (_) {
       if (mounted)
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text(
-                'Lecture du document impossible. Saisissez les informations manuellement.')));
+            content: AppText(AppCopy.unableToReadTheDocumentEnterTheDetails)));
     } finally {
       if (mounted) setState(() => _scanning = false);
     }
@@ -363,20 +365,19 @@ class _ChauffeurFormScreenState extends ConsumerState<ChauffeurFormScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Supprimer le chauffeur ?'),
-        content: Text(
-            '${widget.value!.fullName} sera retiré de la liste des chauffeurs. '
-            'Les contrats existants ne sont pas modifiés.'),
+        title: const AppText(AppCopy.deleteThisDriver),
+        content: Text(context.messages
+            .removeDriverConfirmation((widget.value!.fullName).toString())),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Annuler'),
+            child: const AppText(AppCopy.cancel),
           ),
           FilledButton(
             style:
                 FilledButton.styleFrom(backgroundColor: AppTone.danger.color),
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Supprimer'),
+            child: const AppText(AppCopy.delete),
           ),
         ],
       ),
@@ -392,12 +393,12 @@ class _ChauffeurFormScreenState extends ConsumerState<ChauffeurFormScreen> {
     final licence = expiryOf(_expiry);
     return Scaffold(
       appBar: AppBar(
-        title: Text(editing ? 'Modifier le chauffeur' : 'Nouveau chauffeur'),
+        title: AppText(editing ? AppCopy.editDriver : AppCopy.newDriver),
         actions: editing
             ? [
                 IconButton(
                   icon: const Icon(Icons.delete_outline),
-                  tooltip: 'Supprimer le chauffeur',
+                  tooltip: context.tr(AppCopy.deleteDriver),
                   onPressed: _delete,
                 ),
               ]
@@ -414,7 +415,7 @@ class _ChauffeurFormScreenState extends ConsumerState<ChauffeurFormScreen> {
                       strokeWidth: 2, color: Colors.white),
                 )
               : const Icon(Icons.save_outlined),
-          label: Text(_saving ? 'Enregistrement...' : 'Enregistrer'),
+          label: AppText(_saving ? AppCopy.saving : AppCopy.save),
         ),
       ),
       body: SingleChildScrollView(
@@ -430,8 +431,8 @@ class _ChauffeurFormScreenState extends ConsumerState<ChauffeurFormScreen> {
                 children: [
                   FormSection(
                     icon: Icons.badge_outlined,
-                    title: 'Identité et permis',
-                    subtitle: 'Vous pouvez scanner la CIN ou le permis.',
+                    title: AppCopy.identityAndDrivingLicence,
+                    subtitle: AppCopy.youCanScanTheNationalIDOrDriving,
                     children: [
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -440,8 +441,8 @@ class _ChauffeurFormScreenState extends ConsumerState<ChauffeurFormScreen> {
                             child: TextFormField(
                               controller: _first,
                               textCapitalization: TextCapitalization.words,
-                              decoration:
-                                  const InputDecoration(labelText: 'Prénom'),
+                              decoration: InputDecoration(
+                                  labelText: context.tr(AppCopy.firstName)),
                               validator: _required,
                             ),
                           ),
@@ -450,8 +451,8 @@ class _ChauffeurFormScreenState extends ConsumerState<ChauffeurFormScreen> {
                             child: TextFormField(
                               controller: _last,
                               textCapitalization: TextCapitalization.characters,
-                              decoration:
-                                  const InputDecoration(labelText: 'Nom'),
+                              decoration: InputDecoration(
+                                  labelText: context.tr(AppCopy.name)),
                               validator: _required,
                             ),
                           ),
@@ -459,18 +460,18 @@ class _ChauffeurFormScreenState extends ConsumerState<ChauffeurFormScreen> {
                       ),
                       _scanField(
                         controller: _cin,
-                        label: 'CIN',
+                        label: AppCopy.nationalIDCard,
                         icon: Icons.badge_outlined,
-                        tooltip: 'Scanner le CIN',
+                        tooltip: context.tr(AppCopy.scanNationalIDe0c6e8),
                         license: false,
                         validator: _required,
                       ),
                       _scanField(
                         controller: _license,
-                        label: 'Numéro de permis',
+                        label: AppCopy.drivingLicenceNumber,
                         hint: '33/345678',
                         icon: Icons.credit_card,
-                        tooltip: 'Scanner le permis',
+                        tooltip: context.tr(AppCopy.scanDrivingLicence),
                         license: true,
                         validator: _licenseValidator,
                       ),
@@ -486,17 +487,17 @@ class _ChauffeurFormScreenState extends ConsumerState<ChauffeurFormScreen> {
                           if (date != null) setState(() => _expiry = date);
                         },
                         child: InputDecorator(
-                          decoration: const InputDecoration(
-                            labelText: 'Expiration du permis',
+                          decoration: InputDecoration(
+                            labelText: context.tr(AppCopy.licenceExpiry),
                             prefixIcon: Icon(Icons.event_outlined),
                             suffixIcon: Icon(Icons.edit_calendar_outlined),
                           ),
                           child: Row(
                             children: [
                               Expanded(
-                                child: Text(
+                                child: AppText(
                                   _expiry == null
-                                      ? 'Non renseignée'
+                                      ? AppCopy.notProvidedd6a3c5
                                       : formatDate(_expiry!),
                                   style: Theme.of(context)
                                       .textTheme
@@ -518,13 +519,13 @@ class _ChauffeurFormScreenState extends ConsumerState<ChauffeurFormScreen> {
                   const SizedBox(height: 16),
                   FormSection(
                     icon: Icons.payments_outlined,
-                    title: 'Contact et tarif',
+                    title: AppCopy.contactAndRate,
                     children: [
                       TextFormField(
                         controller: _phone,
                         keyboardType: TextInputType.phone,
-                        decoration: const InputDecoration(
-                          labelText: 'Téléphone',
+                        decoration: InputDecoration(
+                          labelText: context.tr(AppCopy.phone),
                           prefixIcon: Icon(Icons.phone_outlined),
                         ),
                         validator: _required,
@@ -533,13 +534,13 @@ class _ChauffeurFormScreenState extends ConsumerState<ChauffeurFormScreen> {
                         controller: _rate,
                         keyboardType: const TextInputType.numberWithOptions(
                             decimal: true),
-                        decoration: const InputDecoration(
-                          labelText: 'Prix par heure',
-                          suffixText: 'MAD / h',
+                        decoration: InputDecoration(
+                          labelText: context.tr(AppCopy.hourlyRate),
+                          suffixText: AppCopy.madH,
                           prefixIcon: Icon(Icons.schedule),
                         ),
                         validator: (v) => double.tryParse(v ?? '') == null
-                            ? 'Prix invalide.'
+                            ? context.tr(AppCopy.invalidPrice)
                             : null,
                       ),
                     ],
@@ -547,17 +548,17 @@ class _ChauffeurFormScreenState extends ConsumerState<ChauffeurFormScreen> {
                   const SizedBox(height: 16),
                   FormSection(
                     icon: Icons.event_available_outlined,
-                    title: 'Disponibilité',
-                    subtitle:
-                        'Seuls les chauffeurs disponibles sont proposés dans un nouveau contrat.',
+                    title: AppCopy.availability,
+                    subtitle: AppCopy.onlyAvailableDriversAreOfferedForANew,
                     children: [
                       SegmentedButton<String>(
                         showSelectedIcon: false,
                         segments: const [
                           ButtonSegment(
-                              value: 'available', label: Text('Disponible')),
+                              value: 'available',
+                              label: AppText(AppCopy.available)),
                           ButtonSegment(
-                              value: 'assigned', label: Text('Occupé')),
+                              value: 'assigned', label: AppText(AppCopy.busy)),
                         ],
                         selected: {_status},
                         onSelectionChanged: (v) =>
@@ -566,8 +567,8 @@ class _ChauffeurFormScreenState extends ConsumerState<ChauffeurFormScreen> {
                       TextFormField(
                         controller: _notes,
                         maxLines: 3,
-                        decoration: const InputDecoration(
-                          labelText: 'Notes',
+                        decoration: InputDecoration(
+                          labelText: context.tr(AppCopy.notes),
                           alignLabelWithHint: true,
                         ),
                       ),
@@ -598,8 +599,8 @@ class _ChauffeurFormScreenState extends ConsumerState<ChauffeurFormScreen> {
           child: TextFormField(
             controller: controller,
             decoration: InputDecoration(
-              labelText: label,
-              hintText: hint,
+              labelText: context.tr(label),
+              hintText: hint == null ? null : context.tr(hint!),
               prefixIcon: Icon(icon),
             ),
             validator: validator,
@@ -611,7 +612,7 @@ class _ChauffeurFormScreenState extends ConsumerState<ChauffeurFormScreen> {
           child: IconButton.filledTonal(
             onPressed: _scanning ? null : () => _scan(license: license),
             icon: const Icon(Icons.document_scanner_outlined),
-            tooltip: tooltip,
+            tooltip: context.tr(tooltip),
             iconSize: 26,
             constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
           ),
@@ -620,13 +621,15 @@ class _ChauffeurFormScreenState extends ConsumerState<ChauffeurFormScreen> {
     );
   }
 
-  String? _required(String? value) =>
-      value == null || value.trim().isEmpty ? 'Champ requis.' : null;
+  String? _required(String? value) => value == null || value.trim().isEmpty
+      ? context.tr(AppCopy.fieldRequired)
+      : null;
 
   String? _licenseValidator(String? value) {
-    if (value == null || value.trim().isEmpty) return 'Le permis est requis.';
+    if (value == null || value.trim().isEmpty)
+      return context.tr(AppCopy.drivingLicenceIsRequired);
     if (!RegExp(r'^\d{2}/\d{6}$').hasMatch(value.trim()))
-      return 'Format attendu : 33/345678';
+      return context.tr(AppCopy.expectedFormat33345678);
     return null;
   }
 }

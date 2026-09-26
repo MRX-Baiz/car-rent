@@ -1,23 +1,29 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'core/constants/app_theme.dart';
+import 'core/localization/app_localizations.dart';
 import 'core/navigation/tab_back_button_dispatcher.dart';
 import 'core/notifications/notification_service.dart';
 import 'data/models/client_model.dart';
 import 'data/models/vehicle_model.dart';
 import 'data/models/contract_model.dart';
+import 'domain/entities/reservation.dart';
 import 'presentation/screens/contracts/contract_detail_screen.dart';
 import 'presentation/screens/contracts/contract_edit_screen.dart';
 import 'presentation/screens/contracts/contract_form_screen.dart';
 import 'presentation/screens/contracts/contracts_list_screen.dart';
 import 'presentation/screens/contracts/inspection_form_screen.dart';
+import 'presentation/screens/reservations/availability_calendar_screen.dart';
 import 'presentation/screens/clients/client_detail_screen.dart';
 import 'presentation/screens/clients/client_form_screen.dart';
 import 'presentation/screens/clients/clients_list_screen.dart';
 import 'presentation/providers/auth_provider.dart';
+import 'presentation/providers/app_settings_provider.dart';
 import 'presentation/screens/dashboard/dashboard_screen.dart';
+import 'presentation/screens/dashboard/today_operations_screen.dart';
 import 'presentation/screens/license/license_screen.dart';
 import 'presentation/screens/settings/settings_screen.dart';
 import 'presentation/screens/splash/splash_screen.dart';
@@ -85,6 +91,10 @@ final _router = GoRouter(
     GoRoute(
       path: '/dashboard',
       builder: (context, state) => const DashboardScreen(),
+    ),
+    GoRoute(
+      path: '/operations',
+      builder: (context, state) => const TodayOperationsScreen(),
     ),
     GoRoute(
       path: '/vehicles',
@@ -165,13 +175,22 @@ final _router = GoRouter(
       ],
     ),
     GoRoute(
+      path: '/availability',
+      builder: (context, state) => const AvailabilityCalendarScreen(),
+    ),
+    GoRoute(
       path: '/contracts',
       builder: (context, state) => const ContractsListScreen(),
       routes: [
         GoRoute(
           path: 'new',
-          builder: (context, state) =>
-              ContractFormScreen(initialVehicleId: state.extra as int?),
+          builder: (context, state) {
+            final extra = state.extra;
+            return ContractFormScreen(
+              initialVehicleId: extra is int ? extra : null,
+              reservation: extra is Reservation ? extra : null,
+            );
+          },
         ),
         GoRoute(
           path: ':id',
@@ -330,10 +349,20 @@ class _CarRentAppState extends ConsumerState<CarRentApp>
 
   @override
   Widget build(BuildContext context) {
+    final language = ref.watch(appLanguageProvider);
     return MaterialApp.router(
       debugShowCheckedModeBanner: false,
       title: 'CarRent Manager',
       theme: buildAppTheme(),
+      locale: language.locale,
+      supportedLocales:
+          AppLanguage.values.map((language) => language.locale).toList(),
+      localizationsDelegates: const [
+        AppMessages.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
       // Spelled out instead of routerConfig: passing the config wins over
       // backButtonDispatcher, so the custom dispatcher would be ignored.
       routeInformationProvider: _router.routeInformationProvider,

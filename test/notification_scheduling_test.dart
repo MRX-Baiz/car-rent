@@ -5,6 +5,7 @@ import 'package:car_rent_manager/core/notifications/notification_preferences.dar
 import 'package:car_rent_manager/core/notifications/notification_service.dart';
 import 'package:car_rent_manager/data/repositories/key_value_store.dart';
 import 'package:car_rent_manager/presentation/providers/contract_provider.dart';
+import 'package:car_rent_manager/presentation/providers/reminder_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -157,7 +158,7 @@ void main() {
     final container = ProviderContainer();
     addTearDown(container.dispose);
     await container.read(contractsProvider.future);
-    await container.read(contractsProvider.notifier).restoreReminders();
+    await container.read(restoreContractRemindersProvider)();
     final late = calls.singleWhere((call) =>
         call.method == 'zonedSchedule' &&
         call.arguments['id'] == active * 10 + 2);

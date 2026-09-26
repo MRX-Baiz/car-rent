@@ -2,24 +2,27 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:car_rent_manager/presentation/widgets/common/app_text.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../../core/constants/app_strings.dart';
-import '../../../core/backup/backup_service.dart';
 import '../../../core/license/license_manager.dart';
-import '../../../core/notifications/notification_preferences.dart';
-import '../../../core/notifications/notification_service.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../data/models/license_model.dart';
 import '../../../core/storage/media_store.dart';
-import '../../../data/repositories/app_settings_repository.dart';
-import '../../../data/repositories/auth_repository.dart';
+import '../../../domain/entities/company_profile.dart';
+import '../../../domain/entities/notification_diagnostics.dart';
+import '../../../domain/entities/notification_preferences.dart';
+import '../../../domain/entities/reminder_settings.dart';
 import '../../providers/app_settings_provider.dart';
+import '../../providers/backup_provider.dart';
 import '../../providers/client_provider.dart';
 import '../../providers/contract_provider.dart';
 import '../../providers/dashboard_provider.dart';
+import '../../providers/reminder_provider.dart';
 import '../../providers/vehicle_provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/format_utils.dart';
@@ -61,7 +64,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
   String _signaturePath = '';
   bool _biometricAvailable = false;
   bool _biometricEnabled = false;
-  int _autoLockMinutes = AuthRepository.defaultAutoLockMinutes;
+  int _autoLockMinutes = defaultAppAutoLockMinutes;
 
   NotificationPreferences _notifications = const NotificationPreferences();
   bool _notificationsGranted = false;
@@ -77,67 +80,58 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
   }
 
   Future<void> _loadAuthSettings() async {
-    final auth = ref.read(authRepositoryProvider);
-    final available = await auth.biometricAvailable();
-    final enabled = await auth.biometricEnabled();
-    final minutes = await auth.autoLockMinutes();
+    final auth = await ref.read(authProvider.notifier).loadSecuritySettings();
     if (!mounted) return;
     setState(() {
-      _biometricAvailable = available;
-      _biometricEnabled = enabled;
-      _autoLockMinutes = minutes;
+      _biometricAvailable = auth.available;
+      _biometricEnabled = auth.enabled;
+      _autoLockMinutes = auth.autoLockMinutes;
     });
   }
 
   Future<void> _setBiometric(bool value) async {
-    final auth = ref.read(authRepositoryProvider);
-
-    // Confirm the sensor actually works for this user before promising it on
-    // the lock screen; enrolment can be missing or fail silently.
-    if (value) {
-      final ok = await auth.authenticateWithBiometrics(
-        reason: 'Confirmez pour activer le déverrouillage biométrique',
-      );
-      if (!ok) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Biométrie non confirmée. Option non activée.'),
-            ),
-          );
-        }
-        return;
+    final changed = await ref.read(authProvider.notifier).setBiometricEnabled(
+          enabled: value,
+          confirmationReason:
+              context.tr(AppCopy.confirmToEnableBiometricUnlocking),
+        );
+    if (!changed) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: AppText(AppCopy.biometricsNotConfirmedOptionNotEnabled),
+          ),
+        );
       }
+      return;
     }
-
-    await auth.setBiometricEnabled(value);
     if (!mounted) return;
     setState(() => _biometricEnabled = value);
-    await ref.read(authProvider.notifier).refresh();
   }
 
   Future<void> _loadNotificationSettings() async {
-    final preferences = await NotificationPreferencesRepository.instance.load();
-    final status = await NotificationService.instance.diagnostics();
+    final settings = await ref.read(loadReminderSettingsProvider)();
     if (!mounted) return;
+    _applyReminderSettings(settings);
+  }
+
+  void _applyReminderSettings(ReminderSettings settings) {
     setState(() {
-      _notifications = preferences;
-      _notificationsGranted = status.notificationsAllowed;
-      _notificationStatus = status;
+      _notifications = settings.preferences;
+      _notificationsGranted = settings.status.notificationsAllowed;
+      _notificationStatus = settings.status;
     });
   }
 
   Future<void> _fixPermissions() async {
-    await NotificationService.instance.requestPermission();
-    await _loadNotificationSettings();
+    final settings = await ref.read(requestReminderPermissionsProvider)();
     if (!mounted) return;
-    final status = _notificationStatus;
-    if (status != null && !status.isFullyGranted) {
+    _applyReminderSettings(settings);
+    if (!settings.status.isFullyGranted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-            'Certaines autorisations sont encore refusées. '
-            'Ouvrez les réglages Android de l\'application.',
+          content: AppText(
+            AppCopy.somePermissionsAreStillDeniedOpenThisApp,
           ),
           duration: Duration(seconds: 5),
         ),
@@ -153,92 +147,69 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
     if (!status.available) {
       return const AlertBanner(
         tone: AppTone.neutral,
-        title: 'Rappels indisponibles',
-        message: 'Cette plateforme ne gère pas les rappels locaux.',
+        title: AppCopy.remindersUnavailable,
+        message: AppCopy.thisPlatformDoesNotSupportLocalReminders,
       );
     }
     if (!status.notificationsAllowed) {
       return AlertBanner(
         tone: AppTone.danger,
-        title: 'Notifications bloquées par Android',
-        message: 'Aucun rappel ne s’affichera : ni retours de véhicules, '
-            'ni paiements. Autorisez les notifications pour cette application.',
-        actionLabel: 'Autoriser les notifications',
+        title: AppCopy.notificationsBlockedByAndroid,
+        message: AppCopy.noReturnOrPaymentRemindersWillAppearAllow,
+        actionLabel: AppCopy.allowNotifications,
         onAction: _fixPermissions,
       );
     }
     if (!status.exactAlarmsAllowed) {
       return AlertBanner(
         tone: AppTone.warning,
-        title: 'Rappels possiblement en retard',
-        message: 'Sans l’autorisation « Alarmes et rappels », Android peut '
-            'retarder un rappel de 14h37 jusqu’au prochain réveil du téléphone.',
-        actionLabel: 'Autoriser les alarmes exactes',
+        title: AppCopy.remindersMayBeDelayed,
+        message: AppCopy.withoutTheAlarmsAndRemindersPermissionAndroidMay,
+        actionLabel: AppCopy.allowExactAlarms,
         onAction: _fixPermissions,
       );
     }
     return AlertBanner(
       tone: AppTone.success,
-      title: 'Les rappels fonctionnent',
+      title: AppCopy.remindersAreWorking,
       message: status.pending == 0
-          ? 'Aucun rappel en attente : aucun contrat en cours à venir.'
-          : '${status.pending} rappel(s) programmé(s).',
+          ? AppCopy.noPendingRemindersThereAreNoUpcomingActive
+          : context.messages
+              .scheduledReminderCount((status.pending).toString()),
     );
   }
 
   Future<void> _updateNotifications(NotificationPreferences updated) async {
-    // Turning reminders on is worthless if the OS is dropping them, so ask for
-    // the permission at the moment the user shows they want them.
-    if (updated.enabled && !_notificationsGranted) {
-      final granted = await NotificationService.instance.requestPermission();
-      if (!mounted) return;
-      setState(() => _notificationsGranted = granted);
-      if (!granted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Les notifications sont bloquées pour cette application. '
-              'Activez-les dans les réglages Android.',
-            ),
-          ),
-        );
-        return;
-      }
-    }
-
-    await NotificationPreferencesRepository.instance.save(updated);
+    final result = await ref.read(changeReminderPreferencesProvider)(
+      updated,
+      permissionGranted: _notificationsGranted,
+    );
     if (!mounted) return;
+    setState(() => _notificationsGranted = result.permissionGranted);
+    if (!result.saved) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: AppText(
+            AppCopy.notificationsAreBlockedForThisAppEnableThem,
+          ),
+        ),
+      );
+      return;
+    }
     setState(() => _notifications = updated);
-
-    // Turning everything off should silence what is already scheduled, not
-    // just stop new reminders being added.
-    if (!updated.enabled) {
-      await NotificationService.instance.cancelAll();
-    } else {
-      await _rearmAllReminders();
-    }
-  }
-
-  /// Re-schedules every active contract under the new preferences.
-  Future<void> _rearmAllReminders() async {
-    final contracts = ref.read(contractsProvider).value ?? const [];
-    final notifier = ref.read(contractsProvider.notifier);
-    for (final contract in contracts.where((c) => c.status == 'active')) {
-      await notifier.syncReminders(contract);
-    }
   }
 
   Future<void> _pickLeadTime() async {
     final picked = await showDialog<int>(
       context: context,
       builder: (context) => SimpleDialog(
-        title: const Text('Prévenir avant l\'échéance'),
+        title: const AppText(AppCopy.notifyBeforeTheDeadline),
         children: [
-          for (final minutes in NotificationPreferencesRepository.leadChoices)
+          for (final minutes in NotificationPreferences.leadChoices)
             RadioListTile<int>(
               value: minutes,
               groupValue: _notifications.leadMinutes,
-              title: Text(_leadLabel(minutes)),
+              title: AppText(_leadLabel(minutes)),
               onChanged: (value) => Navigator.pop(context, value),
             ),
         ],
@@ -248,13 +219,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
     await _updateNotifications(_notifications.copyWith(leadMinutes: picked));
   }
 
-  static String _leadLabel(int minutes) {
-    if (minutes >= 1440) return '1 jour avant';
+  String _leadLabel(int minutes) {
+    if (minutes >= 1440) return AppCopy.message1DayBefore;
     if (minutes >= 60) {
       final hours = minutes ~/ 60;
-      return '$hours heure${hours > 1 ? 's' : ''} avant';
+      return context.messages.leadHours((hours).toString());
     }
-    return '$minutes minutes avant';
+    return context.messages.leadMinutes((minutes).toString());
   }
 
   Future<void> _pickQuietHour({required bool isStart}) async {
@@ -263,7 +234,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
     final picked = await showTimePicker(
       context: context,
       initialTime: TimeOfDay(hour: current, minute: 0),
-      helpText: isStart ? 'Début du silence' : 'Fin du silence',
+      helpText: isStart
+          ? context.tr(AppCopy.quietHoursStart)
+          : context.tr(AppCopy.quietHoursEnd),
     );
     if (picked == null) return;
     await _updateNotifications(
@@ -290,9 +263,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
             children: [
               SwitchListTile(
                 secondary: const Icon(Icons.notifications_active_outlined),
-                title: const Text('Rappels de retour'),
-                subtitle: const Text(
-                    'Retours prévus, véhicules en retard, paiements.'),
+                title: const AppText(AppCopy.returnReminders),
+                subtitle:
+                    const AppText(AppCopy.scheduledReturnsLateVehiclesPayments),
                 value: enabled,
                 onChanged: (value) => _updateNotifications(
                     _notifications.copyWith(enabled: value)),
@@ -308,18 +281,19 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                           const Divider(height: 1),
                           ListTile(
                             leading: const Icon(Icons.schedule),
-                            title: const Text('Prévenir avant l\'échéance'),
+                            title:
+                                const AppText(AppCopy.notifyBeforeTheDeadline),
                             subtitle:
-                                Text(_leadLabel(_notifications.leadMinutes)),
+                                AppText(_leadLabel(_notifications.leadMinutes)),
                             trailing: const Icon(Icons.chevron_right),
                             onTap: _pickLeadTime,
                           ),
                           const Divider(height: 1),
                           SwitchListTile(
                             secondary: const Icon(Icons.payments_outlined),
-                            title: const Text('Rappels de paiement'),
-                            subtitle: const Text(
-                                'Quand un solde reste dû à l\'échéance.'),
+                            title: const AppText(AppCopy.paymentReminders),
+                            subtitle: const AppText(
+                                AppCopy.whenABalanceRemainsDueAtTheDeadline),
                             value: _notifications.paymentReminders,
                             onChanged: (value) => _updateNotifications(
                               _notifications.copyWith(paymentReminders: value),
@@ -328,8 +302,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                           const Divider(height: 1),
                           SwitchListTile(
                             secondary: const Icon(Icons.vpn_key_outlined),
-                            title: const Text('Expiration de la licence'),
-                            subtitle: const Text('Alertes à 30, 7 et 1 jour.'),
+                            title: const AppText(AppCopy.licenceExpiry70b960),
+                            subtitle:
+                                const AppText(AppCopy.alertsAt307And1Days),
                             value: _notifications.licenseAlerts,
                             onChanged: (value) => _updateNotifications(
                               _notifications.copyWith(licenseAlerts: value),
@@ -338,11 +313,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                           const Divider(height: 1),
                           SwitchListTile(
                             secondary: const Icon(Icons.bedtime_outlined),
-                            title: const Text('Heures silencieuses'),
-                            subtitle: Text(
+                            title: const AppText(AppCopy.quietHours),
+                            subtitle: AppText(
                               _notifications.quietHoursEnabled
-                                  ? 'De ${_formatHour(_notifications.quietStartHour)} à ${_formatHour(_notifications.quietEndHour)} : reporté au matin.'
-                                  : 'Les rappels peuvent sonner la nuit.',
+                                  ? context.messages.quietHoursSummary(
+                                      (_formatHour(
+                                              _notifications.quietStartHour))
+                                          .toString(),
+                                      (_formatHour(_notifications.quietEndHour))
+                                          .toString())
+                                  : AppCopy.remindersMaySoundDuringTheNight,
                             ),
                             value: _notifications.quietHoursEnabled,
                             onChanged: (value) => _updateNotifications(
@@ -354,16 +334,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                               children: [
                                 Expanded(
                                   child: ListTile(
-                                    title: const Text('De'),
-                                    subtitle: Text(_formatHour(
+                                    title: const AppText(AppCopy.from),
+                                    subtitle: AppText(_formatHour(
                                         _notifications.quietStartHour)),
                                     onTap: () => _pickQuietHour(isStart: true),
                                   ),
                                 ),
                                 Expanded(
                                   child: ListTile(
-                                    title: const Text('À'),
-                                    subtitle: Text(_formatHour(
+                                    title: const AppText(AppCopy.to),
+                                    subtitle: AppText(_formatHour(
                                         _notifications.quietEndHour)),
                                     onTap: () => _pickQuietHour(isStart: false),
                                   ),
@@ -387,20 +367,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Nouveau code de récupération'),
-        content: const Text(
-          'Un nouveau code sera généré et affiché une seule fois. '
-          'Votre code actuel cessera immédiatement de fonctionner.\n\n'
-          'Continuer ?',
+        title: const AppText(AppCopy.newRecoveryCode),
+        content: const AppText(
+          AppCopy.aNewCodeWillBeGeneratedAndShown,
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Annuler'),
+            child: const AppText(AppCopy.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Générer'),
+            child: const AppText(AppCopy.generate),
           ),
         ],
       ),
@@ -420,7 +398,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
           child: SingleChildScrollView(
             child: RecoveryCodeView(
               code: code,
-              acknowledgeLabel: 'J\'ai noté ce code',
+              acknowledgeLabel: AppCopy.iNotedThisCode,
               onAcknowledged: () => Navigator.pop(context),
             ),
           ),
@@ -429,10 +407,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
     );
   }
 
-  static String _autoLockLabel(int minutes) {
-    if (minutes <= 0) return 'Immédiatement';
-    if (minutes == 1) return 'Après 1 minute en arrière-plan';
-    return 'Après $minutes minutes en arrière-plan';
+  String _autoLockLabel(int minutes) {
+    if (minutes <= 0) return AppCopy.immediately;
+    if (minutes == 1) return AppCopy.after1MinuteInTheBackground;
+    return context.messages.lockDelayMinutes((minutes).toString());
   }
 
   Future<void> _pickAutoLockDelay() async {
@@ -440,18 +418,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
     final picked = await showDialog<int>(
       context: context,
       builder: (context) => SimpleDialog(
-        title: const Text('Verrouillage automatique'),
+        title: const AppText(AppCopy.automaticLock),
         children: [
           for (final minutes in choices)
             RadioListTile<int>(
               value: minutes,
               groupValue: _autoLockMinutes,
-              title: Text(_autoLockLabel(minutes)),
+              title: AppText(_autoLockLabel(minutes)),
               // "Immédiatement" also fires when the camera or the file picker
               // takes over the screen, which interrupts an OCR scan.
               subtitle: minutes == 0
-                  ? const Text(
-                      'Redemande le code après chaque scan de document.')
+                  ? const AppText(AppCopy.askForThePINAgainAfterEachDocument)
                   : null,
               onChanged: (value) => Navigator.pop(context, value),
             ),
@@ -460,7 +437,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
     );
     if (picked == null || !mounted) return;
 
-    await ref.read(authRepositoryProvider).setAutoLockMinutes(picked);
+    await ref.read(authProvider.notifier).setAutoLockMinutes(picked);
     if (mounted) setState(() => _autoLockMinutes = picked);
   }
 
@@ -468,25 +445,24 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
     if (_backupInProgress) return;
     setState(() => _backupInProgress = true);
     try {
-      final backup = await BackupService.instance.createBackup();
+      final backup = await ref.read(createBackupProvider)();
       if (!mounted) return;
       await Share.shareXFiles(
         [XFile(backup.path)],
-        subject: 'Sauvegarde CarRent',
-        text: 'Sauvegarde CarRent Manager',
+        subject: context.tr(AppCopy.carrentBackup),
+        text: context.tr(AppCopy.carrentManagerBackup),
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-              'Sauvegarde créée. Enregistrez le fichier ZIP dans un endroit sûr.'),
+          content: AppText(AppCopy.backupCreatedSaveTheZIPFileSomewhereSafe),
           duration: Duration(seconds: 5),
         ),
       );
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Sauvegarde impossible : $error')),
+        SnackBar(content: AppText(context.trError(error))),
       );
     } finally {
       if (mounted) setState(() => _backupInProgress = false);
@@ -505,19 +481,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Restaurer cette sauvegarde ?'),
-        content: const Text(
-          'Les données et documents actuels de cette application seront remplacés. '
-          'Le code PIN et la licence de ce téléphone resteront en place.',
+        title: const AppText(AppCopy.restoreThisBackup),
+        content: const AppText(
+          AppCopy.theAppSCurrentDataAndDocumentsWill,
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Annuler'),
+            child: const AppText(AppCopy.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Restaurer'),
+            child: const AppText(AppCopy.restore),
           ),
         ],
       ),
@@ -526,12 +501,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
 
     setState(() => _backupInProgress = true);
     try {
-      // Pending Android alarms belong to the old database. Clear them after
-      // the ZIP has passed validation, then schedule restored active contracts.
-      await BackupService.instance.restoreBackup(
-        File(path),
-        beforeReplace: NotificationService.instance.cancelAll,
-      );
+      await ref.read(restoreBackupProvider)(path);
 
       ref.invalidate(vehiclesProvider);
       ref.invalidate(clientsProvider);
@@ -542,7 +512,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
       ref.invalidate(companyPhoneProvider);
       ref.invalidate(companyLogoProvider);
       ref.invalidate(companySignatureProvider);
-      await ref.read(contractsProvider.notifier).restoreReminders();
       await ref.read(authProvider.notifier).refresh();
       await _loadCompanySettings();
       await _loadNotificationSettings();
@@ -550,14 +519,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Sauvegarde restaurée. Les rappels ont été recréés.'),
+          content: AppText(AppCopy.backupRestoredRemindersWereRecreated),
           duration: Duration(seconds: 5),
         ),
       );
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Restauration impossible : $error')),
+        SnackBar(content: AppText(context.trError(error))),
       );
     } finally {
       if (mounted) setState(() => _backupInProgress = false);
@@ -571,10 +540,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
         children: [
           ListTile(
             leading: const Icon(Icons.backup_outlined),
-            title: const Text('Créer une sauvegarde'),
+            title: const AppText(AppCopy.createABackup),
             subtitle:
-                const Text('Un fichier ZIP avec les données et les documents. '
-                    'Gardez-le hors du téléphone.'),
+                const AppText(AppCopy.aZIPFileContainingYourDataAndDocuments),
             trailing: _backupInProgress
                 ? const SizedBox(
                     width: 20,
@@ -587,9 +555,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
           const Divider(height: 1),
           ListTile(
             leading: const Icon(Icons.restore_outlined),
-            title: const Text('Restaurer une sauvegarde'),
-            subtitle: const Text(
-                'Remplace les données actuelles par celles du fichier ZIP.'),
+            title: const AppText(AppCopy.restoreABackup),
+            subtitle: const AppText(AppCopy.replaceCurrentDataWithTheDataInA),
             trailing: const Icon(Icons.chevron_right),
             onTap: _backupInProgress ? null : _restoreBackup,
           ),
@@ -609,12 +576,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
   }
 
   Future<void> _loadCompanySettings() async {
-    final repo = AppSettingsRepository.instance;
-    _companyNameController.text = await repo.getCompanyName();
-    _companyAddressController.text = await repo.getCompanyAddress();
-    _companyPhoneController.text = await repo.getCompanyPhone();
-    _logoPath = await repo.getCompanyLogo();
-    _signaturePath = await repo.getCompanySignature();
+    final profile = await ref.read(loadCompanyProfileProvider)();
+    _companyNameController.text = profile.name;
+    _companyAddressController.text = profile.address;
+    _companyPhoneController.text = profile.phone;
+    _logoPath = profile.logoPath;
+    _signaturePath = profile.signaturePath;
     if (mounted) setState(() {});
   }
 
@@ -622,12 +589,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
     if (_savingCompany) return;
     setState(() => _savingCompany = true);
     try {
-      final repo = AppSettingsRepository.instance;
-      await repo.setCompanyName(_companyNameController.text.trim());
-      await repo.setCompanyAddress(_companyAddressController.text.trim());
-      await repo.setCompanyPhone(_companyPhoneController.text.trim());
-      await repo.setCompanyLogo(_logoPath);
-      await repo.setCompanySignature(_signaturePath);
+      await ref.read(saveCompanyProfileProvider)(
+        CompanyProfile(
+          name: _companyNameController.text.trim(),
+          address: _companyAddressController.text.trim(),
+          phone: _companyPhoneController.text.trim(),
+          logoPath: _logoPath,
+          signaturePath: _signaturePath,
+        ),
+      );
 
       ref.invalidate(companyNameProvider);
       ref.invalidate(companyAddressProvider);
@@ -636,12 +606,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
       ref.invalidate(companySignatureProvider);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text(AppStrings.successSaved)),
+        const SnackBar(content: AppText(AppStrings.successSaved)),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur: $e')),
+        SnackBar(content: AppText(context.trError(e))),
       );
     } finally {
       if (mounted) setState(() => _savingCompany = false);
@@ -665,7 +635,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
       if (!mounted) return;
       setState(() {
         _licenseValid = false;
-        _licenseInfo = 'Erreur: $e';
+        _licenseInfo = context.trError(e);
         _loadingLicense = false;
       });
     }
@@ -676,8 +646,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
     if (key.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-            'La clé de licence est requise.\nمطلوب مفتاح الترخيص.',
+          content: AppText(
+            AppCopy.licenceKeyIsRequired853b1e,
           ),
         ),
       );
@@ -687,17 +657,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
       await _licenseManager.saveLicense(key);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text(AppStrings.successSaved)),
+        const SnackBar(content: AppText(AppStrings.successSaved)),
       );
       await _loadLicenseInfo();
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            'Erreur lors de l\'enregistrement de la licence.\n'
-            'حدث خطأ أثناء حفظ الرخصة.\n'
-            'License save error: $e',
+          content: AppText(
+            context.trError(e),
           ),
         ),
       );
@@ -739,7 +707,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
     if (!_licenseValid) {
       return AlertBanner(
         tone: AppTone.danger,
-        title: 'Licence inactive',
+        title: AppCopy.inactiveLicence,
         message: _licenseInfo ?? 'Aucune licence valide sur cet appareil.',
       );
     }
@@ -756,10 +724,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
       child: DetailList(children: [
         DetailRow(
           icon: Icons.verified_user_outlined,
-          label: 'État',
-          value: expiringSoon ? 'Expire bientôt' : 'Licence active',
+          label: AppCopy.statusd3b28a,
+          value: expiringSoon ? AppCopy.expiresSoon : AppCopy.activeLicence,
           trailing: StatusChip(
-            label: expiringSoon ? '$daysLeft j restants' : 'Valide',
+            label: expiringSoon
+                ? context.messages.remainingDayCount((daysLeft).toString())
+                : AppCopy.valid,
             tone: expiringSoon ? AppTone.warning : AppTone.success,
             icon: expiringSoon ? Icons.warning_amber_rounded : Icons.check,
             dense: true,
@@ -768,17 +738,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
         if (data != null && data.name.isNotEmpty)
           DetailRow(
               icon: Icons.business_outlined,
-              label: 'Licencié à',
+              label: AppCopy.licensedTo,
               value: data.name),
         if (expiry != null)
           DetailRow(
               icon: Icons.event_outlined,
-              label: 'Expire le',
+              label: AppCopy.expiresOn,
               value: formatDate(expiry)),
         if (_deviceId != null)
           DetailRow(
             icon: Icons.smartphone_outlined,
-            label: 'ID de cet appareil',
+            label: AppCopy.thisDeviceID,
             value: _deviceId!,
             mono: true,
             trailing: const Icon(Icons.copy_outlined,
@@ -786,7 +756,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
             onTap: () {
               Clipboard.setData(ClipboardData(text: _deviceId!));
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('ID de l\'appareil copié !')),
+                const SnackBar(content: AppText(AppCopy.deviceIDCopied)),
               );
             },
           ),
@@ -816,13 +786,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label, style: const TextStyle(fontWeight: FontWeight.w700)),
+              AppText(label,
+                  style: const TextStyle(fontWeight: FontWeight.w700)),
               const SizedBox(height: 6),
               OutlinedButton.icon(
                 onPressed: () => _pickImage(isLogo),
                 style: OutlinedButton.styleFrom(minimumSize: const Size(0, 44)),
                 icon: const Icon(Icons.upload_file, size: 20),
-                label: Text(file == null ? 'Ajouter' : 'Changer'),
+                label: AppText(file == null ? AppCopy.add : AppCopy.change),
               ),
             ],
           ),
@@ -849,16 +820,47 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
       IconData icon, String title, String subtitle, VoidCallback onTap) {
     return ListTile(
       leading: Icon(icon),
-      title: Text(title),
-      subtitle: Text(subtitle),
+      title: AppText(title),
+      subtitle: AppText(subtitle),
       trailing: const Icon(Icons.chevron_right),
       onTap: onTap,
+    );
+  }
+
+  Widget _buildLanguageSettings(AppLanguage language) {
+    return AppCard(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: ListTile(
+        contentPadding: EdgeInsets.zero,
+        leading: const Icon(Icons.language_outlined),
+        title: const AppText(AppCopy.language),
+        subtitle: const AppText(AppCopy.chooseTheApplicationLanguage),
+        trailing: DropdownButtonHideUnderline(
+          child: DropdownButton<AppLanguage>(
+            value: language,
+            onChanged: (value) {
+              if (value != null) {
+                ref.read(appLanguageProvider.notifier).select(value);
+              }
+            },
+            items: AppLanguage.values
+                .map(
+                  (option) => DropdownMenuItem(
+                    value: option,
+                    child: AppText(option.label),
+                  ),
+                )
+                .toList(),
+          ),
+        ),
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final language = ref.watch(appLanguageProvider);
     final companyName = _companyNameController.text.trim();
     final notificationsOk = _notificationStatus?.isFullyGranted ?? true;
     final top = MediaQuery.paddingOf(context).top;
@@ -890,16 +892,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                   label: _loadingLicense
                       ? 'Licence…'
                       : _licenseValid
-                          ? 'Licence active'
-                          : 'Licence inactive',
+                          ? AppCopy.activeLicence
+                          : AppCopy.inactiveLicence,
                   tone: _licenseValid ? AppTone.success : AppTone.danger,
                   icon: _licenseValid
                       ? Icons.verified_user_outlined
                       : Icons.error_outline,
                 ),
                 StatusChip(
-                  label:
-                      notificationsOk ? 'Rappels actifs' : 'Rappels à corriger',
+                  label: notificationsOk
+                      ? AppCopy.remindersActive
+                      : AppCopy.remindersNeedAttention,
                   tone: notificationsOk ? AppTone.success : AppTone.warning,
                   icon: notificationsOk
                       ? Icons.notifications_active_outlined
@@ -911,7 +914,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
         ),
       ),
       _group(
-        'Mon agence',
+        AppCopy.myAgency,
         AppCard(
           padding: EdgeInsets.zero,
           child: Column(
@@ -920,36 +923,38 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                 data: theme.copyWith(dividerColor: Colors.transparent),
                 child: ExpansionTile(
                   leading: const Icon(Icons.business_outlined),
-                  title: const Text('Informations de la société'),
-                  subtitle: const Text(
-                      'Nom, adresse, logo et signature sur les contrats.'),
+                  title: const AppText(AppCopy.companyInformation),
+                  subtitle: const AppText(
+                      AppCopy.nameAddressLogoAndSignatureOnContracts),
                   childrenPadding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
                   children: [
                     TextField(
                       controller: _companyNameController,
-                      decoration:
-                          const InputDecoration(labelText: 'Nom de la société'),
+                      decoration: InputDecoration(
+                          labelText: context.tr(AppCopy.companyName)),
                     ),
                     const SizedBox(height: 12),
                     TextField(
                       controller: _companyAddressController,
-                      decoration: const InputDecoration(labelText: 'Adresse'),
+                      decoration: InputDecoration(
+                          labelText: context.tr(AppCopy.address)),
                       maxLines: 2,
                     ),
                     const SizedBox(height: 12),
                     TextField(
                       controller: _companyPhoneController,
-                      decoration: const InputDecoration(labelText: 'Téléphone'),
+                      decoration:
+                          InputDecoration(labelText: context.tr(AppCopy.phone)),
                       keyboardType: TextInputType.phone,
                       inputFormatters: [
                         FilteringTextInputFormatter.digitsOnly,
                       ],
                     ),
                     const SizedBox(height: 16),
-                    _buildImagePicker('Logo de la société', _logoPath, true),
+                    _buildImagePicker(AppCopy.companyLogo, _logoPath, true),
                     const SizedBox(height: 12),
                     _buildImagePicker(
-                        'Signature de l\'agence', _signaturePath, false),
+                        AppCopy.agencySignature, _signaturePath, false),
                     const SizedBox(height: 16),
                     FilledButton.icon(
                       onPressed: _savingCompany ? null : _saveCompanySettings,
@@ -961,7 +966,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                                   strokeWidth: 2, color: Colors.white),
                             )
                           : const Icon(Icons.save_outlined),
-                      label: const Text('Enregistrer'),
+                      label: const AppText(AppCopy.save),
                     ),
                   ],
                 ),
@@ -969,31 +974,36 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
               const Divider(height: 1),
               _navRow(
                   Icons.badge_outlined,
-                  'Chauffeurs',
-                  'Gérer les chauffeurs, leur prix par heure et leur disponibilité.',
+                  AppCopy.drivers,
+                  AppCopy.manageDriversTheirHourlyRateAndAvailability,
                   () => context.push('/chauffeurs')),
               const Divider(height: 1),
               _navRow(
                   Icons.auto_awesome_outlined,
-                  'Assistant local',
-                  'Questions sur l’agence, hors ligne : le modèle reste sur le téléphone.',
+                  AppCopy.localAssistant,
+                  AppCopy.askAboutYourAgencyOfflineTheModelStays,
                   () => context.push('/assistant')),
             ],
           ),
         ),
       ),
       _group(
-        'Rappels',
+        AppCopy.reminders,
         _buildNotificationSettings(theme),
-        subtitle: 'Retours, paiements et licence.',
+        subtitle: AppCopy.returnsPaymentsAndLicence,
       ),
       _group(
-        'Sauvegarde',
+        AppCopy.language,
+        _buildLanguageSettings(language),
+        subtitle: AppCopy.chooseTheApplicationLanguage,
+      ),
+      _group(
+        AppCopy.backup,
         _buildBackupSettings(),
-        subtitle: 'Protégez vos données si le téléphone est perdu.',
+        subtitle: AppCopy.protectYourDataIfThePhoneIsLost,
       ),
       _group(
-        'Licence',
+        AppCopy.licence,
         Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -1008,25 +1018,25 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                 data: theme.copyWith(dividerColor: Colors.transparent),
                 child: ExpansionTile(
                   leading: const Icon(Icons.vpn_key_outlined),
-                  title: const Text('Renouveler la licence'),
-                  subtitle: const Text(
-                      'Seulement pour prolonger ou après un changement d’appareil.'),
+                  title: const AppText(AppCopy.renewLicence),
+                  subtitle:
+                      const AppText(AppCopy.onlyToRenewOrAfterChangingDevices),
                   childrenPadding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
                   children: [
                     TextField(
                       controller: _licenseKeyController,
                       maxLines: 2,
-                      decoration: const InputDecoration(
-                        labelText: 'Nouvelle clé de licence',
-                        hintText:
-                            'Collez ici la clé fournie par votre fournisseur',
+                      decoration: InputDecoration(
+                        labelText: context.tr(AppCopy.newLicenceKey),
+                        hintText: context
+                            .tr(AppCopy.pasteTheKeySuppliedByYourProviderHere),
                       ),
                     ),
                     const SizedBox(height: 12),
                     FilledButton.icon(
                       onPressed: _saveLicense,
                       icon: const Icon(Icons.vpn_key),
-                      label: const Text('Appliquer la nouvelle clé'),
+                      label: const AppText(AppCopy.applyNewKey),
                     ),
                   ],
                 ),
@@ -1036,36 +1046,36 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
         ),
       ),
       _group(
-        'Sécurité',
+        AppCopy.security,
         AppCard(
           padding: const EdgeInsets.symmetric(vertical: 4),
           child: Column(
             children: [
               _navRow(
                   Icons.pin_outlined,
-                  'Modifier le code PIN',
-                  'Demande le code actuel avant tout changement.',
+                  AppCopy.changePIN,
+                  AppCopy.requiresTheCurrentPINBeforeAnyChange,
                   () => context.push('/settings/pin')),
               const Divider(height: 1),
               _navRow(
                   Icons.vpn_key_outlined,
-                  'Code de récupération',
-                  'Générer un nouveau code. L\'ancien sera annulé.',
+                  AppCopy.recoveryCode,
+                  AppCopy.generateANewCodeTheOldOneWill,
                   _regenerateRecoveryCode),
               const Divider(height: 1),
               SwitchListTile(
                 secondary: const Icon(Icons.fingerprint),
-                title: const Text('Déverrouillage biométrique'),
-                subtitle: Text(
+                title: const AppText(AppCopy.biometricUnlock),
+                subtitle: AppText(
                   _biometricAvailable
-                      ? 'Utiliser l\'empreinte ou le visage à la place du code.'
-                      : 'Aucune empreinte enregistrée sur cet appareil.',
+                      ? AppCopy.useFingerprintOrFaceRecognitionInsteadOfThe
+                      : AppCopy.noFingerprintIsRegisteredOnThisDevice,
                 ),
                 value: _biometricEnabled && _biometricAvailable,
                 onChanged: _biometricAvailable ? _setBiometric : null,
               ),
               const Divider(height: 1),
-              _navRow(Icons.timer_outlined, 'Verrouillage automatique',
+              _navRow(Icons.timer_outlined, AppCopy.automaticLock,
                   _autoLockLabel(_autoLockMinutes), _pickAutoLockDelay),
             ],
           ),
@@ -1078,7 +1088,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
           side: BorderSide(color: AppTone.danger.color),
         ),
         icon: const Icon(Icons.lock_outline),
-        label: const Text('Verrouiller maintenant'),
+        label: const AppText(AppCopy.lockNow),
       ),
     ];
 
@@ -1109,7 +1119,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                   pinned: true,
                   delegate: HeroHeaderDelegate(
                     asset: 'assets/backgrounds/bg_settings.webp',
-                    title: 'Paramètres',
+                    title: AppCopy.settings,
                     showTitle: false,
                     expanded: expanded,
                     collapsed: collapsed,
@@ -1127,7 +1137,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                       onPressed: () => context.canPop()
                           ? context.pop()
                           : context.go('/dashboard'),
-                      tooltip: 'Retour au tableau de bord',
+                      tooltip: context.tr(AppCopy.backToDashboard),
                     ),
                   ),
                 ),
@@ -1135,8 +1145,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
                     child: AnimatedTitle(
-                      eyebrow: 'Votre agence',
-                      title: 'Paramètres',
+                      eyebrow: AppCopy.yourAgency,
+                      title: AppCopy.settings,
                       subtitle: companyName.isEmpty ? null : companyName,
                     ),
                   ),

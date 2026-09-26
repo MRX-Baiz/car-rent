@@ -1,7 +1,9 @@
+import 'package:car_rent_manager/core/localization/app_localizations.dart';
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:car_rent_manager/presentation/widgets/common/app_text.dart';
 
 import '../../../core/assistant/gemma_runtime_service.dart';
 
@@ -45,7 +47,7 @@ class _AssistantModelScreenState extends State<AssistantModelScreen> {
       );
     } catch (error) {
       if (mounted) {
-        _show('Impossible d’ouvrir les fichiers : $error');
+        _show(context.trError(error));
       }
       return;
     }
@@ -54,11 +56,11 @@ class _AssistantModelScreenState extends State<AssistantModelScreen> {
         : null;
     if (path == null) return;
     if (!path.toLowerCase().endsWith('.gguf')) {
-      _show('Choisissez un fichier modèle qui se termine par .gguf.');
+      _show(AppCopy.chooseAModelFileEndingInGguf);
       return;
     }
     if (!await File(path).exists()) {
-      _show('Le fichier n’est pas accessible.');
+      _show(AppCopy.theFileCannotBeAccessed);
       return;
     }
     setState(() => _working = true);
@@ -66,11 +68,11 @@ class _AssistantModelScreenState extends State<AssistantModelScreen> {
       await _gemma.importModelFile(path);
       if (mounted) {
         _show(
-            'Fichier modèle copié dans l’application. Chargez-le maintenant.');
+            AppCopy.modelFileCopiedIntoTheAppLoadIt);
       }
     } catch (error) {
       if (mounted) {
-        _show('Import impossible : $error');
+        _show(context.trError(error));
       }
     } finally {
       if (mounted) {
@@ -88,15 +90,15 @@ class _AssistantModelScreenState extends State<AssistantModelScreen> {
     _show(error ?? 'Le modèle est prêt à être utilisé.');
   }
 
-  void _show(String text) =>
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+  void _show(String text) => ScaffoldMessenger.of(context)
+      .showSnackBar(SnackBar(content: AppText(text)));
 
   @override
   Widget build(BuildContext context) {
     final status = _gemma.status;
     final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Modèle local hors ligne')),
+      appBar: AppBar(title: const AppText(AppCopy.offlineLocalModel)),
       body: SingleChildScrollView(
         padding: EdgeInsets.fromLTRB(
             16, 16, 16, 32 + MediaQuery.viewPaddingOf(context).bottom),
@@ -112,15 +114,15 @@ class _AssistantModelScreenState extends State<AssistantModelScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Modèle local',
+                        AppText(AppCopy.localModel,
                             style: theme.textTheme.titleMedium
                                 ?.copyWith(fontWeight: FontWeight.bold)),
                         const SizedBox(height: 8),
-                        const Text(
-                            'Importez un modèle conversationnel GGUF. Chaque import remplace le modèle actuellement chargé.'),
+                        const AppText(
+                            AppCopy.importAGGUFChatModelEachImportReplaces),
                         const SizedBox(height: 8),
-                        const Text(
-                            'Le modèle reste séparé de l’APK. Les grands modèles demandent beaucoup d’espace et de RAM. Les questions et les données de l’agence restent sur ce téléphone.'),
+                        const AppText(
+                            AppCopy.theModelIsStoredSeparatelyFromTheApp),
                       ],
                     ),
                   ),
@@ -133,23 +135,23 @@ class _AssistantModelScreenState extends State<AssistantModelScreen> {
                             ? Icons.check_circle
                             : Icons.description_outlined,
                         color: status.isLoaded ? Colors.green : null),
-                    title: Text(status.isLoaded
-                        ? 'Modèle chargé'
-                        : 'Aucun modèle chargé'),
-                    subtitle: Text(status.path?.split('/').last ??
+                    title: AppText(status.isLoaded
+                        ? AppCopy.modelLoaded
+                        : AppCopy.noModelLoaded),
+                    subtitle: AppText(status.path?.split('/').last ??
                         'Sélectionnez un fichier .gguf téléchargé sur le téléphone.'),
                   ),
                 ),
                 if (status.error != null) ...[
                   const SizedBox(height: 8),
-                  Text(status.error!,
+                  AppText(context.trError(status.error!),
                       style: TextStyle(color: theme.colorScheme.error)),
                 ],
                 const SizedBox(height: 16),
                 OutlinedButton.icon(
                   onPressed: _working ? null : _selectFile,
                   icon: const Icon(Icons.folder_open_outlined),
-                  label: const Text('Sélectionner le fichier GGUF'),
+                  label: const AppText(AppCopy.selectGGUFFile),
                 ),
                 const SizedBox(height: 8),
                 FilledButton.icon(
@@ -160,8 +162,8 @@ class _AssistantModelScreenState extends State<AssistantModelScreen> {
                           height: 18,
                           child: CircularProgressIndicator(strokeWidth: 2))
                       : const Icon(Icons.memory),
-                  label: Text(
-                      status.isLoading ? 'Chargement…' : 'Charger le modèle'),
+                  label: AppText(
+                      status.isLoading ? AppCopy.loading : AppCopy.loadModel),
                 ),
                 const SizedBox(height: 16),
                 TextButton.icon(
@@ -169,7 +171,7 @@ class _AssistantModelScreenState extends State<AssistantModelScreen> {
                       ? null
                       : () => _gemma.clearModelPath(),
                   icon: const Icon(Icons.delete_outline),
-                  label: const Text('Oublier ce fichier'),
+                  label: const AppText(AppCopy.forgetThisFile),
                 ),
               ],
             ),

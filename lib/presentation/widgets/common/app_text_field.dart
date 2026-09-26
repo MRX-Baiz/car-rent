@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../core/localization/app_localizations.dart';
+
 class AppTextField extends StatelessWidget {
   const AppTextField({
     super.key,
@@ -30,16 +32,18 @@ class AppTextField extends StatelessWidget {
     return TextFormField(
       controller: controller,
       decoration: InputDecoration(
-        labelText: label,
-        hintText: hint,
+        labelText: context.tr(label),
+        hintText: hint == null ? null : context.tr(hint!),
         prefixIcon: prefixIcon != null ? Icon(prefixIcon) : null,
       ),
       keyboardType: keyboardType,
       textInputAction: textInputAction,
       inputFormatters: inputFormatters,
       maxLines: maxLines,
-      validator: validator,
+      validator: validator == null ? null : (value) {
+        final error = validator!(value);
+        return error == null ? null : context.tr(error);
+      },
     );
   }
 }
-

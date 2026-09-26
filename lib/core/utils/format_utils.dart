@@ -1,4 +1,5 @@
 import 'package:intl/intl.dart';
+import 'package:flutter/material.dart';
 
 import '../constants/app_colors.dart';
 
@@ -56,7 +57,10 @@ const _months = [
 ];
 
 /// "Dimanche 20 septembre" without needing locale data to be initialised.
-String formatLongDay(DateTime value) {
+String formatLongDay(DateTime value, {Locale? locale}) {
+  if (locale != null && locale.languageCode != 'fr') {
+    return DateFormat('EEEE d MMMM', locale.toLanguageTag()).format(value);
+  }
   final weekday = _weekdays[value.weekday - 1];
   return '${weekday[0].toUpperCase()}${weekday.substring(1)} '
       '${value.day} ${_months[value.month - 1]}';

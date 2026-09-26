@@ -1,3 +1,5 @@
+import 'package:flutter/widgets.dart';
+import '../localization/app_localizations.dart';
 import '../../data/models/chauffeur_model.dart';
 import '../../data/models/client_model.dart';
 import '../../data/models/contract_model.dart';
@@ -11,8 +13,22 @@ import 'assistant_read_only_store.dart';
 /// scanned as a whole. Semantic HNSW search can later index free-text notes.
 class AssistantService {
   AssistantService._();
-
   static final instance = AssistantService._();
+  void refreshAgencyData() => AssistantReadOnlyStore.instance.invalidate();
+  Future<AssistantAnswer> answer(String question, {String languageCode = 'fr'}) =>
+      _AssistantQuery(languageCode).answer(question);
+}
+
+class _AssistantQuery {
+  _AssistantQuery(this.languageCode);
+  final String languageCode;
+  AppMessages get messages => lookupAppMessages(Locale(languageCode));
+  String tr(String source) => AppLocalizations.translate(Locale(languageCode), source);
+  String status(String source) => tr(const {
+    'active': 'En cours', 'completed': 'Terminé', 'late': 'En retard',
+    'available': 'Disponible', 'rented': 'Loué', 'maintenance': 'Maintenance',
+    'assigned': 'Occupé', 'good': 'Bon état', 'check': 'À contrôler', 'damaged': 'Endommagé',
+  }[source] ?? source);
 
   final _readOnly = AssistantReadOnlyStore.instance;
   final _gemma = GemmaRuntimeService.instance;
@@ -24,7 +40,7 @@ class AssistantService {
   Future<AssistantAnswer> answer(String rawQuestion) async {
     final question = rawQuestion.trim();
     if (question.isEmpty) {
-      return const AssistantAnswer(text: 'Écrivez votre question.');
+      return AssistantAnswer(text: messages.assistantWriteQuestion);
     }
     final normalized = _normalize(question);
     final retrieved = await _retrieve(normalized);
@@ -36,13 +52,14 @@ class AssistantService {
       // database content into that conversation.
       if (retrieved.allowDirectModel) {
         return AssistantAnswer(
-          text: await _gemma.answerGeneralQuestion(question),
+          text: await _gemma.answerGeneralQuestion(question, languageCode: languageCode),
           enhancedByModel: true,
         );
       }
       final enhanced = await _gemma.improveAnswer(
         question: question,
         facts: retrieved.text,
+        languageCode: languageCode,
       );
       // A local SLM must never become the source of an operational answer.
       // Gemma 270M can sometimes answer with a fluent but generic sentence;
@@ -84,10 +101,10 @@ class AssistantService {
       return _answerForVehicle(specificVehicle, question, graph);
     }
 
-    if (_contains(question, ['vehicule', 'vehicle', 'voiture', 'cars'])) {
+    if (_contains(question, ['vehicule', 'vehicle', 'voiture', 'cars', 'مركب', 'سيار'])) {
       final wantsAvailable = _contains(
         question,
-        ['disponible', 'libre', 'available', 'free'],
+        ['disponible', 'libre', 'available', 'free', 'متاح'],
       );
       final vehicles = graph.vehicles.values
           .where((vehicle) => !wantsAvailable || vehicle.status == 'available')
@@ -95,12 +112,12 @@ class AssistantService {
       if (vehicles.isEmpty) {
         return AssistantAnswer(
           text: wantsAvailable
-              ? 'Aucun véhicule disponible actuellement.'
-              : 'Aucun véhicule enregistré pour le moment.',
+              ? messages.assistantNoAvailableCars
+              : messages.assistantNoCars,
           actions: [
             AssistantAction(
               label:
-                  wantsAvailable ? 'Voir les véhicules' : 'Ajouter un véhicule',
+                  wantsAvailable ? messages.viewVehicles : messages.addAVehicle,
               route: wantsAvailable ? '/vehicles' : '/vehicles/add',
             ),
           ],
@@ -108,96 +125,95 @@ class AssistantService {
       }
       final names = vehicles.take(12).map(_vehicleName).join(', ');
       final extra =
-          vehicles.length > 12 ? ' et ${vehicles.length - 12} autre(s).' : '.';
+          vehicles.length > 12 ? messages.assistantMore((vehicles.length - 12).toString()) : '.';
       return AssistantAnswer(
-        text: '${vehicles.length} véhicule(s) '
-            '${wantsAvailable ? 'disponible(s)' : 'enregistré(s)'} : $names$extra',
-        actions: const [
-          AssistantAction(label: 'Voir les véhicules', route: '/vehicles')
+        text: messages.assistantFleet((vehicles.length).toString(), (wantsAvailable ? messages.assistantAvailable : messages.assistantRecorded).toString(), (names).toString(), (extra).toString()),
+        actions: [
+          AssistantAction(label: messages.viewVehicles, route: '/vehicles')
         ],
       );
     }
 
-    if (_contains(question, ['client', 'clients'])) {
+    if (_contains(question, ['client', 'clients', 'عميل', 'عملاء'])) {
       final clients = graph.clients.values.toList()
         ..sort((first, second) => first.fullName.compareTo(second.fullName));
       if (clients.isEmpty) {
-        return const AssistantAnswer(
-          text: 'Aucun client enregistré pour le moment.',
+        return AssistantAnswer(
+          text: messages.assistantNoClients,
           actions: [
-            AssistantAction(label: 'Ajouter un client', route: '/clients/add')
+            AssistantAction(label: messages.addAClient, route: '/clients/add')
           ],
         );
       }
       final names = clients.take(12).map((item) => item.fullName).join(', ');
       final extra =
-          clients.length > 12 ? ' et ${clients.length - 12} autre(s).' : '.';
+          clients.length > 12 ? messages.assistantMore((clients.length - 12).toString()) : '.';
       return AssistantAnswer(
-        text: '${clients.length} client(s) enregistré(s) : $names$extra',
-        actions: const [
-          AssistantAction(label: 'Voir les clients', route: '/clients')
+        text: messages.assistantClientList((clients.length).toString(), (names).toString(), (extra).toString()),
+        actions: [
+          AssistantAction(label: messages.viewClients, route: '/clients')
         ],
       );
     }
 
-    if (_contains(question, ['chauffeur', 'chauffeurs', 'driver', 'drivers'])) {
+    if (_contains(question, ['chauffeur', 'chauffeurs', 'driver', 'drivers', 'سائق'])) {
       final chauffeurs = graph.chauffeurs.values.toList()
         ..sort((first, second) => first.fullName.compareTo(second.fullName));
       if (chauffeurs.isEmpty) {
-        return const AssistantAnswer(
-          text: 'Aucun chauffeur enregistré pour le moment.',
+        return AssistantAnswer(
+          text: messages.assistantNoDrivers,
           actions: [
             AssistantAction(
-                label: 'Ajouter un chauffeur', route: '/chauffeurs/add')
+                label: messages.addADriver, route: '/chauffeurs/add')
           ],
         );
       }
       final names = chauffeurs.take(12).map((item) => item.fullName).join(', ');
       final extra = chauffeurs.length > 12
-          ? ' et ${chauffeurs.length - 12} autre(s).'
+          ? messages.assistantMore((chauffeurs.length - 12).toString())
           : '.';
       return AssistantAnswer(
-        text: '${chauffeurs.length} chauffeur(s) enregistré(s) : $names$extra',
-        actions: const [
-          AssistantAction(label: 'Voir les chauffeurs', route: '/chauffeurs')
+        text: messages.assistantDriverList((chauffeurs.length).toString(), (names).toString(), (extra).toString()),
+        actions: [
+          AssistantAction(label: messages.viewDrivers, route: '/chauffeurs')
         ],
       );
     }
 
-    if (_contains(question, ['retard', 'en retard', 'late'])) {
+    if (_contains(question, ['retard', 'en retard', 'late', 'overdue', 'متأخر', 'متاخر'])) {
       final contracts = graph.contracts.values
           .where((item) => item.isLate)
           .toList()
         ..sort((first, second) =>
             first.expectedReturnDate.compareTo(second.expectedReturnDate));
       if (contracts.isEmpty) {
-        return const AssistantAnswer(
-          text: 'Aucun contrat actif en retard.',
+        return AssistantAnswer(
+          text: messages.assistantNoLate,
           actions: [
-            AssistantAction(label: 'Voir les contrats', route: '/contracts')
+            AssistantAction(label: messages.viewContracts, route: '/contracts')
           ],
         );
       }
       return AssistantAnswer(
         text:
-            '${contracts.length} contrat(s) en retard : ${_contractLines(contracts)}',
-        actions: const [
-          AssistantAction(label: 'Voir les contrats', route: '/contracts')
+            messages.assistantLateList((contracts.length).toString(), (_contractLines(contracts)).toString()),
+        actions: [
+          AssistantAction(label: messages.viewContracts, route: '/contracts')
         ],
       );
     }
 
-    if (_contains(question, ['paiement', 'impaye', 'reste', 'solde'])) {
+    if (_contains(question, ['paiement', 'impaye', 'reste', 'solde', 'payment', 'balance', 'مدفوع', 'دفع', 'رصيد'])) {
       final active = graph.contracts.values
           .where((item) => item.status == 'active')
           .toList();
       final unpaid =
           active.where((item) => item.remainingAmount > 0.01).toList();
       if (unpaid.isEmpty) {
-        return const AssistantAnswer(
-          text: 'Aucun solde restant sur les contrats actifs.',
+        return AssistantAnswer(
+          text: messages.assistantNoBalance,
           actions: [
-            AssistantAction(label: 'Voir les contrats', route: '/contracts')
+            AssistantAction(label: messages.viewContracts, route: '/contracts')
           ],
         );
       }
@@ -205,9 +221,9 @@ class AssistantService {
           unpaid.fold<double>(0, (sum, item) => sum + item.remainingAmount);
       return AssistantAnswer(
         text:
-            '${unpaid.length} paiement(s) en attente, pour ${total.toStringAsFixed(2)} MAD : ${_contractLines(unpaid)}',
-        actions: const [
-          AssistantAction(label: 'Voir les contrats', route: '/contracts')
+            messages.assistantPaymentList((unpaid.length).toString(), (total.toStringAsFixed(2)).toString(), (_contractLines(unpaid)).toString()),
+        actions: [
+          AssistantAction(label: messages.viewContracts, route: '/contracts')
         ],
       );
     }
@@ -219,49 +235,49 @@ class AssistantService {
       'vidange',
       'courroie',
       'chaine',
-      'entretien',
+      'entretien', 'maintenance', 'صيانة',
     ])) {
       final warnings = _maintenanceWarnings(graph.vehicles.values, question);
       if (warnings.isEmpty) {
-        return const AssistantAnswer(
-          text: 'Aucune échéance correspondante n’est renseignée ou proche.',
+        return AssistantAnswer(
+          text: messages.assistantNoDeadline,
           actions: [
-            AssistantAction(label: 'Voir les véhicules', route: '/vehicles')
+            AssistantAction(label: messages.viewVehicles, route: '/vehicles')
           ],
         );
       }
       return AssistantAnswer(
         text: warnings.join('\n'),
-        actions: const [
-          AssistantAction(label: 'Voir les véhicules', route: '/vehicles')
+        actions: [
+          AssistantAction(label: messages.viewVehicles, route: '/vehicles')
         ],
       );
     }
 
-    if (_contains(question, ['sauvegarde', 'backup', 'restaur'])) {
-      return const AssistantAnswer(
+    if (_contains(question, ['sauvegarde', 'backup', 'restaur', 'نسخ', 'احتياط'])) {
+      return AssistantAnswer(
         text:
-            'Ouvrez Paramètres, puis Sauvegarde et restauration. La sauvegarde crée un ZIP avec les données et documents.',
+            messages.assistantBackupHelp,
         actions: [
-          AssistantAction(label: 'Ouvrir les paramètres', route: '/settings')
+          AssistantAction(label: messages.openSettings, route: '/settings')
         ],
       );
     }
 
     if (_contains(
-        question, ['etat des lieux', 'inspection', 'depart', 'retour'])) {
-      return const AssistantAnswer(
+        question, ['etat des lieux', 'inspection', 'depart', 'retour', 'فحص'])) {
+      return AssistantAnswer(
         text:
-            'Ouvrez le contrat concerné. Vous pouvez remplir l’état des lieux de départ ou de retour avec kilométrage, carburant, photos et dégâts.',
+            messages.assistantInspectionHelp,
         actions: [
-          AssistantAction(label: 'Voir les contrats', route: '/contracts')
+          AssistantAction(label: messages.viewContracts, route: '/contracts')
         ],
       );
     }
 
-    return const AssistantAnswer(
+    return AssistantAnswer(
       text:
-          'Je peux aider avec les véhicules disponibles, contrats en retard, paiements en attente, alertes d’entretien, sauvegardes et états des lieux.',
+          messages.assistantHelp,
       allowDirectModel: true,
     );
   }
@@ -351,28 +367,28 @@ class AssistantService {
     final document = graph.contractDocumentsByContract[contract.id];
     final lines = <String>[
       contract.contractNumber,
-      'Véhicule : ${vehicle == null ? 'inconnu' : _vehicleName(vehicle)}',
-      'Client : ${client?.fullName ?? 'inconnu'}',
-      'Statut : ${contract.status}',
-      'Départ : ${_shortDate(contract.startDate)}',
-      'Retour prévu : ${_shortDate(contract.expectedReturnDate)}',
-      'Total : ${contract.totalPrice.toStringAsFixed(2)} MAD',
-      'Payé : ${contract.amountPaid.toStringAsFixed(2)} MAD',
-      'Reste : ${contract.remainingAmount.toStringAsFixed(2)} MAD',
+      messages.assistantVehicle((vehicle == null ? messages.assistantUnknown : _vehicleName(vehicle)).toString()),
+      messages.assistantClient((client?.fullName ?? messages.assistantUnknown).toString()),
+      messages.assistantStatus(status(contract.displayStatus)),
+      messages.assistantDeparture((_shortDate(contract.startDate)).toString()),
+      messages.assistantReturn((_shortDate(contract.expectedReturnDate)).toString()),
+      messages.assistantTotal((contract.totalPrice.toStringAsFixed(2)).toString()),
+      messages.assistantPaid((contract.amountPaid.toStringAsFixed(2)).toString()),
+      messages.assistantBalance((contract.remainingAmount.toStringAsFixed(2)).toString()),
     ];
-    if (chauffeur != null) lines.add('Chauffeur : ${chauffeur.fullName}');
-    lines.add('Paiements enregistrés : ${payments.length}');
-    lines.add('États des lieux : ${inspections.length}');
+    if (chauffeur != null) lines.add(messages.assistantDriver((chauffeur.fullName).toString()));
+    lines.add(messages.assistantPayments((payments.length).toString()));
+    lines.add(messages.assistantInspections((inspections.length).toString()));
     if (document != null) {
       final recordedAt = document['recorded_at'] as String?;
       lines.add(recordedAt == null
-          ? 'Signature client : en attente'
-          : 'Signature client : enregistrée');
+          ? messages.assistantPendingSignature
+          : messages.assistantSavedSignature);
     }
     return AssistantAnswer(
       text: lines.join('\n'),
-      actions: const [
-        AssistantAction(label: 'Voir les contrats', route: '/contracts')
+      actions: [
+        AssistantAction(label: messages.viewContracts, route: '/contracts')
       ],
     );
   }
@@ -383,16 +399,16 @@ class AssistantService {
     final active = contracts.where((item) => item.status == 'active').length;
     final lines = <String>[
       client.fullName,
-      'CIN : ${client.cin}',
-      'Permis : ${client.licenseNumber}',
-      'Téléphone : ${client.phone}',
+      messages.assistantId((client.cin).toString()),
+      messages.assistantLicence((client.licenseNumber).toString()),
+      messages.assistantPhone((client.phone).toString()),
     ];
-    if (client.email?.isNotEmpty == true) lines.add('Email : ${client.email}');
-    lines.add('Contrats : ${contracts.length}, dont $active actif(s).');
+    if (client.email?.isNotEmpty == true) lines.add(messages.assistantEmail((client.email).toString()));
+    lines.add(messages.assistantContracts((contracts.length).toString(), (active).toString()));
     return AssistantAnswer(
       text: lines.join('\n'),
-      actions: const [
-        AssistantAction(label: 'Voir les clients', route: '/clients')
+      actions: [
+        AssistantAction(label: messages.viewClients, route: '/clients')
       ],
     );
   }
@@ -401,15 +417,9 @@ class AssistantService {
       ChauffeurModel chauffeur, AssistantKnowledgeGraph graph) {
     final contracts = graph.contractsForChauffeur(chauffeur.id!);
     return AssistantAnswer(
-      text: '${chauffeur.fullName}\n'
-          'CIN : ${chauffeur.cin}\n'
-          'Permis : ${chauffeur.licenseNumber}\n'
-          'Téléphone : ${chauffeur.phone}\n'
-          'Statut : ${chauffeur.status}\n'
-          'Prix : ${chauffeur.hourlyRate.toStringAsFixed(2)} MAD/heure\n'
-          'Contrats liés : ${contracts.length}',
-      actions: const [
-        AssistantAction(label: 'Voir les chauffeurs', route: '/chauffeurs')
+      text: messages.assistantDriverDetails((chauffeur.fullName).toString(), (chauffeur.cin).toString(), (chauffeur.licenseNumber).toString(), (chauffeur.phone).toString(), status(chauffeur.status), (chauffeur.hourlyRate.toStringAsFixed(2)).toString(), (contracts.length).toString()),
+      actions: [
+        AssistantAction(label: messages.viewDrivers, route: '/chauffeurs')
       ],
     );
   }
@@ -436,22 +446,18 @@ class AssistantService {
           contracts.where((item) => item.status == 'active').toList();
       if (active.isEmpty) {
         return AssistantAnswer(
-          text: '${_vehicleName(vehicle)} n’a pas de contrat actif.',
-          actions: const [
-            AssistantAction(label: 'Voir les contrats', route: '/contracts')
+          text: messages.assistantVehicleNoContract((_vehicleName(vehicle)).toString()),
+          actions: [
+            AssistantAction(label: messages.viewContracts, route: '/contracts')
           ],
         );
       }
       final contract = active.first;
       final client = graph.clients[contract.primaryDriverId];
       return AssistantAnswer(
-        text: '${_vehicleName(vehicle)} est loué avec le contrat '
-            '${contract.contractNumber}. Retour prévu : '
-            '${_shortDate(contract.expectedReturnDate)}. Reste à encaisser : '
-            '${contract.remainingAmount.toStringAsFixed(2)} MAD. '
-            'Client : ${client?.fullName ?? 'inconnu'}.',
-        actions: const [
-          AssistantAction(label: 'Voir le contrat', route: '/contracts')
+        text: messages.assistantVehicleRental((_vehicleName(vehicle)).toString(), (contract.contractNumber).toString(), (_shortDate(contract.expectedReturnDate)).toString(), (contract.remainingAmount.toStringAsFixed(2)).toString(), (client?.fullName ?? messages.assistantUnknown).toString()),
+        actions: [
+          AssistantAction(label: messages.viewContract, route: '/contracts')
         ],
       );
     }
@@ -462,27 +468,27 @@ class AssistantService {
       'vidange',
       'courroie',
       'chaine',
-      'entretien',
+      'entretien', 'maintenance', 'صيانة',
     ])) {
       final warnings = _maintenanceWarnings([vehicle], question);
       return AssistantAnswer(
         text: warnings.isEmpty
-            ? '${_vehicleName(vehicle)} : aucune échéance proche renseignée.'
+            ? messages.assistantVehicleNoDeadline((_vehicleName(vehicle)).toString())
             : warnings.join('\n'),
-        actions: const [
-          AssistantAction(label: 'Voir le véhicule', route: '/vehicles')
+        actions: [
+          AssistantAction(label: messages.viewVehicle, route: '/vehicles')
         ],
       );
     }
     return AssistantAnswer(
       text: _vehicleDetails(vehicle),
-      actions: const [
-        AssistantAction(label: 'Voir le véhicule', route: '/vehicles')
+      actions: [
+        AssistantAction(label: messages.viewVehicle, route: '/vehicles')
       ],
     );
   }
 
-  static String _vehicleDetails(VehicleModel vehicle) {
+  String _vehicleDetails(VehicleModel vehicle) {
     const statuses = {
       'available': 'Disponible',
       'rented': 'Loué',
@@ -498,24 +504,24 @@ class AssistantService {
     };
     final details = StringBuffer()
       ..writeln(_vehicleName(vehicle))
-      ..writeln('Année : ${vehicle.year}')
-      ..writeln('Statut : ${statuses[vehicle.status] ?? vehicle.status}')
-      ..writeln('Kilométrage : ${vehicle.currentMileage} km')
-      ..writeln('Carburant : ${fuels[vehicle.fuelType] ?? vehicle.fuelType}')
+      ..writeln(messages.assistantYear((vehicle.year).toString()))
+      ..writeln(messages.assistantStatus(status(vehicle.status)))
+      ..writeln(messages.assistantMileage((vehicle.currentMileage).toString()))
+      ..writeln(messages.assistantFuel(tr(fuels[vehicle.fuelType] ?? vehicle.fuelType)))
       ..writeln(
-          'Boîte : ${transmissions[vehicle.transmission] ?? vehicle.transmission}')
-      ..writeln('Niveau carburant : ${vehicle.fuelLevel}%')
-      ..writeln('État : ${vehicle.conditionStatus}');
+          messages.assistantGearbox(tr(transmissions[vehicle.transmission] ?? vehicle.transmission)))
+      ..writeln(messages.assistantFuelLevel((vehicle.fuelLevel).toString()))
+      ..writeln(messages.assistantCondition(status(vehicle.conditionStatus)));
     if (vehicle.insuranceExpiryDate != null) {
       details
-          .writeln('Assurance : ${_shortDate(vehicle.insuranceExpiryDate!)}');
+          .writeln(messages.assistantInsurance((_shortDate(vehicle.insuranceExpiryDate!)).toString()));
     }
     if (vehicle.technicalInspectionExpiryDate != null) {
       details.writeln(
-          'Visite technique : ${_shortDate(vehicle.technicalInspectionExpiryDate!)}');
+          messages.assistantInspection((_shortDate(vehicle.technicalInspectionExpiryDate!)).toString()));
     }
     if (vehicle.vignetteDueDate != null) {
-      details.writeln('Vignette : ${_shortDate(vehicle.vignetteDueDate!)}');
+      details.writeln(messages.assistantTax((_shortDate(vehicle.vignetteDueDate!)).toString()));
     }
     return details.toString().trim();
   }
@@ -530,7 +536,7 @@ class AssistantService {
         final days = date.difference(now).inDays;
         if (days <= 30) {
           selected.add(
-              '${_vehicleName(vehicle)} — $label ${days < 0 ? 'en retard de ${-days} j' : 'dans $days j'}');
+              messages.assistantWarning((_vehicleName(vehicle)).toString(), tr(label == 'distribution' ? 'Courroie / chaîne' : '${label[0].toUpperCase()}${label.substring(1)}'), (days < 0 ? messages.assistantLateDays((-days).toString()) : messages.assistantInDays(days.toString())).toString()));
         }
       }
 

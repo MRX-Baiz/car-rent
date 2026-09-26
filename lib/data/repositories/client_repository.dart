@@ -159,7 +159,8 @@ LIMIT 1
             'clients',
             {
               'cin': '_deleted_${archivedId}_${client.cin}',
-              'license_number': '_deleted_${archivedId}_${client.licenseNumber}',
+              'license_number':
+                  '_deleted_${archivedId}_${client.licenseNumber}',
             },
             where: 'id = ?',
             whereArgs: [archivedId],
@@ -249,4 +250,3 @@ LIMIT 1
     }
   }
 }
-

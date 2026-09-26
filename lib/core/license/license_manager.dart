@@ -95,11 +95,11 @@ class LicenseManager {
     if (!validation.isValid) {
       throw Exception(validation.error);
     }
-    
+
     final storage = await _readFromStorage();
     storage['license'] = licenseString;
     await _writeToStorage(storage);
-    
+
     // Initialize last run on activation
     await _updateLastRunDate();
   }
@@ -108,7 +108,7 @@ class LicenseManager {
   Future<LicenseValidationResult> verifyLicense(String licenseString) async {
     try {
       final package = LicensePackage.decode(licenseString);
-      
+
       // 1. Verify Digital Signature
       final isSignatureValid = await AsymmetricCryptoHelper.verify(
         package.data.toJson(),
@@ -116,18 +116,21 @@ class LicenseManager {
         AsymmetricCryptoHelper.publicKeyPem,
       );
       if (!isSignatureValid) {
-        return LicenseValidationResult.invalid('Signature de licence invalide.');
+        return LicenseValidationResult.invalid(
+            'Signature de licence invalide.');
       }
 
       // 2. Hardware Binding
       final currentDevice = await getDeviceId();
       if (package.data.deviceId != currentDevice) {
-        return LicenseValidationResult.invalid('Cette licence n\'est pas destinée à cet appareil.');
+        return LicenseValidationResult.invalid(
+            'Cette licence n\'est pas destinée à cet appareil.');
       }
 
       // 3. Expiry Date
       if (package.data.expiryDate.isBefore(DateTime.now())) {
-        return LicenseValidationResult.invalid('La licence a expiré le ${package.data.expiryDate.toString().split(' ').first}.');
+        return LicenseValidationResult.invalid(
+            'La licence a expiré le ${package.data.expiryDate.toString().split(' ').first}.');
       }
 
       return LicenseValidationResult.valid(package.data);
@@ -140,7 +143,7 @@ class LicenseManager {
   Future<LicenseValidationResult> validateRuntime() async {
     final storage = await _readFromStorage();
     final licenseString = storage['license'];
-    
+
     if (licenseString == null) {
       return LicenseValidationResult.invalid('Aucune licence trouvée.');
     }
@@ -153,14 +156,17 @@ class LicenseManager {
     final storedHash = storage['last_run_hash'];
 
     if (storedDateStr != null && storedHash != null) {
-      final expectedHash = AsymmetricCryptoHelper.hashData(storedDateStr, _internalSalt);
+      final expectedHash =
+          AsymmetricCryptoHelper.hashData(storedDateStr, _internalSalt);
       if (storedHash != expectedHash) {
-        return LicenseValidationResult.invalid('Détection d\'altération du système de sécurité.');
+        return LicenseValidationResult.invalid(
+            'Détection d\'altération du système de sécurité.');
       }
 
       final lastRun = DateTime.parse(storedDateStr);
       if (DateTime.now().isBefore(lastRun)) {
-        return LicenseValidationResult.invalid('Détection d\'un changement d\'heure système (Clock Rollback).');
+        return LicenseValidationResult.invalid(
+            'Détection d\'un changement d\'heure système (Clock Rollback).');
       }
     }
 
@@ -173,7 +179,7 @@ class LicenseManager {
     final storage = await _readFromStorage();
     final nowStr = DateTime.now().toIso8601String();
     final hash = AsymmetricCryptoHelper.hashData(nowStr, _internalSalt);
-    
+
     storage['last_run'] = nowStr;
     storage['last_run_hash'] = hash;
     await _writeToStorage(storage);
@@ -190,6 +196,10 @@ class LicenseValidationResult {
   final LicenseData? data;
   final String? error;
 
-  LicenseValidationResult.valid(this.data) : isValid = true, error = null;
-  LicenseValidationResult.invalid(this.error) : isValid = false, data = null;
+  LicenseValidationResult.valid(this.data)
+      : isValid = true,
+        error = null;
+  LicenseValidationResult.invalid(this.error)
+      : isValid = false,
+        data = null;
 }

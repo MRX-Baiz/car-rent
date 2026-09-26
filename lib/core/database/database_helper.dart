@@ -11,7 +11,7 @@ import 'package:sqflite/sqflite.dart';
 /// - Applies schema migrations on creation / upgrade
 class DatabaseHelper {
   static const _databaseName = 'car_rent_manager.db';
-  static const _databaseVersion = 7;
+  static const _databaseVersion = 8;
 
   static const _createContractDocuments = '''
     CREATE TABLE contract_documents (
@@ -181,6 +181,32 @@ class DatabaseHelper {
       );
     ''');
 
+    // Quotes reserve a vehicle for a defined period before they become a
+    // signed rental contract. Keeping them separate makes the calendar useful
+    // to the team without creating a customer-facing contract too early.
+    batch.execute('''
+      CREATE TABLE reservations (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        vehicle_id INTEGER NOT NULL,
+        client_id INTEGER,
+        start_date TEXT NOT NULL,
+        expected_return_date TEXT NOT NULL,
+        daily_price REAL NOT NULL DEFAULT 0,
+        total_price REAL NOT NULL DEFAULT 0,
+        status TEXT NOT NULL DEFAULT 'quote',
+        notes TEXT,
+        converted_contract_id INTEGER,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        FOREIGN KEY (vehicle_id) REFERENCES vehicles(id),
+        FOREIGN KEY (client_id) REFERENCES clients(id),
+        FOREIGN KEY (converted_contract_id) REFERENCES contracts(id)
+      );
+    ''');
+    batch.execute(
+      'CREATE INDEX idx_reservations_vehicle_dates ON reservations(vehicle_id, start_date, expected_return_date)',
+    );
+
     // payments table
     batch.execute('''
       CREATE TABLE payments (
@@ -271,6 +297,28 @@ class DatabaseHelper {
   /// Currently only version 1 exists, so this is a no-op, but the method
   /// is implemented for forward compatibility.
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 8) {
+      await db.execute('''CREATE TABLE IF NOT EXISTS reservations (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        vehicle_id INTEGER NOT NULL,
+        client_id INTEGER,
+        start_date TEXT NOT NULL,
+        expected_return_date TEXT NOT NULL,
+        daily_price REAL NOT NULL DEFAULT 0,
+        total_price REAL NOT NULL DEFAULT 0,
+        status TEXT NOT NULL DEFAULT 'quote',
+        notes TEXT,
+        converted_contract_id INTEGER,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        FOREIGN KEY (vehicle_id) REFERENCES vehicles(id),
+        FOREIGN KEY (client_id) REFERENCES clients(id),
+        FOREIGN KEY (converted_contract_id) REFERENCES contracts(id)
+      )''');
+      await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_reservations_vehicle_dates ON reservations(vehicle_id, start_date, expected_return_date)',
+      );
+    }
     if (oldVersion < 7) {
       const vehicleColumns = <String>[
         "transmission TEXT NOT NULL DEFAULT 'manual'",

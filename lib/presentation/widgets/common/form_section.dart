@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:car_rent_manager/presentation/widgets/common/app_text.dart';
 
 import '../../../core/constants/app_colors.dart';
 import 'app_card.dart';
@@ -37,25 +38,25 @@ class FormSection extends StatelessWidget {
                   width: 30,
                   height: 30,
                   alignment: Alignment.center,
-                  margin: const EdgeInsets.only(right: 10),
+                  margin: const EdgeInsetsDirectional.only(end: 10),
                   decoration: const BoxDecoration(
                       color: AppColors.primary, shape: BoxShape.circle),
-                  child: Text('$step',
+                  child: AppText('$step',
                       style: const TextStyle(
                           color: Colors.white, fontWeight: FontWeight.w800)),
                 )
               else if (icon != null)
                 Padding(
-                  padding: const EdgeInsets.only(right: 10),
+                  padding: const EdgeInsetsDirectional.only(end: 10),
                   child: Icon(icon, color: AppColors.primary),
                 ),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(title, style: theme.textTheme.titleMedium),
+                    AppText(title, style: theme.textTheme.titleMedium),
                     if (subtitle != null)
-                      Text(subtitle!,
+                      AppText(subtitle!,
                           style: theme.textTheme.bodySmall
                               ?.copyWith(color: AppColors.textSecondary)),
                   ],

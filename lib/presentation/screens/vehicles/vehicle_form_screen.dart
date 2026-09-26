@@ -1,6 +1,8 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:car_rent_manager/core/localization/app_localizations.dart';
+import 'package:car_rent_manager/presentation/widgets/common/app_text.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:go_router/go_router.dart';
@@ -154,17 +156,15 @@ class _VehicleFormScreenState extends ConsumerState<VehicleFormScreen> {
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text(AppStrings.successSaved)),
+        const SnackBar(content: AppText(AppStrings.successSaved)),
       );
       context.pop();
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            'Erreur lors de l’enregistrement du véhicule.\n'
-            'حدث خطأ أثناء حفظ السيارة.\n'
-            'Vehicle save error: $e',
+          content: AppText(
+            context.trError(e),
           ),
         ),
       );
@@ -184,7 +184,7 @@ class _VehicleFormScreenState extends ConsumerState<VehicleFormScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(isEditing ? 'Modifier un véhicule' : 'Nouveau véhicule'),
+        title: AppText(isEditing ? AppCopy.editVehicle10dfd7 : AppCopy.newVehicle),
       ),
       body: SingleChildScrollView(
         // Pad past the system navigation bar so the last control is
@@ -238,8 +238,8 @@ class _VehicleFormScreenState extends ConsumerState<VehicleFormScreen> {
                                                 .withValues(alpha: 0.4),
                                           ),
                                           const SizedBox(height: 8),
-                                          Text(
-                                            'Aucune photo',
+                                          AppText(
+                                            AppCopy.noPhoto,
                                             style: theme.textTheme.bodySmall
                                                 ?.copyWith(
                                               color: theme.colorScheme.onSurface
@@ -256,20 +256,20 @@ class _VehicleFormScreenState extends ConsumerState<VehicleFormScreen> {
                     child: TextButton.icon(
                       onPressed: _pickImage,
                       icon: const Icon(Icons.add_a_photo),
-                      label: Text(_imageFile == null &&
+                      label: AppText(_imageFile == null &&
                               widget.vehicle?.imagePath == null
-                          ? 'Ajouter une photo'
-                          : 'Modifier la photo'),
+                          ? AppCopy.addAPhoto
+                          : AppCopy.changePhoto),
                     ),
                   ),
                   const SizedBox(height: 16),
                   AppTextField(
                     controller: _brandController,
-                    label: 'Marque',
+                    label: AppCopy.brand,
                     prefixIcon: Icons.directions_car,
                     validator: (value) {
                       if (value == null || value.trim().isEmpty) {
-                        return 'La marque est requise.';
+                        return context.tr(AppCopy.brandIsRequired);
                       }
                       return null;
                     },
@@ -277,112 +277,113 @@ class _VehicleFormScreenState extends ConsumerState<VehicleFormScreen> {
                   const SizedBox(height: 12),
                   AppTextField(
                       controller: _mileageController,
-                      label: 'Kilométrage actuel',
+                      label: AppCopy.currentMileage,
                       keyboardType: TextInputType.number,
                       prefixIcon: Icons.speed,
                       validator: (v) => (int.tryParse(v ?? '') ?? -1) < 0
-                          ? 'Kilométrage invalide.'
+                          ? context.tr(AppCopy.invalidMileage)
                           : null),
                   const SizedBox(height: 16),
-                  Text('Caractéristiques',
+                  AppText(AppCopy.features,
                       style: theme.textTheme.titleMedium
                           ?.copyWith(fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
                   DropdownButtonFormField<String>(
                       value: _transmission,
-                      decoration:
-                          const InputDecoration(labelText: 'Boîte de vitesses'),
+                      decoration: InputDecoration(
+                          labelText: context.tr(AppCopy.transmission)),
                       items: const [
                         DropdownMenuItem(
-                            value: 'manual', child: Text('Manuelle')),
+                            value: 'manual', child: AppText(AppCopy.manual)),
                         DropdownMenuItem(
-                            value: 'automatic', child: Text('Automatique'))
+                            value: 'automatic', child: AppText(AppCopy.automatic))
                       ],
                       onChanged: (v) => setState(() => _transmission = v!)),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
                       value: _fuelType,
-                      decoration: const InputDecoration(labelText: 'Carburant'),
+                      decoration:
+                          InputDecoration(labelText: context.tr(AppCopy.fuel)),
                       items: const [
                         DropdownMenuItem(
-                            value: 'petrol', child: Text('Essence')),
+                            value: 'petrol', child: AppText(AppCopy.petrol)),
                         DropdownMenuItem(
-                            value: 'diesel', child: Text('Diesel')),
+                            value: 'diesel', child: AppText(AppCopy.diesel)),
                         DropdownMenuItem(
-                            value: 'hybrid', child: Text('Hybride')),
+                            value: 'hybrid', child: AppText(AppCopy.hybrid)),
                         DropdownMenuItem(
-                            value: 'electric', child: Text('Électrique')),
-                        DropdownMenuItem(value: 'lpg', child: Text('GPL'))
+                            value: 'electric', child: AppText(AppCopy.electric)),
+                        DropdownMenuItem(value: 'lpg', child: AppText(AppCopy.lpg))
                       ],
                       onChanged: (v) => setState(() => _fuelType = v!)),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
                       value: _condition,
-                      decoration:
-                          const InputDecoration(labelText: 'État général'),
+                      decoration: InputDecoration(
+                          labelText: context.tr(AppCopy.generalCondition)),
                       items: const [
                         DropdownMenuItem(
-                            value: 'good', child: Text('Bon état')),
+                            value: 'good', child: AppText(AppCopy.goodCondition)),
                         DropdownMenuItem(
-                            value: 'check', child: Text('À contrôler')),
+                            value: 'check', child: AppText(AppCopy.needsChecking)),
                         DropdownMenuItem(
-                            value: 'damaged', child: Text('Endommagé'))
+                            value: 'damaged', child: AppText(AppCopy.damaged))
                       ],
                       onChanged: (v) => setState(() => _condition = v!)),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<int>(
                       value: _fuelLevel,
-                      decoration: const InputDecoration(
-                          labelText: 'Niveau de carburant'),
+                      decoration: InputDecoration(
+                          labelText: context.tr(AppCopy.fuelLevel)),
                       items: const [0, 25, 50, 75, 100]
                           .map((value) => DropdownMenuItem(
-                              value: value, child: Text('$value%')))
+                              value: value, child: AppText('$value%')))
                           .toList(),
                       onChanged: (v) => setState(() => _fuelLevel = v!)),
                   const SizedBox(height: 20),
-                  Text('Documents et entretien',
+                  AppText(AppCopy.documentsAndMaintenance,
                       style: theme.textTheme.titleMedium
                           ?.copyWith(fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
                   VehicleDateField(
-                      label: 'Assurance : date d’expiration',
+                      label: AppCopy.insuranceExpiryDate,
                       value: _insuranceExpiry,
                       onChanged: (v) => setState(() => _insuranceExpiry = v)),
                   VehicleDateField(
-                      label: 'Visite technique : date d’expiration',
+                      label: AppCopy.technicalInspectionExpiryDate,
                       value: _technicalExpiry,
                       onChanged: (v) => setState(() => _technicalExpiry = v)),
                   VehicleDateField(
-                      label: 'Vignette : date limite',
+                      label: AppCopy.roadTaxDueDate,
                       value: _vignetteDue,
                       onChanged: (v) => setState(() => _vignetteDue = v)),
                   VehicleDateField(
-                      label: 'Vidange : prochaine date',
+                      label: AppCopy.oilChangeNextDate,
                       value: _oilDue,
                       onChanged: (v) => setState(() => _oilDue = v)),
                   AppTextField(
                       controller: _oilMileageController,
-                      label: 'Vidange : prochain kilométrage',
+                      label: AppCopy.oilChangeNextMileage,
                       keyboardType: TextInputType.number,
                       prefixIcon: Icons.oil_barrel),
                   const SizedBox(height: 12),
                   VehicleDateField(
-                      label: 'Courroie / chaîne : prochaine date',
+                      label: AppCopy.beltChainNextDate,
                       value: _distributionDue,
                       onChanged: (v) => setState(() => _distributionDue = v)),
                   AppTextField(
                       controller: _distributionMileageController,
-                      label: 'Courroie / chaîne : prochain kilométrage',
+                      label: AppCopy.beltChainNextMileage,
                       keyboardType: TextInputType.number,
                       prefixIcon: Icons.settings),
                   const SizedBox(height: 12),
                   AppTextField(
                     controller: _modelController,
-                    label: 'Modèle',
+                    label: AppCopy.model,
                     prefixIcon: Icons.directions_car_filled,
                     validator: (value) {
                       if (value == null || value.trim().isEmpty) {
-                        return 'Le modèle est requis.';
+                        return context.tr(AppCopy.modelIsRequired);
                       }
                       return null;
                     },
@@ -390,11 +391,11 @@ class _VehicleFormScreenState extends ConsumerState<VehicleFormScreen> {
                   const SizedBox(height: 12),
                   AppTextField(
                     controller: _registrationController,
-                    label: 'Immatriculation',
+                    label: AppCopy.registrationNumber,
                     prefixIcon: Icons.numbers,
                     validator: (value) {
                       if (value == null || value.trim().isEmpty) {
-                        return 'L’immatriculation est requise.';
+                        return context.tr(AppCopy.registrationNumberIsRequired);
                       }
                       return null;
                     },
@@ -402,16 +403,16 @@ class _VehicleFormScreenState extends ConsumerState<VehicleFormScreen> {
                   const SizedBox(height: 12),
                   AppTextField(
                     controller: _yearController,
-                    label: 'Année',
+                    label: AppCopy.year,
                     keyboardType: TextInputType.number,
                     prefixIcon: Icons.calendar_today,
                     validator: (value) {
                       if (value == null || value.trim().isEmpty) {
-                        return 'L’année est requise.';
+                        return context.tr(AppCopy.yearIsRequired);
                       }
                       final year = int.tryParse(value);
                       if (year == null || year < 1920 || year > 2100) {
-                        return 'Année invalide.';
+                        return context.tr(AppCopy.invalidYear);
                       }
                       return null;
                     },
@@ -422,15 +423,15 @@ class _VehicleFormScreenState extends ConsumerState<VehicleFormScreen> {
                     items: const [
                       DropdownMenuItem(
                         value: 'available',
-                        child: Text('Disponible'),
+                        child: AppText(AppCopy.available),
                       ),
                       DropdownMenuItem(
                         value: 'rented',
-                        child: Text('Loué'),
+                        child: AppText(AppCopy.rented),
                       ),
                       DropdownMenuItem(
                         value: 'maintenance',
-                        child: Text('Maintenance'),
+                        child: AppText(AppCopy.maintenance),
                       ),
                     ],
                     onChanged: (value) {
@@ -440,13 +441,13 @@ class _VehicleFormScreenState extends ConsumerState<VehicleFormScreen> {
                         });
                       }
                     },
-                    decoration: const InputDecoration(
-                      labelText: 'Statut',
+                    decoration: InputDecoration(
+                      labelText: context.tr(AppCopy.status),
                     ),
                   ),
                   const SizedBox(height: 24),
                   AppButton(
-                    label: isEditing ? 'Enregistrer' : 'Créer',
+                    label: isEditing ? AppCopy.save : AppCopy.create,
                     icon: Icons.save,
                     isLoading: _isSubmitting,
                     onPressed: _submit,

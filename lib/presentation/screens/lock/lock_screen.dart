@@ -1,10 +1,11 @@
+import 'package:car_rent_manager/core/localization/app_localizations.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:car_rent_manager/presentation/widgets/common/app_text.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../data/repositories/auth_repository.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/common/pin_pad.dart';
 
@@ -46,7 +47,7 @@ class _LockScreenState extends ConsumerState<LockScreen> {
 
   void _onChanged(String value) {
     setState(() => _pin = value);
-    if (value.length == AuthRepository.pinLength) {
+    if (value.length == appPinLength) {
       _submit();
     }
   }
@@ -109,17 +110,18 @@ class _LockScreenState extends ConsumerState<LockScreen> {
                     ),
                   ),
                   const SizedBox(height: 24),
-                  Text(
+                  AppText(
                     'CarRent Manager',
                     style: theme.textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                   const SizedBox(height: 8),
-                  Text(
+                  AppText(
                     locked
-                        ? 'Application verrouillée'
-                        : 'Entrez votre code à ${AuthRepository.pinLength} chiffres',
+                        ? AppCopy.appLocked
+                        : context.messages
+                            .enterPinDigits((appPinLength).toString()),
                     textAlign: TextAlign.center,
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
@@ -131,7 +133,7 @@ class _LockScreenState extends ConsumerState<LockScreen> {
                     offset: _shake ? const Offset(0.03, 0) : Offset.zero,
                     duration: const Duration(milliseconds: 80),
                     child: PinDots(
-                      length: AuthRepository.pinLength,
+                      length: appPinLength,
                       filled: _pin.length,
                       error: auth.message != null,
                     ),
@@ -142,7 +144,7 @@ class _LockScreenState extends ConsumerState<LockScreen> {
                     child: Center(
                       child: auth.message == null
                           ? null
-                          : Text(
+                          : AppText(
                               auth.message!,
                               textAlign: TextAlign.center,
                               style: theme.textTheme.bodySmall?.copyWith(
@@ -155,7 +157,7 @@ class _LockScreenState extends ConsumerState<LockScreen> {
 
                   PinPad(
                     value: _pin,
-                    maxLength: AuthRepository.pinLength,
+                    maxLength: appPinLength,
                     enabled: !locked && !auth.busy,
                     onChanged: _onChanged,
                     onBiometric:
@@ -167,7 +169,7 @@ class _LockScreenState extends ConsumerState<LockScreen> {
                   // when someone realises they have genuinely forgotten it.
                   TextButton(
                     onPressed: () => context.push('/lock/recovery'),
-                    child: const Text('Code oublié ?'),
+                    child: const AppText(AppCopy.forgotPINbeb8db),
                   ),
                 ],
               ),

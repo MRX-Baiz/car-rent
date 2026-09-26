@@ -1,4 +1,6 @@
+import 'package:car_rent_manager/core/localization/app_localizations.dart';
 import 'package:flutter/material.dart';
+import 'package:car_rent_manager/presentation/widgets/common/app_text.dart';
 
 class VehicleDateField extends StatelessWidget {
   const VehicleDateField(
@@ -19,9 +21,9 @@ class VehicleDateField extends StatelessWidget {
               borderRadius: BorderRadius.circular(8),
               side: BorderSide(
                   color: Theme.of(context).colorScheme.outlineVariant)),
-          title: Text(label),
-          subtitle: Text(value == null
-              ? 'Non renseignée'
+          title: AppText(label),
+          subtitle: AppText(value == null
+              ? AppCopy.notProvidedd6a3c5
               : MaterialLocalizations.of(context).formatMediumDate(value!)),
           trailing: IconButton(
               icon: const Icon(Icons.calendar_month),

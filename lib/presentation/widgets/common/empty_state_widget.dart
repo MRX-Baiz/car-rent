@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:car_rent_manager/presentation/widgets/common/app_text.dart';
 
 import '../../../core/constants/app_colors.dart';
 
@@ -49,7 +50,7 @@ class EmptyStateWidget extends StatelessWidget {
               color: onDark ? AppColors.goldLight : AppColors.primary),
         ),
         SizedBox(height: compact ? 8 : 16),
-        Text(
+        AppText(
           title,
           style: theme.textTheme.titleMedium
               ?.copyWith(color: onDark ? Colors.white : null),
@@ -57,7 +58,7 @@ class EmptyStateWidget extends StatelessWidget {
         ),
         if (subtitle != null) ...[
           SizedBox(height: compact ? 2 : 8),
-          Text(
+          AppText(
             subtitle!,
             style: theme.textTheme.bodyMedium?.copyWith(
                 color: onDark ? Colors.white70 : AppColors.textSecondary),
@@ -66,7 +67,7 @@ class EmptyStateWidget extends StatelessWidget {
         ],
         if (actionLabel != null) ...[
           SizedBox(height: compact ? 14 : 20),
-          FilledButton(onPressed: onAction, child: Text(actionLabel!)),
+          FilledButton(onPressed: onAction, child: AppText(actionLabel!)),
         ],
       ],
     );

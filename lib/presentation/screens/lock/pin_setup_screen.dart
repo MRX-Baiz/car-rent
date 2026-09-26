@@ -1,8 +1,10 @@
+import 'package:car_rent_manager/core/localization/app_localizations.dart';
 import 'package:flutter/material.dart';
+import 'package:car_rent_manager/presentation/widgets/common/app_text.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../data/repositories/auth_repository.dart';
+import '../../../domain/entities/unlock_outcome.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/common/pin_pad.dart';
 import '../../widgets/common/recovery_code_view.dart';
@@ -32,17 +34,18 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> {
   bool _busy = false;
   String? _recoveryCode;
 
-  static const int _length = AuthRepository.pinLength;
+  static const int _length = appPinLength;
 
   /// Rejects the codes people reach for first and attackers try first.
   static String? _weakness(String pin) {
     if (pin.split('').toSet().length == 1) {
-      return 'Évitez un code composé du même chiffre.';
+      return AppCopy.avoidAPINMadeOfTheSameDigit;
     }
     final digits = pin.split('').map(int.parse).toList();
-    final ascending = List.generate(digits.length - 1, (i) => digits[i + 1] - digits[i]);
+    final ascending =
+        List.generate(digits.length - 1, (i) => digits[i + 1] - digits[i]);
     if (ascending.every((d) => d == 1) || ascending.every((d) => d == -1)) {
-      return 'Évitez une suite de chiffres consécutifs.';
+      return AppCopy.avoidConsecutiveDigits;
     }
     return null;
   }
@@ -68,9 +71,8 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> {
 
   Future<void> _checkCurrent(String value) async {
     setState(() => _busy = true);
-    final outcome = await ref
-        .read(authRepositoryProvider)
-        .verifyPin(value);
+    final outcome =
+        await ref.read(authProvider.notifier).verifyCurrentPin(value);
     if (!mounted) return;
 
     setState(() {
@@ -81,11 +83,13 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> {
           _currentPin = value;
           _step = _Step.create;
         case UnlockLockedOut(:final remaining):
-          _error = 'Trop de tentatives. Réessayez dans '
-              '${remaining.inMinutes < 1 ? "${remaining.inSeconds} s" : "${remaining.inMinutes} min"}.';
+          _error = context.messages.retryAfter((remaining.inMinutes < 1
+                  ? "${remaining.inSeconds} s"
+                  : "${remaining.inMinutes} min")
+              .toString());
         case UnlockWrongPin():
         case NoPinConfigured():
-          _error = 'Code actuel incorrect.';
+          _error = AppCopy.currentPINIsIncorrect;
       }
     });
   }
@@ -109,7 +113,7 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> {
         _pin = '';
         _firstEntry = '';
         _step = _Step.create;
-        _error = 'Les deux codes ne correspondent pas. Recommencez.';
+        _error = AppCopy.theTwoPINsDoNotMatchTryAgain;
       });
       return;
     }
@@ -117,12 +121,13 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> {
     setState(() => _busy = true);
 
     if (widget.isChange) {
-      await ref
-          .read(authRepositoryProvider)
-          .changePin(currentPin: _currentPin, newPin: value);
+      await ref.read(authProvider.notifier).changePin(
+            currentPin: _currentPin,
+            newPin: value,
+          );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Code PIN modifié.')),
+        const SnackBar(content: AppText(AppCopy.pinChanged)),
       );
       context.pop();
       return;
@@ -145,20 +150,18 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> {
     switch (_step) {
       case _Step.current:
         return (
-          title: 'Code actuel',
-          subtitle: 'Entrez votre code actuel pour continuer.',
+          title: AppCopy.currentPIN,
+          subtitle: AppCopy.enterYourCurrentPINToContinue,
         );
       case _Step.create:
         return (
-          title: widget.isChange ? 'Nouveau code' : 'Créez votre code',
-          subtitle:
-              'Choisissez un code à $_length chiffres. Il protège vos clients, '
-                  'contrats et documents sur cet appareil.',
+          title: widget.isChange ? AppCopy.newPIN : AppCopy.createYourPIN,
+          subtitle: context.messages.choosePinDigits((_length).toString()),
         );
       case _Step.confirm:
         return (
-          title: 'Confirmez le code',
-          subtitle: 'Saisissez le même code une seconde fois.',
+          title: AppCopy.confirmPIN,
+          subtitle: AppCopy.enterTheSamePINASecondTime,
         );
       case _Step.recoveryCode:
         return (title: '', subtitle: '');
@@ -173,7 +176,7 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> {
     return Scaffold(
       appBar: widget.isChange
           ? AppBar(
-              title: const Text('Modifier le code PIN'),
+              title: const AppText(AppCopy.changePIN),
               leading: IconButton(
                 icon: const Icon(Icons.arrow_back),
                 onPressed: () => context.pop(),
@@ -189,70 +192,70 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> {
               child: _step == _Step.recoveryCode
                   ? RecoveryCodeView(
                       code: _recoveryCode!,
-                      acknowledgeLabel: 'J\'ai noté ce code',
+                      acknowledgeLabel: AppCopy.iNotedThisCode,
                       // Only now does the app unlock, so the code cannot be
                       // skipped past by the router.
                       onAcknowledged: () =>
                           ref.read(authProvider.notifier).completeSetup(),
                     )
                   : Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (!widget.isChange) ...[
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(20),
-                      child: Image.asset(
-                        'assets/images/logo_new.png',
-                        width: 76,
-                        height: 76,
-                        fit: BoxFit.cover,
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                  ],
-                  Text(
-                    copy.title,
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.titleLarge
-                        ?.copyWith(fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    copy.subtitle,
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  const SizedBox(height: 32),
-                  PinDots(
-                    length: _length,
-                    filled: _pin.length,
-                    error: _error != null,
-                  ),
-                  SizedBox(
-                    height: 52,
-                    child: Center(
-                      child: _error == null
-                          ? null
-                          : Text(
-                              _error!,
-                              textAlign: TextAlign.center,
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.error,
-                                fontWeight: FontWeight.w500,
-                              ),
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (!widget.isChange) ...[
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(20),
+                            child: Image.asset(
+                              'assets/images/logo_new.png',
+                              width: 76,
+                              height: 76,
+                              fit: BoxFit.cover,
                             ),
+                          ),
+                          const SizedBox(height: 24),
+                        ],
+                        AppText(
+                          copy.title,
+                          textAlign: TextAlign.center,
+                          style: theme.textTheme.titleLarge
+                              ?.copyWith(fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 8),
+                        AppText(
+                          copy.subtitle,
+                          textAlign: TextAlign.center,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                        const SizedBox(height: 32),
+                        PinDots(
+                          length: _length,
+                          filled: _pin.length,
+                          error: _error != null,
+                        ),
+                        SizedBox(
+                          height: 52,
+                          child: Center(
+                            child: _error == null
+                                ? null
+                                : AppText(
+                                    _error!,
+                                    textAlign: TextAlign.center,
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: theme.colorScheme.error,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                          ),
+                        ),
+                        PinPad(
+                          value: _pin,
+                          maxLength: _length,
+                          enabled: !_busy,
+                          onChanged: _onChanged,
+                        ),
+                      ],
                     ),
-                  ),
-                  PinPad(
-                    value: _pin,
-                    maxLength: _length,
-                    enabled: !_busy,
-                    onChanged: _onChanged,
-                  ),
-                ],
-              ),
             ),
           ),
         ),
@@ -260,4 +263,3 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> {
     );
   }
 }
-

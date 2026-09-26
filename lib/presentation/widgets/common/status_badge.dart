@@ -1,3 +1,4 @@
+import 'package:car_rent_manager/core/localization/app_localizations.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_colors.dart';
@@ -24,13 +25,13 @@ class StatusBadge extends StatelessWidget {
   };
 
   static const _labels = {
-    'available': 'Disponible',
-    'rented': 'Loué',
-    'maintenance': 'Maintenance',
-    'late': 'En retard',
-    'active': 'En cours',
-    'completed': 'Terminé',
-    'assigned': 'Occupé',
+    'available': AppCopy.available,
+    'rented': AppCopy.rented,
+    'maintenance': AppCopy.maintenance,
+    'late': AppCopy.overdue,
+    'active': AppCopy.active,
+    'completed': AppCopy.completed3bc597,
+    'assigned': AppCopy.busy,
   };
 
   static const _icons = {

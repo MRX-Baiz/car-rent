@@ -1,6 +1,8 @@
+import 'package:car_rent_manager/core/localization/app_localizations.dart';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:car_rent_manager/presentation/widgets/common/app_text.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -37,11 +39,11 @@ class ClientDetailScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Client'),
+        title: const AppText(AppCopy.client),
         actions: [
           IconButton(
             icon: const Icon(Icons.edit_outlined),
-            tooltip: 'Modifier le client',
+            tooltip: context.tr(AppCopy.editClient),
             onPressed: () {
               final client = _findClient(clientsAsync.value, clientId);
               if (client != null) {
@@ -57,8 +59,8 @@ class ClientDetailScreen extends ConsumerWidget {
           final client = _findClient(clients, clientId);
           if (client == null) {
             return const EmptyStateWidget(
-              title: 'Client introuvable.',
-              subtitle: 'Ce client a peut-être été supprimé.',
+              title: AppCopy.clientNotFound,
+              subtitle: AppCopy.thisClientMayHaveBeenDeleted,
               icon: Icons.person_off_outlined,
             );
           }
@@ -69,10 +71,8 @@ class ClientDetailScreen extends ConsumerWidget {
         },
         loading: () => AppShimmer.detailLayer(),
         error: (error, _) => Center(
-          child: Text(
-            'Erreur lors du chargement du client.\n'
-            'خطأ أثناء تحميل الزبون.\n'
-            'Client loading error: $error',
+          child: AppText(
+            context.trError(error),
             textAlign: TextAlign.center,
           ),
         ),
@@ -85,18 +85,18 @@ class ClientDetailScreen extends ConsumerWidget {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Supprimer le client'),
-        content: const Text(AppStrings.confirmDeleteClient),
+        title: const AppText(AppCopy.deleteClient),
+        content: const AppText(AppStrings.confirmDeleteClient),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Annuler'),
+            child: const AppText(AppCopy.cancel),
           ),
           FilledButton(
             style:
                 FilledButton.styleFrom(backgroundColor: AppTone.danger.color),
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Supprimer'),
+            child: const AppText(AppCopy.delete),
           ),
         ],
       ),
@@ -108,7 +108,7 @@ class ClientDetailScreen extends ConsumerWidget {
         await ref.read(clientsProvider.notifier).deleteClient(client.id!);
         if (!context.mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text(AppStrings.successDeleted)),
+          const SnackBar(content: AppText(AppStrings.successDeleted)),
         );
         context.go('/clients');
       }
@@ -116,10 +116,8 @@ class ClientDetailScreen extends ConsumerWidget {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            'Erreur lors de la suppression.\n'
-            'حدث خطأ أثناء الحذف.\n'
-            'Delete error: $e',
+          content: AppText(
+            context.trError(e),
           ),
         ),
       );
@@ -142,8 +140,8 @@ class _Body extends ConsumerWidget {
 
   void _copy(BuildContext context, String label, String value) {
     Clipboard.setData(ClipboardData(text: value));
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text('$label copié.')));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: AppText(context.messages.copiedValue((label).toString()))));
   }
 
   @override
@@ -178,14 +176,17 @@ class _Body extends ConsumerWidget {
                           Text(client.fullName,
                               style: theme.textTheme.titleLarge),
                           const SizedBox(height: 4),
-                          Text('CIN ${client.cin}',
+                          Text(
+                              context.messages
+                                  .nationalIdValue((client.cin).toString()),
                               style: theme.textTheme.bodyMedium?.copyWith(
                                   color: AppColors.textSecondary,
                                   fontWeight: FontWeight.w600)),
                           if (client.licenseExpiryDate != null) ...[
                             const SizedBox(height: 8),
                             StatusChip(
-                              label: 'Permis · ${licence.label}',
+                              label: context.messages.licenceStatus(
+                                  context.tr((licence.label).toString())),
                               tone: licence.tone,
                               icon: Icons.credit_card,
                               dense: true,
@@ -198,7 +199,7 @@ class _Body extends ConsumerWidget {
                 ),
               ),
               const SectionHeader(
-                title: 'Identité et permis',
+                title: AppCopy.identityAndDrivingLicence,
                 padding: EdgeInsets.fromLTRB(4, 20, 4, 10),
               ),
               AppCard(
@@ -207,22 +208,22 @@ class _Body extends ConsumerWidget {
                 child: DetailList(children: [
                   DetailRow(
                     icon: Icons.badge_outlined,
-                    label: 'Carte d’identité (CIN)',
+                    label: AppCopy.nationalIDCard,
                     value: client.cin,
                     mono: true,
                     onTap: () => _copy(context, 'CIN', client.cin),
                   ),
                   DetailRow(
                     icon: Icons.credit_card,
-                    label: 'Numéro de permis',
+                    label: AppCopy.drivingLicenceNumber,
                     value: client.licenseNumber,
                     mono: true,
-                    onTap: () => _copy(
-                        context, 'Numéro de permis', client.licenseNumber),
+                    onTap: () => _copy(context, AppCopy.drivingLicenceNumber,
+                        client.licenseNumber),
                   ),
                   DetailRow(
                     icon: Icons.event_available_outlined,
-                    label: 'Validité du permis',
+                    label: AppCopy.drivingLicenceValidity,
                     value: client.licenseExpiryDate == null
                         ? ''
                         : formatDate(client.licenseExpiryDate!),
@@ -236,7 +237,7 @@ class _Body extends ConsumerWidget {
                 ]),
               ),
               const SectionHeader(
-                title: 'Coordonnées',
+                title: AppCopy.contactDetails,
                 padding: EdgeInsets.fromLTRB(4, 20, 4, 10),
               ),
               AppCard(
@@ -245,27 +246,27 @@ class _Body extends ConsumerWidget {
                 child: DetailList(children: [
                   DetailRow(
                     icon: Icons.phone_outlined,
-                    label: 'Téléphone',
+                    label: AppCopy.phone,
                     value: client.phone,
-                    onTap: () => _copy(context, 'Téléphone', client.phone),
+                    onTap: () => _copy(context, AppCopy.phone, client.phone),
                     trailing: const Icon(Icons.copy_outlined,
                         size: 18, color: AppColors.textSecondary),
                   ),
                   DetailRow(
                     icon: Icons.mail_outline,
-                    label: 'E-mail',
+                    label: AppCopy.email,
                     value: client.email ?? '',
                   ),
                   DetailRow(
                     icon: Icons.location_on_outlined,
-                    label: 'Adresse',
+                    label: AppCopy.address,
                     value: client.address ?? '',
                   ),
                 ]),
               ),
               const SectionHeader(
-                title: 'Documents',
-                subtitle: 'Touchez une image pour l’agrandir.',
+                title: AppCopy.documents,
+                subtitle: AppCopy.tapAnImageToEnlargeIt,
                 padding: EdgeInsets.fromLTRB(4, 20, 4, 10),
               ),
               Row(
@@ -274,7 +275,7 @@ class _Body extends ConsumerWidget {
                   Expanded(
                     child: _DocumentThumbnail(
                       imagePath: client.cinImagePath,
-                      title: 'CIN',
+                      title: context.tr(AppCopy.nationalIDCard),
                       placeholder: Icons.badge_outlined,
                     ),
                   ),
@@ -282,16 +283,16 @@ class _Body extends ConsumerWidget {
                   Expanded(
                     child: _DocumentThumbnail(
                       imagePath: client.licenseImagePath,
-                      title: 'Permis',
+                      title: AppCopy.drivingLicence,
                       placeholder: Icons.credit_card,
                     ),
                   ),
                 ],
               ),
               SectionHeader(
-                title: 'Historique des contrats',
+                title: AppCopy.contractHistory,
                 padding: const EdgeInsets.fromLTRB(4, 20, 4, 10),
-                actionLabel: 'Tous',
+                actionLabel: AppCopy.all,
                 onAction: () => context.go('/contracts'),
               ),
               if (history == null)
@@ -300,8 +301,8 @@ class _Body extends ConsumerWidget {
                 history.when(
                   data: (contracts) => contracts.isEmpty
                       ? AppCard(
-                          child: Text(
-                            'Ce client n’a pas encore de contrat.',
+                          child: AppText(
+                            AppCopy.thisClientHasNoContractsYet,
                             style: theme.textTheme.bodyMedium,
                           ),
                         )
@@ -319,8 +320,9 @@ class _Body extends ConsumerWidget {
                                 ),
                               ),
                             if (contracts.length > 5)
-                              Text(
-                                '+ ${contracts.length - 5} autre(s) contrat(s)',
+                              AppText(
+                                context.messages.otherContracts(
+                                    (contracts.length - 5).toString()),
                                 textAlign: TextAlign.center,
                                 style: theme.textTheme.bodySmall
                                     ?.copyWith(color: AppColors.textSecondary),
@@ -329,7 +331,7 @@ class _Body extends ConsumerWidget {
                         ),
                   loading: () => const AppShimmer.rectangular(height: 80),
                   error: (_, __) =>
-                      const Text('Historique indisponible pour le moment.'),
+                      const AppText(AppCopy.historyIsUnavailableAtTheMoment),
                 ),
               const SizedBox(height: 20),
               OutlinedButton.icon(
@@ -339,7 +341,7 @@ class _Body extends ConsumerWidget {
                   side: BorderSide(color: AppTone.danger.color),
                 ),
                 icon: const Icon(Icons.delete_outline),
-                label: const Text('Supprimer ce client'),
+                label: const AppText(AppCopy.deleteThisClienteb4aa3),
               ),
             ],
           ),
@@ -403,7 +405,7 @@ class _DocumentThumbnail extends StatelessWidget {
               children: [
                 Icon(placeholder, size: 30, color: AppColors.textSecondary),
                 const SizedBox(height: 6),
-                Text('Non ajouté',
+                AppText(AppCopy.notAdded,
                     style: theme.textTheme.bodySmall
                         ?.copyWith(color: AppColors.textSecondary)),
               ],
@@ -414,8 +416,8 @@ class _DocumentThumbnail extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.only(left: 2, bottom: 6),
-          child: Text(title,
+          padding: const EdgeInsetsDirectional.only(start: 2, bottom: 6),
+          child: AppText(title,
               style: theme.textTheme.bodyMedium
                   ?.copyWith(fontWeight: FontWeight.w700)),
         ),
@@ -424,7 +426,7 @@ class _DocumentThumbnail extends StatelessWidget {
         else
           Semantics(
             button: true,
-            label: 'Agrandir $title',
+            label: context.messages.enlargeImage((title).toString()),
             child: InkWell(
               borderRadius: BorderRadius.circular(12),
               onTap: () => DocumentViewer.open(

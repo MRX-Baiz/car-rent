@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:car_rent_manager/core/localization/app_localizations.dart';
+import 'package:car_rent_manager/presentation/widgets/common/app_text.dart';
 
 import 'ocr_service.dart';
 
@@ -28,7 +30,14 @@ class OcrScanWidget extends StatefulWidget {
 class _OcrScanWidgetState extends State<OcrScanWidget> {
   bool _isLoading = false;
 
-  static const _allowedExtensions = ['jpg', 'jpeg', 'png', 'pdf', 'docx', 'doc'];
+  static const _allowedExtensions = [
+    'jpg',
+    'jpeg',
+    'png',
+    'pdf',
+    'docx',
+    'doc'
+  ];
 
   Future<String?> _pickFile() async {
     final result = await FilePicker.platform.pickFiles(
@@ -57,7 +66,7 @@ class _OcrScanWidgetState extends State<OcrScanWidget> {
       if (text.trim().isEmpty && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text(
+            content: AppText(
               'Aucun texte extrait. Essayez une image plus nette ou un autre fichier.',
             ),
           ),
@@ -68,13 +77,16 @@ class _OcrScanWidgetState extends State<OcrScanWidget> {
       if (mounted) {
         widget.onCINScanned(data);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Informations extraites avec succès.')),
+          const SnackBar(
+              content: AppText('Informations extraites avec succès.')),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur extraction: $e')),
+          SnackBar(
+            content: Text(context.messages.unableToCompleteThisActionTryAgain),
+          ),
         );
       }
     } finally {
@@ -99,7 +111,7 @@ class _OcrScanWidgetState extends State<OcrScanWidget> {
       if (text.trim().isEmpty && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text(
+            content: AppText(
               'Aucun texte extrait. Essayez une image plus nette ou un autre fichier.',
             ),
           ),
@@ -110,13 +122,16 @@ class _OcrScanWidgetState extends State<OcrScanWidget> {
       if (mounted) {
         widget.onLicenseScanned(data);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Informations extraites avec succès.')),
+          const SnackBar(
+              content: AppText('Informations extraites avec succès.')),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur extraction: $e')),
+          SnackBar(
+            content: Text(context.messages.unableToCompleteThisActionTryAgain),
+          ),
         );
       }
     } finally {
@@ -141,7 +156,7 @@ class _OcrScanWidgetState extends State<OcrScanWidget> {
               color: theme.colorScheme.primary,
             ),
             const SizedBox(width: 8),
-            Text(
+            AppText(
               'OCR intégré · fonctionne hors ligne',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
@@ -156,7 +171,7 @@ class _OcrScanWidgetState extends State<OcrScanWidget> {
               child: OutlinedButton.icon(
                 onPressed: enabled ? _importCIN : null,
                 icon: const Icon(Icons.badge_outlined),
-                label: const Text('Importer CIN'),
+                label: const AppText('Importer CIN'),
               ),
             ),
             const SizedBox(width: 12),
@@ -164,7 +179,7 @@ class _OcrScanWidgetState extends State<OcrScanWidget> {
               child: OutlinedButton.icon(
                 onPressed: enabled ? _importLicense : null,
                 icon: const Icon(Icons.credit_card),
-                label: const Text('Importer Permis'),
+                label: const AppText('Importer Permis'),
               ),
             ),
           ],

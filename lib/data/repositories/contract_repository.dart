@@ -101,19 +101,66 @@ class ContractRepository {
     }
   }
 
-  Future<int> insertContract(ContractModel contract) async {
+  Future<int> insertContract(
+    ContractModel contract, {
+    int? sourceReservationId,
+  }) async {
+    if (!contract.expectedReturnDate.isAfter(contract.startDate)) {
+      throw Exception('La date de retour doit être après la date de départ.');
+    }
     final db = await _dbHelper.database;
     return db.transaction<int>((txn) async {
-      // Check for existing active contract for the same vehicle.
+      final vehicle = await txn.query(
+        'vehicles',
+        columns: ['status'],
+        where: 'id = ?',
+        whereArgs: [contract.vehicleId],
+        limit: 1,
+      );
+      if (vehicle.isEmpty || vehicle.single['status'] == 'maintenance') {
+        throw Exception('Ce véhicule est indisponible pour entretien.');
+      }
+      // A vehicle may have several contracts planned. Only overlapping periods
+      // conflict; touching periods (return at 10:00, pickup at 10:00) do not.
       final existing = await txn.query(
         'contracts',
         columns: ['id'],
-        where: 'vehicle_id = ? AND status = ?',
-        whereArgs: [contract.vehicleId, 'active'],
+        where:
+            "vehicle_id = ? AND status = 'active' AND start_date < ? AND expected_return_date > ?",
+        whereArgs: [
+          contract.vehicleId,
+          contract.expectedReturnDate.toIso8601String(),
+          contract.startDate.toIso8601String(),
+        ],
         limit: 1,
       );
       if (existing.isNotEmpty) {
-        throw Exception('This vehicle already has an active contract.');
+        throw Exception('Ce véhicule a déjà un contrat sur cette période.');
+      }
+      final reservationWhere = sourceReservationId == null
+          ? "vehicle_id = ? AND status = 'quote' AND start_date < ? AND expected_return_date > ?"
+          : "vehicle_id = ? AND status = 'quote' AND id != ? AND start_date < ? AND expected_return_date > ?";
+      final reservationArgs = sourceReservationId == null
+          ? <Object?>[
+              contract.vehicleId,
+              contract.expectedReturnDate.toIso8601String(),
+              contract.startDate.toIso8601String(),
+            ]
+          : <Object?>[
+              contract.vehicleId,
+              sourceReservationId,
+              contract.expectedReturnDate.toIso8601String(),
+              contract.startDate.toIso8601String(),
+            ];
+      final reservationClash = await txn.query(
+        'reservations',
+        columns: ['id'],
+        where: reservationWhere,
+        whereArgs: reservationArgs,
+        limit: 1,
+      );
+      if (reservationClash.isNotEmpty) {
+        throw Exception('Ce véhicule est déjà réservé sur cette période.');
       }
       if (contract.chauffeurId != null) {
         final driver = await txn.query('chauffeurs',
@@ -131,6 +178,19 @@ class ContractRepository {
           contract.toMap()..remove('id'),
           conflictAlgorithm: ConflictAlgorithm.abort,
         );
+
+        if (sourceReservationId != null) {
+          await txn.update(
+            'reservations',
+            {
+              'status': 'converted',
+              'converted_contract_id': id,
+              'updated_at': DateTime.now().toIso8601String(),
+            },
+            where: "id = ? AND status = 'quote'",
+            whereArgs: [sourceReservationId],
+          );
+        }
 
         // Record initial payment if any
         if (contract.amountPaid > 0) {
@@ -207,17 +267,37 @@ class ContractRepository {
               'Créez un nouveau contrat pour modifier les conditions.');
         }
 
-        if (contract.status == 'active' &&
-            contract.vehicleId != before.vehicleId) {
+        if (contract.status == 'active') {
           final clash = await txn.query(
             'contracts',
             columns: ['id'],
-            where: 'vehicle_id = ? AND status = ? AND id != ?',
-            whereArgs: [contract.vehicleId, 'active', contract.id],
+            where:
+                "vehicle_id = ? AND status = 'active' AND id != ? AND start_date < ? AND expected_return_date > ?",
+            whereArgs: [
+              contract.vehicleId,
+              contract.id,
+              contract.expectedReturnDate.toIso8601String(),
+              contract.startDate.toIso8601String(),
+            ],
             limit: 1,
           );
           if (clash.isNotEmpty) {
-            throw Exception('Ce véhicule a déjà un contrat actif.');
+            throw Exception('Ce véhicule a déjà un contrat sur cette période.');
+          }
+          final reservationClash = await txn.query(
+            'reservations',
+            columns: ['id'],
+            where:
+                "vehicle_id = ? AND status = 'quote' AND start_date < ? AND expected_return_date > ?",
+            whereArgs: [
+              contract.vehicleId,
+              contract.expectedReturnDate.toIso8601String(),
+              contract.startDate.toIso8601String(),
+            ],
+            limit: 1,
+          );
+          if (reservationClash.isNotEmpty) {
+            throw Exception('Ce véhicule est déjà réservé sur cette période.');
           }
         }
         if (contract.status == 'active' &&

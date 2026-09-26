@@ -12,22 +12,22 @@ Future<void> main() async {
   try {
     WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize SQLite FFI for Windows/Linux desktop (required before any DB access).
-  if (!kIsWeb &&
-      (defaultTargetPlatform == TargetPlatform.windows ||
-          defaultTargetPlatform == TargetPlatform.linux)) {
-    sqfliteFfiInit();
-    databaseFactory = databaseFactoryFfi;
-  }
+    // Initialize SQLite FFI for Windows/Linux desktop (required before any DB access).
+    if (!kIsWeb &&
+        (defaultTargetPlatform == TargetPlatform.windows ||
+            defaultTargetPlatform == TargetPlatform.linux)) {
+      sqfliteFfiInit();
+      databaseFactory = databaseFactoryFfi;
+    }
 
-  // Initialize local notifications early, then pick up the tap that launched
-  // the app, if any — a cold start never reaches the tap callback.
-  await NotificationService.instance.initialize();
-  await NotificationService.instance.consumeLaunchNotification();
+    // Initialize local notifications early, then pick up the tap that launched
+    // the app, if any — a cold start never reaches the tap callback.
+    await NotificationService.instance.initialize();
+    await NotificationService.instance.consumeLaunchNotification();
 
-  // Attachments resolve synchronously during build, so the directory has to be
-  // known before the first frame.
-  await MediaStore.instance.init();
+    // Attachments resolve synchronously during build, so the directory has to be
+    // known before the first frame.
+    await MediaStore.instance.init();
 
     runApp(
       const ProviderScope(
@@ -37,10 +37,10 @@ Future<void> main() async {
   } catch (e, stack) {
     if (!kIsWeb) {
       try {
-        File('crash_log.txt').writeAsStringSync('CRASH: $e\n\nSTACKTRACE:\n$stack');
+        File('crash_log.txt')
+            .writeAsStringSync('CRASH: $e\n\nSTACKTRACE:\n$stack');
       } catch (_) {}
     }
     rethrow;
   }
 }
-

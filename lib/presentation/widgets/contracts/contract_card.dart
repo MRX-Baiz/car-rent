@@ -1,4 +1,6 @@
+import 'package:car_rent_manager/core/localization/app_localizations.dart';
 import 'package:flutter/material.dart';
+import 'package:car_rent_manager/presentation/widgets/common/app_text.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/contract_insights.dart';
@@ -34,7 +36,7 @@ class ContractCard extends StatelessWidget {
     final vehicle = lookups.vehicle(contract.vehicleId);
     final client = lookups.client(contract.primaryDriverId);
     final ret = returnStatusOf(contract);
-    final pay = paymentStatusOf(contract);
+    final pay = paymentStatusOf(contract, locale: Localizations.localeOf(context));
     final late = contract.displayStatus == 'late';
     final chauffeur = lookups.chauffeur(contract.chauffeurId);
 
@@ -67,7 +69,7 @@ class ContractCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      lookups.vehicleName(contract.vehicleId),
+                      lookups.vehicleNameFor(context, contract.vehicleId),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.titleMedium,
@@ -99,8 +101,8 @@ class ContractCard extends StatelessWidget {
           const SizedBox(height: 12),
           _Line(
             icon: Icons.person_outline,
-            text: client?.fullName ?? 'Client #${contract.primaryDriverId}',
-            trailing: chauffeur == null ? null : 'Chauffeur',
+            text: client?.fullName ?? context.messages.clientNumber((contract.primaryDriverId).toString()),
+            trailing: chauffeur == null ? null : AppCopy.driver,
           ),
           if (!compact) ...[
             const SizedBox(height: 6),
@@ -132,7 +134,7 @@ class ContractCard extends StatelessWidget {
             const SizedBox(height: 6),
             _Line(
                 icon: Icons.payments_outlined,
-                text: 'Reste ${formatMad(contract.remainingAmount)}'),
+                text: context.messages.balanceAmount((context.money(contract.remainingAmount)).toString())),
           ],
         ],
       ),

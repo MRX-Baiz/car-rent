@@ -8,43 +8,20 @@ import '../../core/license/license_manager.dart';
 import '../../core/security/pin_hasher.dart';
 import '../../core/security/pin_reset_token.dart';
 import '../../core/security/recovery_code.dart';
+import '../../domain/entities/unlock_outcome.dart';
+import '../../domain/repositories/app_lock_repository.dart';
 import 'app_settings_repository.dart';
 import 'key_value_store.dart';
 
 export 'key_value_store.dart';
-
-/// Result of checking a PIN. Sealed so the caller has to handle the lockout.
-sealed class UnlockOutcome {
-  const UnlockOutcome();
-}
-
-class UnlockSuccess extends UnlockOutcome {
-  const UnlockSuccess();
-}
-
-class UnlockWrongPin extends UnlockOutcome {
-  const UnlockWrongPin({required this.attemptsBeforeLockout});
-
-  /// Zero means the next mistake starts a lockout.
-  final int attemptsBeforeLockout;
-}
-
-class UnlockLockedOut extends UnlockOutcome {
-  const UnlockLockedOut({required this.remaining});
-
-  final Duration remaining;
-}
-
-class NoPinConfigured extends UnlockOutcome {
-  const NoPinConfigured();
-}
+export '../../domain/entities/unlock_outcome.dart';
 
 /// Local lock for the app: a PIN, optionally backed by the device biometric.
 ///
 /// There is no account and no server. The PIN guards the data on this device if
 /// the phone is handed to someone or lost; the licence, not this class, decides
 /// whether the app may run at all.
-class AuthRepository {
+class AuthRepository implements AppLockRepository {
   AuthRepository({
     KeyValueStore? store,
     LocalAuthentication? localAuth,
@@ -100,12 +77,14 @@ class AuthRepository {
 
   // ---------------------------------------------------------------- PIN state
 
+  @override
   Future<bool> hasPin() async {
     final hash = await _store.getString(keyPinHash);
     final salt = await _store.getString(keyPinSalt);
     return hash.isNotEmpty && salt.isNotEmpty;
   }
 
+  @override
   Future<void> setPin(String pin) async {
     final salt = _randomSalt();
     final hash = await _derive(
@@ -125,6 +104,7 @@ class AuthRepository {
 
   /// Replaces the PIN only if [currentPin] checks out, so the change-PIN screen
   /// cannot be used to bypass the lock.
+  @override
   Future<UnlockOutcome> changePin({
     required String currentPin,
     required String newPin,
@@ -136,6 +116,7 @@ class AuthRepository {
     return outcome;
   }
 
+  @override
   Future<UnlockOutcome> verifyPin(String pin) async {
     if (!await hasPin()) {
       return const NoPinConfigured();
@@ -176,6 +157,7 @@ class AuthRepository {
   /// Storing just the hash means the app genuinely cannot display it again —
   /// which is the point, and why settings offer a fresh code rather than a
   /// reminder of the old one.
+  @override
   Future<String> generateRecoveryCode() async {
     final code = RecoveryCode.generate();
     final salt = _randomSalt();
@@ -199,6 +181,7 @@ class AuthRepository {
   ///
   /// Goes through the same lockout as the PIN — twelve digits are already out
   /// of brute-force reach, but there is no reason to leave the door unlatched.
+  @override
   Future<UnlockOutcome> redeemRecoveryCode(String input) async {
     if (!await hasRecoveryCode()) {
       return const NoPinConfigured();
@@ -230,6 +213,7 @@ class AuthRepository {
 
   /// Redeems a vendor-issued token: the backstop for a customer who lost the
   /// recovery code too.
+  @override
   Future<ResetTokenOutcome> redeemResetToken(String token) async {
     final outcome = await PinResetToken.verify(
       token,
@@ -262,6 +246,7 @@ class AuthRepository {
 
   // ------------------------------------------------------------------ lockout
 
+  @override
   Future<Duration> lockoutRemaining() async {
     final raw = await _store.getString(keyLockedUntil);
     if (raw.isEmpty) {
@@ -316,6 +301,7 @@ class AuthRepository {
   /// Whether the device has a usable biometric enrolled right now. This can go
   /// from true to false at any time — the user may remove their fingerprints —
   /// so it is re-checked rather than cached.
+  @override
   Future<bool> biometricAvailable() async {
     try {
       if (!await _localAuth.isDeviceSupported()) {
@@ -331,6 +317,7 @@ class AuthRepository {
     }
   }
 
+  @override
   Future<bool> biometricEnabled() async {
     final value = await _store.getString(
       keyBiometricEnabled,
@@ -339,12 +326,14 @@ class AuthRepository {
     return value.toLowerCase() == 'true';
   }
 
+  @override
   Future<void> setBiometricEnabled(bool enabled) =>
       _store.setString(keyBiometricEnabled, enabled.toString());
 
   /// Returns true only on a successful biometric match. Every failure path —
   /// user cancelled, no hardware, too many attempts — returns false so the
   /// caller simply falls back to the PIN.
+  @override
   Future<bool> authenticateWithBiometrics({required String reason}) async {
     // A lockout must not be sidestepped by using the fingerprint instead.
     if (await lockoutRemaining() > Duration.zero) {
@@ -365,11 +354,13 @@ class AuthRepository {
 
   // ---------------------------------------------------------------- auto-lock
 
+  @override
   Future<int> autoLockMinutes() async {
     final raw = await _store.getString(keyAutoLockMinutes);
     return int.tryParse(raw) ?? defaultAutoLockMinutes;
   }
 
+  @override
   Future<void> setAutoLockMinutes(int minutes) =>
       _store.setString(keyAutoLockMinutes, minutes.toString());
 

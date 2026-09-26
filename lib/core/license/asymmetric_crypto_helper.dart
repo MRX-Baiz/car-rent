@@ -22,7 +22,8 @@ dnS2eHtmVTlRsKShCwhv6aMCAwEAAQ==
 """;
 
   /// Verifies a digital signature against a data string using the public key.
-  static Future<bool> verify(String data, String signature, String publicKey) async {
+  static Future<bool> verify(
+      String data, String signature, String publicKey) async {
     try {
       return await RSA.verifyPSS(
         signature,

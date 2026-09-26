@@ -29,4 +29,3 @@ extension ContractStatusX on ContractStatus {
     }
   }
 }
-

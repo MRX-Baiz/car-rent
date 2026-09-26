@@ -1,4 +1,6 @@
+import 'package:car_rent_manager/core/localization/app_localizations.dart';
 import 'package:flutter/material.dart';
+import 'package:car_rent_manager/presentation/widgets/common/app_text.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/format_utils.dart';
@@ -18,40 +20,39 @@ Future<bool> confirmDeleteContract(
 ) async {
   final consequences = <String>[
     if (contract.amountPaid > 0)
-      'Les ${formatMad(contract.amountPaid)} de paiements enregistrés seront supprimés.',
-    if (contract.status == 'active') 'Le véhicule redeviendra disponible.',
-    'Le document PDF préparé pour ce contrat, s\'il existe, sera perdu.',
+      context.messages.deletePaymentsConfirmation((context.money(contract.amountPaid)).toString()),
+    if (contract.status == 'active') AppCopy.theVehicleWillBecomeAvailableAgain,
+    AppCopy.anyPDFPreparedForThisContractWillBe,
   ];
 
   final confirmed = await showDialog<bool>(
     context: context,
     builder: (context) => AlertDialog(
-      title: const Text('Supprimer le contrat ?'),
+      title: const AppText(AppCopy.deleteThisContractbe8a00),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Le contrat n° ${contract.contractNumber} sera supprimé '
-            'définitivement. Cette action est irréversible.',
+            context.messages.deleteContractConfirmation((contract.contractNumber).toString()),
           ),
           const SizedBox(height: 10),
           for (final line in consequences)
             Padding(
               padding: const EdgeInsets.only(bottom: 4),
-              child: Text('•  $line'),
+              child: AppText('•  ${context.tr(line)}'),
             ),
         ],
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(false),
-          child: const Text('Annuler'),
+          child: const AppText(AppCopy.cancel),
         ),
         FilledButton(
           style: FilledButton.styleFrom(backgroundColor: AppTone.danger.color),
           onPressed: () => Navigator.of(context).pop(true),
-          child: const Text('Supprimer'),
+          child: const AppText(AppCopy.delete),
         ),
       ],
     ),

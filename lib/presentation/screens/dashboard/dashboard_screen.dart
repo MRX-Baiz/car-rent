@@ -1,4 +1,6 @@
+import 'package:car_rent_manager/core/localization/app_localizations.dart';
 import 'package:flutter/material.dart';
+import 'package:car_rent_manager/presentation/widgets/common/app_text.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -81,18 +83,23 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                 leading: IconButton(
                   icon: const Icon(Icons.arrow_back),
                   onPressed: () => context.go('/license'),
-                  tooltip: 'Retour',
+                  tooltip: context.tr(AppCopy.back),
                 ),
-                title: Text(
+                title: AppText(
                     companyName.isNotEmpty ? companyName : 'CarRent Manager'),
                 actions: [
+                  IconButton(
+                    icon: const Icon(Icons.today_outlined),
+                    onPressed: () => context.push('/operations'),
+                    tooltip: context.tr(AppCopy.todaySOperations),
+                  ),
                   IconButton(
                     icon: const Icon(Icons.search),
                     onPressed: () => showSearch(
                       context: context,
                       delegate: GlobalSearchDelegate(ref),
                     ),
-                    tooltip: 'Recherche globale',
+                    tooltip: context.tr(AppCopy.globalSearch),
                   ),
                 ],
               );
@@ -106,7 +113,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
               Positioned.fill(
                 child: AmbientImage(
                   controller: _ambient,
-                  asset: 'assets/backgrounds/bg_home.webp',
+                  asset: 'assets/backgrounds/bg_home_neutral.png',
                   alignment: const Alignment(0.85, -0.15),
                 ),
               ),
@@ -132,7 +139,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                     ),
                     const SizedBox(height: 8),
                     const Reveal(
-                      child: SectionHeader(title: 'Vue d’ensemble'),
+                      child: SectionHeader(title: AppCopy.overview),
                     ),
                     statsAsync.when(
                       data: (stats) => _StatsGrid(stats: stats),
@@ -141,14 +148,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                     ),
                     const SizedBox(height: 12),
                     const Reveal(
-                      child: SectionHeader(title: 'Actions rapides'),
+                      child: SectionHeader(title: AppCopy.quickActions),
                     ),
                     const _QuickActions(),
                     const SizedBox(height: 12),
                     Reveal(
                       child: SectionHeader(
-                        title: 'Locations en cours',
-                        actionLabel: 'Voir tout',
+                        title: AppCopy.currentRentals,
+                        actionLabel: AppCopy.seeAll,
                         onAction: () => context.go('/contracts'),
                       ),
                     ),
@@ -159,13 +166,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                       ),
                       loading: () => AppShimmer.listLayer(itemCount: 2),
                       error: (_, __) =>
-                          const Text('Erreur de chargement des contrats.'),
+                          const AppText(AppCopy.unableToLoadContracts),
                     ),
                     const SizedBox(height: 12),
                     const Reveal(
                       child: SectionHeader(
-                        title: 'Encaissements',
-                        subtitle: '7 derniers jours',
+                        title: AppCopy.paymentsReceived,
+                        subtitle: AppCopy.last7Days,
                       ),
                     ),
                     statsAsync.when(
@@ -190,7 +197,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
         floatingActionButton: FloatingActionButton.extended(
           onPressed: () => context.push('/contracts/new'),
           icon: const Icon(Icons.add),
-          label: const Text('Nouveau contrat'),
+          label: const AppText(AppCopy.newContract),
         ),
       ),
     );
@@ -205,12 +212,13 @@ class _Header extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final hour = DateTime.now().hour;
-    final greeting = hour < 5 || hour >= 18 ? 'Bonsoir' : 'Bonjour';
+    final greeting = hour < 5 || hour >= 18 ? AppCopy.goodEvening : AppCopy.goodMorning;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          formatLongDay(DateTime.now()).toUpperCase(),
+        AppText(
+          formatLongDay(DateTime.now(), locale: Localizations.localeOf(context))
+              .toUpperCase(),
           style: const TextStyle(
             color: AppColors.textSecondary,
             fontSize: 11.5,
@@ -219,7 +227,7 @@ class _Header extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 4),
-        Text(
+        AppText(
           greeting,
           style: theme.textTheme.displaySmall?.copyWith(
             fontWeight: FontWeight.w800,
@@ -256,17 +264,17 @@ class _Header extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Encaissé ce mois-ci',
+                      AppText(
+                        AppCopy.collectedThisMonth,
                         style: theme.textTheme.bodySmall
                             ?.copyWith(color: AppColors.textSecondary),
                       ),
                       FittedBox(
                         fit: BoxFit.scaleDown,
-                        alignment: Alignment.centerLeft,
+                        alignment: AlignmentDirectional.centerStart,
                         child: CountUpText(
                           value: revenue!,
-                          format: (v) => formatMad(v.round()),
+                          format: (v) => context.money(v.round()),
                           style: theme.textTheme.titleLarge,
                         ),
                       ),
@@ -321,9 +329,8 @@ class _Priorities extends StatelessWidget {
             Icon(AppTone.success.icon, color: AppTone.success.color, size: 28),
             const SizedBox(width: 12),
             Expanded(
-              child: Text(
-                'Tout est en ordre : aucun retard, aucun solde à encaisser '
-                'et aucun document à renouveler.',
+              child: AppText(
+                AppCopy.everythingIsInOrderNoLateReturnsOutstanding,
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
             ),
@@ -335,21 +342,21 @@ class _Priorities extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const SectionHeader(title: 'À traiter', icon: Icons.bolt_outlined),
+        const SectionHeader(title: AppCopy.toHandle, icon: Icons.bolt_outlined),
         if (late.isNotEmpty)
           Reveal(
             index: 0,
             child: _PriorityCard(
               tone: AppTone.danger,
               icon: Icons.schedule,
-              title: 'Retours en retard',
+              title: AppCopy.lateReturns,
               count: late.length,
               onSeeAll: () => context.go('/contracts'),
               rows: [
                 for (final c in late.take(3))
                   _PriorityRow(
-                    title: lookups.vehicleName(c.vehicleId),
-                    subtitle: lookups.clientName(c.primaryDriverId),
+                    title: lookups.vehicleNameFor(context, c.vehicleId),
+                    subtitle: lookups.clientNameFor(context, c.primaryDriverId),
                     chip: returnStatusOf(c).label,
                     tone: AppTone.danger,
                     onTap: () => context.push('/contracts/${c.id}'),
@@ -364,15 +371,15 @@ class _Priorities extends StatelessWidget {
             child: _PriorityCard(
               tone: AppTone.warning,
               icon: Icons.payments_outlined,
-              title: 'Paiements à encaisser',
+              title: AppCopy.paymentsToCollect,
               count: unpaid.length,
               onSeeAll: () => context.go('/contracts'),
               rows: [
                 for (final c in unpaid.take(3))
                   _PriorityRow(
-                    title: lookups.vehicleName(c.vehicleId),
-                    subtitle: lookups.clientName(c.primaryDriverId),
-                    chip: formatMad(c.remainingAmount),
+                    title: lookups.vehicleNameFor(context, c.vehicleId),
+                    subtitle: lookups.clientNameFor(context, c.primaryDriverId),
+                    chip: context.money(c.remainingAmount),
                     tone: AppTone.warning,
                     onTap: () => context.push('/contracts/${c.id}'),
                   ),
@@ -389,14 +396,14 @@ class _Priorities extends StatelessWidget {
                   ? AppTone.danger
                   : AppTone.warning,
               icon: Icons.build_outlined,
-              title: 'Entretien et documents',
+              title: AppCopy.maintenanceAndDocuments,
               count: maintenance.length,
               onSeeAll: () => context.go('/vehicles'),
               rows: [
                 for (final m in maintenance.take(3))
                   _PriorityRow(
                     title: '${m.$1.brand} ${m.$1.model}',
-                    subtitle: '${m.$2.label} · ${m.$1.registrationNumber}',
+                    subtitle: '${context.tr(m.$2.label)} · ${m.$1.registrationNumber}',
                     chip: m.$2.status,
                     tone: m.$2.tone,
                     onTap: () => context.push('/vehicles/${m.$1.id}'),
@@ -452,12 +459,13 @@ class _PriorityCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-            padding: const EdgeInsets.only(right: 8),
+            padding: const EdgeInsetsDirectional.only(end: 8),
             child: Row(
               children: [
                 Icon(icon, color: tone.color, size: 22),
                 const SizedBox(width: 8),
-                Expanded(child: Text(title, style: theme.textTheme.titleSmall)),
+                Expanded(
+                    child: AppText(title, style: theme.textTheme.titleSmall)),
                 StatusChip(label: '$count', tone: tone, dense: true),
               ],
             ),
@@ -476,12 +484,12 @@ class _PriorityCard extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text(row.title,
+                          AppText(row.title,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: theme.textTheme.bodyLarge
                                   ?.copyWith(fontWeight: FontWeight.w700)),
-                          Text(row.subtitle,
+                          AppText(row.subtitle,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: theme.textTheme.bodySmall
@@ -506,10 +514,10 @@ class _PriorityCard extends StatelessWidget {
             ),
           if (count > rows.length)
             Align(
-              alignment: Alignment.centerRight,
+              alignment: AlignmentDirectional.centerEnd,
               child: TextButton(
                 onPressed: onSeeAll,
-                child: Text('Voir les $count'),
+                child: AppText(context.messages.seeCount((count).toString())),
               ),
             ),
         ],
@@ -540,7 +548,7 @@ class _StatsGrid extends StatelessWidget {
           Reveal(
             index: 0,
             child: StatCard(
-              title: 'Disponibles',
+              title: AppCopy.available61af94,
               countTo: stats.availableVehicles,
               value: stats.availableVehicles.toString(),
               icon: Icons.directions_car,
@@ -551,7 +559,7 @@ class _StatsGrid extends StatelessWidget {
           Reveal(
             index: 1,
             child: StatCard(
-              title: 'Loués',
+              title: AppCopy.rentede06686,
               countTo: stats.rentedVehicles,
               value: stats.rentedVehicles.toString(),
               icon: Icons.key_outlined,
@@ -562,7 +570,7 @@ class _StatsGrid extends StatelessWidget {
           Reveal(
             index: 2,
             child: StatCard(
-              title: 'Contrats en cours',
+              title: AppCopy.activeContracts,
               countTo: stats.activeContracts,
               value: stats.activeContracts.toString(),
               icon: Icons.receipt_long,
@@ -573,7 +581,7 @@ class _StatsGrid extends StatelessWidget {
           Reveal(
             index: 3,
             child: StatCard(
-              title: 'En retard',
+              title: AppCopy.overdue,
               countTo: stats.lateContracts,
               value: stats.lateContracts.toString(),
               icon: Icons.schedule,
@@ -595,10 +603,10 @@ class _QuickActions extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final actions = [
-      (Icons.person_add_outlined, 'Client', '/clients/add'),
-      (Icons.directions_car_outlined, 'Véhicule', '/vehicles/add'),
-      (Icons.badge_outlined, 'Chauffeurs', '/chauffeurs'),
-      (Icons.auto_awesome_outlined, 'Assistant', '/assistant'),
+      (Icons.person_add_outlined, AppCopy.client, '/clients/add'),
+      (Icons.directions_car_outlined, AppCopy.vehicle, '/vehicles/add'),
+      (Icons.badge_outlined, AppCopy.drivers, '/chauffeurs'),
+      (Icons.auto_awesome_outlined, AppCopy.assistant, '/assistant'),
     ];
     return Reveal(
       child: Row(
@@ -618,7 +626,7 @@ class _QuickActions extends StatelessWidget {
                     const SizedBox(height: 6),
                     SizedBox(
                       width: double.infinity,
-                      child: Text(
+                      child: AppText(
                         actions[i].$2,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -655,8 +663,8 @@ class _ActiveRentals extends StatelessWidget {
 
     if (open.isEmpty) {
       return AppCard(
-        child: Text(
-          'Aucune location en cours. Créez un contrat pour démarrer.',
+        child: AppText(
+          AppCopy.noRentalInProgressCreateAContractTo,
           style: Theme.of(context).textTheme.bodyMedium,
         ),
       );

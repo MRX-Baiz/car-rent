@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:car_rent_manager/core/localization/app_localizations.dart';
+import 'package:car_rent_manager/presentation/widgets/common/app_text.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -53,11 +55,11 @@ class _ContractsListScreenState extends ConsumerState<ContractsListScreen>
     if (!matchesFilter) return false;
     if (_query.isEmpty) return true;
     return c.contractNumber.toLowerCase().contains(_query) ||
-        lookups.vehicleName(c.vehicleId).toLowerCase().contains(_query) ||
+        lookups.vehicleNameFor(context, c.vehicleId).toLowerCase().contains(_query) ||
         (lookups.vehicle(c.vehicleId)?.registrationNumber ?? '')
             .toLowerCase()
             .contains(_query) ||
-        lookups.clientName(c.primaryDriverId).toLowerCase().contains(_query);
+        lookups.clientNameFor(context, c.primaryDriverId).toLowerCase().contains(_query);
   }
 
   Future<void> _delete(ContractModel contract) async {
@@ -65,13 +67,13 @@ class _ContractsListScreenState extends ConsumerState<ContractsListScreen>
       await ref.read(contractsProvider.notifier).deleteContract(contract.id!);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Contrat supprimé avec succès.')),
+          const SnackBar(content: AppText(AppCopy.contractDeletedSuccessfully)),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur lors de la suppression: $e')),
+          SnackBar(content: AppText(context.trError(e))),
         );
       }
     }
@@ -91,9 +93,16 @@ class _ContractsListScreenState extends ConsumerState<ContractsListScreen>
             icon: const Icon(Icons.arrow_back),
             onPressed: () =>
                 context.canPop() ? context.pop() : context.go('/dashboard'),
-            tooltip: 'Retour',
+            tooltip: context.tr(AppCopy.back),
           ),
-          title: const Text('Contrats'),
+          title: const AppText(AppCopy.contracts),
+          actions: [
+            IconButton(
+              tooltip: context.tr(AppCopy.availabilityCalendarb8c1ea),
+              icon: const Icon(Icons.calendar_month_outlined),
+              onPressed: () => context.push('/availability'),
+            ),
+          ],
           bottom: TabBar(
             controller: _tabController,
             // Scrolls sideways rather than cramming four labels into a
@@ -102,14 +111,14 @@ class _ContractsListScreenState extends ConsumerState<ContractsListScreen>
             isScrollable: true,
             tabAlignment: TabAlignment.center,
             tabs: [
-              const Tab(text: 'Tous'),
-              const Tab(text: 'En cours'),
-              const Tab(text: 'Terminés'),
+              const Tab(child: AppText(AppCopy.all)),
+              const Tab(child: AppText(AppCopy.active)),
+              const Tab(child: AppText(AppCopy.completed)),
               Tab(
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text('En retard'),
+                    const AppText(AppCopy.overdue),
                     if (lateCount > 0) ...[
                       const SizedBox(width: 6),
                       Container(
@@ -119,7 +128,7 @@ class _ContractsListScreenState extends ConsumerState<ContractsListScreen>
                           color: AppTone.danger.color,
                           borderRadius: BorderRadius.circular(10),
                         ),
-                        child: Text('$lateCount',
+                        child: AppText('$lateCount',
                             style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 12,
@@ -138,9 +147,9 @@ class _ContractsListScreenState extends ConsumerState<ContractsListScreen>
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
               child: TextField(
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   prefixIcon: Icon(Icons.search),
-                  hintText: 'N° contrat, véhicule ou client',
+                  hintText: context.tr(AppCopy.contractNoVehicleOrClient),
                 ),
                 onChanged: (v) =>
                     setState(() => _query = v.trim().toLowerCase()),
@@ -165,7 +174,7 @@ class _ContractsListScreenState extends ConsumerState<ContractsListScreen>
         floatingActionButton: FloatingActionButton.extended(
           onPressed: () => context.push('/contracts/new'),
           icon: const Icon(Icons.add),
-          label: const Text('Nouveau contrat'),
+          label: const AppText(AppCopy.newContract),
         ),
       ),
     );
@@ -195,22 +204,22 @@ class _ContractsListScreenState extends ConsumerState<ContractsListScreen>
           final searching = _query.isNotEmpty;
           return EmptyStateWidget(
             title: searching
-                ? 'Aucun contrat trouvé.'
+                ? AppCopy.noContractsFound
                 : switch (filter) {
-                    'late' => 'Aucun retard.',
-                    'completed' => 'Aucun contrat terminé.',
-                    'active' => 'Aucune location en cours.',
-                    _ => 'Aucun contrat.',
+                    'late' => AppCopy.noOverdueReturns,
+                    'completed' => AppCopy.noCompletedContracts,
+                    'active' => AppCopy.noActiveRentals,
+                    _ => AppCopy.noContracts,
                   },
             subtitle: searching
-                ? 'Essayez un autre nom, véhicule ou numéro.'
+                ? AppCopy.tryAnotherNameVehicleOrNumber
                 : filter == 'late'
-                    ? 'Tous les véhicules sont rentrés à l’heure.'
-                    : 'Créez un nouveau contrat pour commencer.',
+                    ? AppCopy.allVehiclesWereReturnedOnTime
+                    : AppCopy.createANewContractToGetStarted,
             icon:
                 filter == 'late' ? Icons.task_alt : Icons.receipt_long_outlined,
             actionLabel:
-                filter == 'late' || searching ? null : 'Nouveau contrat',
+                filter == 'late' || searching ? null : AppCopy.newContract,
             onAction: () => context.push('/contracts/new'),
           );
         }
@@ -232,7 +241,7 @@ class _ContractsListScreenState extends ConsumerState<ContractsListScreen>
                       color: AppTone.danger.color,
                       borderRadius: BorderRadius.circular(16),
                     ),
-                    alignment: Alignment.centerRight,
+                    alignment: AlignmentDirectional.centerEnd,
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     child:
                         const Icon(Icons.delete_forever, color: Colors.white),
@@ -257,10 +266,8 @@ class _ContractsListScreenState extends ConsumerState<ContractsListScreen>
       },
       loading: () => AppShimmer.listLayer(),
       error: (error, _) => Center(
-        child: Text(
-          'Erreur lors du chargement des contrats.\n'
-          'خطأ أثناء تحميل العقود.\n'
-          'Contracts loading error: $error',
+        child: AppText(
+          context.trError(error),
           textAlign: TextAlign.center,
         ),
       ),

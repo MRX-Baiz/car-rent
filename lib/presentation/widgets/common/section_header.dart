@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:car_rent_manager/presentation/widgets/common/app_text.dart';
 
 import '../../../core/constants/app_colors.dart';
 
@@ -36,11 +37,11 @@ class SectionHeader extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: theme.textTheme.titleMedium),
+                AppText(title, style: theme.textTheme.titleMedium),
                 if (subtitle != null)
                   Padding(
                     padding: const EdgeInsets.only(top: 2),
-                    child: Text(
+                    child: AppText(
                       subtitle!,
                       style: theme.textTheme.bodySmall
                           ?.copyWith(color: AppColors.textSecondary),
@@ -50,7 +51,7 @@ class SectionHeader extends StatelessWidget {
             ),
           ),
           if (actionLabel != null)
-            TextButton(onPressed: onAction, child: Text(actionLabel!)),
+            TextButton(onPressed: onAction, child: AppText(actionLabel!)),
         ],
       ),
     );

@@ -1,6 +1,8 @@
+import 'package:car_rent_manager/core/localization/app_localizations.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:car_rent_manager/presentation/widgets/common/app_text.dart';
 import 'package:flutter/services.dart';
 
 import '../../../core/security/recovery_code.dart';
@@ -16,7 +18,7 @@ class RecoveryCodeView extends StatefulWidget {
     super.key,
     required this.code,
     required this.onAcknowledged,
-    this.acknowledgeLabel = 'J\'ai noté ce code',
+    this.acknowledgeLabel = AppCopy.iNotedThisCode,
   });
 
   final String code;
@@ -67,23 +69,21 @@ class _RecoveryCodeViewState extends State<RecoveryCodeView> {
           color: theme.colorScheme.primary,
         ),
         const SizedBox(height: 16),
-        Text(
-          'Code de récupération',
+        AppText(
+          AppCopy.recoveryCode,
           textAlign: TextAlign.center,
-          style: theme.textTheme.titleLarge
-              ?.copyWith(fontWeight: FontWeight.bold),
+          style:
+              theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 8),
-        Text(
-          'Notez ce code et rangez-le en lieu sûr. C\'est le seul moyen de '
-          'récupérer vos données si vous oubliez votre code PIN.',
+        AppText(
+          AppCopy.writeThisCodeDownAndKeepItSomewhere,
           textAlign: TextAlign.center,
           style: theme.textTheme.bodyMedium?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),
         ),
         const SizedBox(height: 24),
-
         Container(
           padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 12),
           decoration: BoxDecoration(
@@ -102,7 +102,6 @@ class _RecoveryCodeViewState extends State<RecoveryCodeView> {
           ),
         ),
         const SizedBox(height: 12),
-
         OutlinedButton.icon(
           onPressed: () async {
             await Clipboard.setData(
@@ -110,14 +109,13 @@ class _RecoveryCodeViewState extends State<RecoveryCodeView> {
             );
             if (!context.mounted) return;
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Code copié.')),
+              const SnackBar(content: AppText(AppCopy.codeCopied)),
             );
           },
           icon: const Icon(Icons.copy, size: 18),
-          label: const Text('Copier le code'),
+          label: const AppText(AppCopy.copyCode),
         ),
         const SizedBox(height: 20),
-
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
@@ -130,8 +128,8 @@ class _RecoveryCodeViewState extends State<RecoveryCodeView> {
                   color: theme.colorScheme.error, size: 20),
               const SizedBox(width: 8),
               Expanded(
-                child: Text(
-                  'Il ne vous sera plus jamais affiché.',
+                child: AppText(
+                  AppCopy.itWillNeverBeShownAgain,
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onErrorContainer,
                     fontWeight: FontWeight.w500,
@@ -142,13 +140,12 @@ class _RecoveryCodeViewState extends State<RecoveryCodeView> {
           ),
         ),
         const SizedBox(height: 24),
-
         FilledButton(
           onPressed: ready ? widget.onAcknowledged : null,
-          child: Text(
+          child: AppText(
             ready
                 ? widget.acknowledgeLabel
-                : '${widget.acknowledgeLabel} ($_secondsLeft)',
+                : '${context.tr(widget.acknowledgeLabel)} ($_secondsLeft)',
           ),
         ),
       ],

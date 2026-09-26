@@ -51,12 +51,9 @@ class DashboardNotifier extends AsyncNotifier<DashboardStats> {
 
     final available = await _vehicleRepository.getAvailableVehiclesCount();
     final rented = await _vehicleRepository.getRentedVehiclesCount();
-    final activeContracts =
-        await _contractRepository.getActiveContractsCount();
-    final lateContracts =
-        (await _contractRepository.getLateContracts()).length;
-    final totalRevenue =
-        await _paymentRepository.getTotalRevenueForMonth(now);
+    final activeContracts = await _contractRepository.getActiveContractsCount();
+    final lateContracts = (await _contractRepository.getLateContracts()).length;
+    final totalRevenue = await _paymentRepository.getTotalRevenueForMonth(now);
 
     // Fetch daily revenue for the last 7 days
     final dailyRevenueMap = await _paymentRepository.getDailyRevenue(
@@ -82,5 +79,3 @@ class DashboardNotifier extends AsyncNotifier<DashboardStats> {
     );
   }
 }
-
-

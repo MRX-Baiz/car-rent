@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:car_rent_manager/core/localization/app_localizations.dart';
+import 'package:car_rent_manager/presentation/widgets/common/app_text.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -42,7 +44,7 @@ class _LicenseScreenState extends ConsumerState<LicenseScreen> {
     if (_deviceId != null) {
       Clipboard.setData(ClipboardData(text: _deviceId!));
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ID de l\'appareil copié !')),
+        const SnackBar(content: AppText(AppCopy.deviceIDCopied)),
       );
     }
   }
@@ -66,8 +68,8 @@ class _LicenseScreenState extends ConsumerState<LicenseScreen> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-            'Licence activée avec succès.\nتم تفعيل الرخصة بنجاح.\nLicense activated successfully.',
+          content: AppText(
+            AppCopy.licenceActivatedSuccessfully,
           ),
         ),
       );
@@ -94,7 +96,7 @@ class _LicenseScreenState extends ConsumerState<LicenseScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Activation de la licence'),
+        title: const AppText(AppCopy.licenceActivation),
       ),
       body: Center(
         child: SingleChildScrollView(
@@ -111,41 +113,47 @@ class _LicenseScreenState extends ConsumerState<LicenseScreen> {
                   color: theme.colorScheme.primary,
                 ),
                 const SizedBox(height: 16),
-                Text(
-                  'Entrez votre clé de licence pour activer CarRent Manager.',
+                AppText(
+                  AppCopy.enterYourLicenceKeyToActivateCarRentManager,
                   textAlign: TextAlign.center,
                   style: theme.textTheme.titleMedium,
                 ),
                 const SizedBox(height: 24),
-                
+
                 // Device ID Section
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: theme.colorScheme.primaryContainer.withValues(alpha: 0.3),
+                    color: theme.colorScheme.primaryContainer
+                        .withValues(alpha: 0.3),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: theme.colorScheme.primary.withValues(alpha: 0.2)),
+                    border: Border.all(
+                        color:
+                            theme.colorScheme.primary.withValues(alpha: 0.2)),
                   ),
                   child: Column(
                     children: [
-                      const Text(
-                        'ID DE CET APPAREIL (Obligatoire pour la licence):',
-                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                      const AppText(
+                        AppCopy.deviceIDRequiredForTheLicence,
+                        style: TextStyle(
+                            fontSize: 10, fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 8),
                       Row(
                         children: [
                           Expanded(
-                            child: Text(
+                            child: AppText(
                               _deviceId ?? 'Chargement...',
-                              style: const TextStyle(fontFamily: 'Courier', fontWeight: FontWeight.bold),
+                              style: const TextStyle(
+                                  fontFamily: 'Courier',
+                                  fontWeight: FontWeight.bold),
                               textAlign: TextAlign.center,
                             ),
                           ),
                           IconButton(
                             icon: const Icon(Icons.copy, size: 20),
                             onPressed: _copyDeviceId,
-                            tooltip: 'Copier l\'ID',
+                            tooltip: context.tr(AppCopy.copyID),
                           ),
                         ],
                       ),
@@ -159,16 +167,17 @@ class _LicenseScreenState extends ConsumerState<LicenseScreen> {
                   child: TextFormField(
                     controller: _licenseController,
                     maxLines: 4,
-                    decoration: const InputDecoration(
-                      labelText: 'Code de licence / License Key',
-                      hintText: 'Collez ici votre code de licence Base64...',
+                    decoration: InputDecoration(
+                      labelText: context.tr(AppCopy.licenceKey),
+                      hintText: context
+                          .tr(AppCopy.pasteYourBase64LicenceKeyHere),
                       border: OutlineInputBorder(),
                     ),
                     textInputAction: TextInputAction.done,
                     onFieldSubmitted: (_) => _submit(),
                     validator: (value) {
                       if (value == null || value.trim().isEmpty) {
-                        return 'La clé de licence est requise.';
+                        return context.tr(AppCopy.licenceKeyIsRequired);
                       }
                       return null;
                     },
@@ -179,10 +188,11 @@ class _LicenseScreenState extends ConsumerState<LicenseScreen> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: theme.colorScheme.errorContainer.withValues(alpha: 0.5),
+                      color: theme.colorScheme.errorContainer
+                          .withValues(alpha: 0.5),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: Text(
+                    child: AppText(
                       _errorMessage!,
                       style: TextStyle(
                         color: theme.colorScheme.error,
@@ -206,10 +216,10 @@ class _LicenseScreenState extends ConsumerState<LicenseScreen> {
                             ),
                           )
                         : const Icon(Icons.check_circle_outline),
-                    label: Text(
+                    label: AppText(
                       _isSubmitting
-                          ? 'Validation en cours...'
-                          : 'Valider la licence',
+                          ? AppCopy.validating
+                          : AppCopy.validateLicence,
                     ),
                   ),
                 ),
@@ -221,4 +231,3 @@ class _LicenseScreenState extends ConsumerState<LicenseScreen> {
     );
   }
 }
-

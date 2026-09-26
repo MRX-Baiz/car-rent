@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:car_rent_manager/presentation/widgets/common/app_text.dart';
 
 import '../../../core/constants/app_colors.dart';
 import 'app_card.dart';
@@ -67,11 +68,11 @@ class _CollapsibleSectionState extends State<CollapsibleSection> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(widget.title, style: theme.textTheme.titleSmall),
+                  AppText(widget.title, style: theme.textTheme.titleSmall),
                   if (widget.subtitle != null)
                     Padding(
                       padding: const EdgeInsets.only(top: 2),
-                      child: Text(
+                      child: AppText(
                         widget.subtitle!,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,

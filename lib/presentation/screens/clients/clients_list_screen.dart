@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:car_rent_manager/core/localization/app_localizations.dart';
+import 'package:car_rent_manager/presentation/widgets/common/app_text.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -37,18 +39,18 @@ class _ClientsListScreenState extends ConsumerState<ClientsListScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Supprimer le client'),
-        content: const Text(AppStrings.confirmDeleteClient),
+        title: const AppText(AppCopy.deleteClient),
+        content: const AppText(AppStrings.confirmDeleteClient),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Annuler'),
+            child: const AppText(AppCopy.cancel),
           ),
           FilledButton(
             style:
                 FilledButton.styleFrom(backgroundColor: AppTone.danger.color),
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Supprimer'),
+            child: const AppText(AppCopy.delete),
           ),
         ],
       ),
@@ -62,16 +64,14 @@ class _ClientsListScreenState extends ConsumerState<ClientsListScreen> {
       await ref.read(clientsProvider.notifier).deleteClient(client.id!);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text(AppStrings.successDeleted)),
+        const SnackBar(content: AppText(AppStrings.successDeleted)),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            'Erreur lors de la suppression.\n'
-            'حدث خطأ أثناء الحذف.\n'
-            'Delete error: $e',
+          content: AppText(
+            context.trError(e),
           ),
         ),
       );
@@ -89,9 +89,9 @@ class _ClientsListScreenState extends ConsumerState<ClientsListScreen> {
             icon: const Icon(Icons.arrow_back),
             onPressed: () =>
                 context.canPop() ? context.pop() : context.go('/dashboard'),
-            tooltip: 'Retour',
+            tooltip: context.tr(AppCopy.back),
           ),
-          title: const Text('Clients'),
+          title: const AppText(AppCopy.clients),
         ),
         body: BackdropPage(
             child: Column(
@@ -99,9 +99,9 @@ class _ClientsListScreenState extends ConsumerState<ClientsListScreen> {
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
               child: TextField(
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   prefixIcon: Icon(Icons.search),
-                  hintText: 'Rechercher par nom ou CIN',
+                  hintText: context.tr(AppCopy.searchByNameOrNationalID),
                 ),
                 onChanged: (value) {
                   setState(() => _searchQuery = value.trim());
@@ -116,13 +116,13 @@ class _ClientsListScreenState extends ConsumerState<ClientsListScreen> {
                     final searching = _searchQuery.isNotEmpty;
                     return EmptyStateWidget(
                       title: searching
-                          ? 'Aucun client trouvé.'
-                          : 'Aucun client enregistré.',
+                          ? AppCopy.noClientsFound
+                          : AppCopy.noClientsSaved,
                       subtitle: searching
-                          ? 'Vérifiez l’orthographe ou essayez le numéro de CIN.'
-                          : 'Ajoutez un client, avec ou sans scan de ses documents.',
+                          ? AppCopy.checkTheSpellingOrTryTheNationalID
+                          : AppCopy.addAClientWithOrWithoutScanningTheir,
                       icon: Icons.person_outline,
-                      actionLabel: searching ? null : 'Ajouter un client',
+                      actionLabel: searching ? null : AppCopy.addAClient,
                       onAction: () => context.push('/clients/add'),
                     );
                   }
@@ -145,7 +145,7 @@ class _ClientsListScreenState extends ConsumerState<ClientsListScreen> {
                                 color: AppTone.danger.color,
                                 borderRadius: BorderRadius.circular(16),
                               ),
-                              alignment: Alignment.centerRight,
+                              alignment: AlignmentDirectional.centerEnd,
                               padding:
                                   const EdgeInsets.symmetric(horizontal: 20),
                               child: const Icon(Icons.delete_forever,
@@ -169,10 +169,8 @@ class _ClientsListScreenState extends ConsumerState<ClientsListScreen> {
                 },
                 loading: () => AppShimmer.listLayer(),
                 error: (error, _) => Center(
-                  child: Text(
-                    'Erreur lors du chargement des clients.\n'
-                    'خطأ أثناء تحميل الزبناء.\n'
-                    'Clients loading error: $error',
+                  child: AppText(
+                    context.trError(error),
                     textAlign: TextAlign.center,
                   ),
                 ),
@@ -183,8 +181,8 @@ class _ClientsListScreenState extends ConsumerState<ClientsListScreen> {
         floatingActionButton: FloatingActionButton.extended(
           onPressed: () => context.push('/clients/add'),
           icon: const Icon(Icons.person_add_outlined),
-          label: const Text('Nouveau client'),
-          tooltip: 'Ajouter un client',
+          label: const AppText(AppCopy.newClient),
+          tooltip: context.tr(AppCopy.addAClient),
         ),
       ),
     );
@@ -230,7 +228,7 @@ class ClientCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      'CIN ${client.cin}',
+                      context.messages.nationalIdValue((client.cin).toString()),
                       style: theme.textTheme.bodyMedium?.copyWith(
                           fontWeight: FontWeight.w600,
                           color: AppColors.textSecondary),
@@ -259,19 +257,19 @@ class ClientCard extends StatelessWidget {
             children: [
               if (client.licenseExpiryDate != null)
                 StatusChip(
-                  label: 'Permis · ${licence.label}',
+                  label: context.messages.licenceStatus(context.tr((licence.label).toString())),
                   tone: licence.tone,
                   icon: Icons.credit_card,
                   dense: true,
                 ),
               StatusChip(
-                label: hasCin ? 'CIN scannée' : 'CIN manquante',
+                label: hasCin ? AppCopy.nationalIDScanned : AppCopy.nationalIDMissing,
                 tone: hasCin ? AppTone.success : AppTone.neutral,
                 icon: hasCin ? Icons.check : Icons.add_a_photo_outlined,
                 dense: true,
               ),
               StatusChip(
-                label: hasLicence ? 'Permis scanné' : 'Permis manquant',
+                label: hasLicence ? AppCopy.drivingLicenceScanned : AppCopy.drivingLicenceMissing,
                 tone: hasLicence ? AppTone.success : AppTone.neutral,
                 icon: hasLicence ? Icons.check : Icons.add_a_photo_outlined,
                 dense: true,

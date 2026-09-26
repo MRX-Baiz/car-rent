@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:car_rent_manager/presentation/widgets/common/app_text.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/license/license_manager.dart';
-import '../../../core/notifications/notification_service.dart';
-import '../../../data/repositories/app_settings_repository.dart';
+import '../../providers/app_settings_provider.dart';
 import '../../providers/auth_provider.dart';
-import '../../providers/contract_provider.dart';
-import '../../providers/vehicle_provider.dart';
+import '../../providers/reminder_provider.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
@@ -39,26 +38,12 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
 
       // One-time cleanup of the token left by the old login screen, which
       // granted access without checking anything.
-      await AppSettingsRepository.instance.clearLegacyAuthSession();
+      await ref.read(clearLegacyAuthSessionProvider)();
 
-      await ref.read(contractsProvider.notifier).restoreReminders();
-      await ref.read(vehiclesProvider.notifier).loadVehicles();
-      for (final vehicle in ref.read(vehiclesProvider).value ?? const []) {
-        await NotificationService.instance.scheduleVehicleMaintenanceReminders(
-            vehicle,
-            requestPermissions: false);
-      }
+      await ref.read(restoreRemindersOnLaunchProvider)(
+        licenseExpiry: license.data?.expiryDate,
+      );
       if (!mounted) return;
-
-      // Reminders are re-armed on every launch: Android drops pending alarms
-      // on force-stop, and the expiry moves whenever a new key is applied.
-      final expiry = license.data?.expiryDate;
-      if (expiry != null) {
-        await NotificationService.instance.scheduleLicenseExpiry(expiry);
-      }
-      // No overdue alert here: the app is opening, so the user is about to see
-      // the dashboard. Clear any summary left over from last time instead.
-      await NotificationService.instance.dismissLateDigest();
 
       // 2. Read the lock state. This never unlocks — it only decides between
       // creating a PIN and asking for it — so the router's redirect takes it
@@ -204,7 +189,7 @@ class _SplashViewState extends State<SplashView>
                   ),
                 ),
                 const SizedBox(height: 14),
-                const Text(
+                const AppText(
                   'CHARGEMENT',
                   style: TextStyle(
                     color: AppColors.textSecondary,

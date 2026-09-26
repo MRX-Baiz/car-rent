@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:car_rent_manager/core/localization/app_localizations.dart';
+import 'package:car_rent_manager/presentation/widgets/common/app_text.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -176,31 +178,28 @@ class _ContractEditScreenState extends ConsumerState<ContractEditScreen> {
 
   void _warn(String message) {
     ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(message)));
+        .showSnackBar(SnackBar(content: AppText(message)));
   }
 
-  String _friendly(Object e) => 'Erreur : ${e.toString().replaceFirst(
-        RegExp(r'^(Exception|Bad state): '),
-        '',
-      )}';
+  String _friendly(Object e) => context.trError(e.toString().replaceFirst(RegExp(r'^(Exception|Bad state): '), ''));
 
   Future<void> _submit(List<ChauffeurModel> chauffeurs) async {
     if (_isSubmitting) return;
     if (_vehicleId == null) {
-      _warn('Sélectionnez un véhicule.');
+      _warn(AppCopy.selectAVehicle);
       return;
     }
     if (_primaryDriverId == null) {
-      _warn('Sélectionnez un conducteur principal.');
+      _warn(AppCopy.selectAMainDriver);
       return;
     }
     if (_hasSecondaryDriver && _secondaryDriverId == null) {
-      _warn('Sélectionnez un conducteur secondaire, ou désactivez l’option.');
+      _warn(AppCopy.selectAnAdditionalDriverOrTurnOffThe);
       return;
     }
     final total = double.tryParse(_totalPriceController.text) ?? _totalPrice;
     if (total <= 0) {
-      _warn('Le prix total doit être supérieur à 0.');
+      _warn(AppCopy.theTotalPriceMustBeGreaterThan0);
       return;
     }
 
@@ -234,13 +233,13 @@ class _ContractEditScreenState extends ConsumerState<ContractEditScreen> {
       await ref.read(dashboardProvider.notifier).refresh();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text(AppStrings.successSaved)),
+        const SnackBar(content: AppText(AppStrings.successSaved)),
       );
       context.pop();
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(_friendly(e))));
+          .showSnackBar(SnackBar(content: AppText(_friendly(e))));
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
@@ -289,15 +288,16 @@ class _ContractEditScreenState extends ConsumerState<ContractEditScreen> {
         ref.watch(chauffeursProvider).value ?? const <ChauffeurModel>[];
 
     return Scaffold(
-      appBar: AppBar(title: Text('Modifier ${widget.contract.contractNumber}')),
+      appBar:
+          AppBar(title: Text(context.messages.editRecord((widget.contract.contractNumber).toString()))),
       body: vehiclesAsync.when(
         data: (vehicles) => clientsAsync.when(
           data: (clients) => _buildForm(context, vehicles, clients, chauffeurs),
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, _) => Center(child: Text('Erreur : $error')),
+          error: (error, _) => Center(child: AppText(context.trError(error))),
         ),
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => Center(child: Text('Erreur : $error')),
+        error: (error, _) => Center(child: AppText(context.trError(error))),
       ),
       bottomNavigationBar: BottomActionBar(
         child: FilledButton.icon(
@@ -310,9 +310,9 @@ class _ContractEditScreenState extends ConsumerState<ContractEditScreen> {
                       strokeWidth: 2, color: Colors.white),
                 )
               : const Icon(Icons.check_circle_outline),
-          label: Text(_isSubmitting
-              ? 'Enregistrement...'
-              : 'Enregistrer les modifications'),
+          label: AppText(_isSubmitting
+              ? AppCopy.saving
+              : AppCopy.saveChanges),
         ),
       ),
     );
@@ -362,7 +362,7 @@ class _ContractEditScreenState extends ConsumerState<ContractEditScreen> {
             children: [
               FormSection(
                 icon: Icons.directions_car_outlined,
-                title: 'Véhicule',
+                title: AppCopy.vehicle,
                 children: [
                   DropdownButtonFormField<int>(
                     isExpanded: true,
@@ -378,8 +378,8 @@ class _ContractEditScreenState extends ConsumerState<ContractEditScreen> {
                         ),
                     ],
                     onChanged: (id) => setState(() => _vehicleId = id),
-                    decoration: const InputDecoration(
-                      labelText: 'Véhicule',
+                    decoration: InputDecoration(
+                      labelText: context.tr(AppCopy.vehicle),
                       prefixIcon: Icon(Icons.directions_car_outlined),
                     ),
                   ),
@@ -398,12 +398,12 @@ class _ContractEditScreenState extends ConsumerState<ContractEditScreen> {
               const SizedBox(height: 16),
               FormSection(
                 icon: Icons.person_outline,
-                title: 'Conducteur principal',
+                title: AppCopy.mainDriver,
                 children: [
                   TextFormField(
-                    decoration: const InputDecoration(
-                      labelText: 'Rechercher un client',
-                      hintText: 'Nom ou CIN',
+                    decoration: InputDecoration(
+                      labelText: context.tr(AppCopy.searchForAClient),
+                      hintText: context.tr(AppCopy.nameOrNationalID),
                       prefixIcon: Icon(Icons.search),
                     ),
                     onChanged: (v) => setState(() => _clientSearch = v),
@@ -425,7 +425,8 @@ class _ContractEditScreenState extends ConsumerState<ContractEditScreen> {
                       _primaryDriverId = id;
                       if (_secondaryDriverId == id) _secondaryDriverId = null;
                     }),
-                    decoration: const InputDecoration(labelText: 'Client'),
+                    decoration:
+                        InputDecoration(labelText: context.tr(AppCopy.client)),
                   ),
                   if (primary != null)
                     StatusChip(
@@ -437,8 +438,8 @@ class _ContractEditScreenState extends ConsumerState<ContractEditScreen> {
               const SizedBox(height: 16),
               FormSection(
                 icon: Icons.person_add_alt_outlined,
-                title: 'Conducteur secondaire',
-                subtitle: 'Optionnel',
+                title: AppCopy.additionalDriver,
+                subtitle: AppCopy.optional,
                 trailing: Switch(
                   value: _hasSecondaryDriver,
                   onChanged: (v) => setState(() {
@@ -449,9 +450,10 @@ class _ContractEditScreenState extends ConsumerState<ContractEditScreen> {
                 children: _hasSecondaryDriver
                     ? [
                         TextFormField(
-                          decoration: const InputDecoration(
-                            labelText: 'Rechercher un conducteur secondaire',
-                            hintText: 'Nom ou CIN',
+                          decoration: InputDecoration(
+                            labelText: context
+                                .tr(AppCopy.searchForAnAdditionalDriver),
+                            hintText: context.tr(AppCopy.nameOrNationalID),
                             prefixIcon: Icon(Icons.search),
                           ),
                           onChanged: (v) =>
@@ -465,7 +467,7 @@ class _ContractEditScreenState extends ConsumerState<ContractEditScreen> {
                               : null,
                           items: [
                             const DropdownMenuItem<int?>(
-                                value: null, child: Text('Aucun')),
+                                value: null, child: AppText(AppCopy.none)),
                             for (final c in secondaryOptions)
                               DropdownMenuItem<int?>(
                                 value: c.id,
@@ -475,8 +477,8 @@ class _ContractEditScreenState extends ConsumerState<ContractEditScreen> {
                           ],
                           onChanged: (id) =>
                               setState(() => _secondaryDriverId = id),
-                          decoration: const InputDecoration(
-                              labelText: 'Conducteur secondaire'),
+                          decoration: InputDecoration(
+                              labelText: context.tr(AppCopy.additionalDriver)),
                         ),
                       ]
                     : const [],
@@ -484,8 +486,8 @@ class _ContractEditScreenState extends ConsumerState<ContractEditScreen> {
               const SizedBox(height: 16),
               FormSection(
                 icon: Icons.badge_outlined,
-                title: 'Chauffeur de l’agence',
-                subtitle: 'Optionnel',
+                title: AppCopy.agencyDriver,
+                subtitle: AppCopy.optional,
                 children: [
                   DropdownButtonFormField<int?>(
                     isExpanded: true,
@@ -494,12 +496,12 @@ class _ContractEditScreenState extends ConsumerState<ContractEditScreen> {
                         : null,
                     items: [
                       const DropdownMenuItem<int?>(
-                          value: null, child: Text('Sans chauffeur')),
+                          value: null, child: AppText(AppCopy.noDriver)),
                       for (final c in chauffeurOptions)
                         DropdownMenuItem<int?>(
                           value: c.id,
                           child: Text(
-                            '${c.fullName} — ${formatMad(c.hourlyRate)}/h',
+                            '${c.fullName} — ${context.money(c.hourlyRate)}/h',
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
@@ -508,13 +510,14 @@ class _ContractEditScreenState extends ConsumerState<ContractEditScreen> {
                       _chauffeurId = id;
                       _recomputeTotal(_findChauffeur(chauffeurOptions, id));
                     }),
-                    decoration: const InputDecoration(labelText: 'Chauffeur'),
+                    decoration:
+                        InputDecoration(labelText: context.tr(AppCopy.driver)),
                   ),
                   if (chauffeur != null)
                     TextFormField(
                       controller: _chauffeurHoursController,
-                      decoration: const InputDecoration(
-                        labelText: 'Nombre d’heures chauffeur',
+                      decoration: InputDecoration(
+                        labelText: context.tr(AppCopy.numberOfDriverHours),
                         prefixIcon: Icon(Icons.schedule),
                       ),
                       keyboardType:
@@ -526,16 +529,16 @@ class _ContractEditScreenState extends ConsumerState<ContractEditScreen> {
               const SizedBox(height: 16),
               FormSection(
                 icon: Icons.event_outlined,
-                title: 'Période de location',
-                subtitle: 'Durée : $_durationDays jour(s)',
+                title: AppCopy.rentalPeriod,
+                subtitle: context.messages.durationDays((_durationDays).toString()),
                 children: [
                   _DateTile(
-                    label: 'Début',
+                    label: AppCopy.start,
                     value: formatDateTime(_startDate),
                     onTap: _pickStartDate,
                   ),
                   _DateTile(
-                    label: 'Retour prévu',
+                    label: AppCopy.expectedReturn,
                     value: formatDateTime(_expectedReturnDate),
                     onTap: _pickReturnDate,
                   ),
@@ -545,7 +548,7 @@ class _ContractEditScreenState extends ConsumerState<ContractEditScreen> {
                     children: [
                       for (final d in _allowedDurations)
                         ChoiceChip(
-                          label: Text('$d j'),
+                          label: AppText(context.messages.dayShort((d).toString())),
                           selected: _durationDays == d,
                           onSelected: (_) => setState(() {
                             _durationDays = d;
@@ -561,12 +564,12 @@ class _ContractEditScreenState extends ConsumerState<ContractEditScreen> {
               const SizedBox(height: 16),
               FormSection(
                 icon: Icons.sell_outlined,
-                title: 'Prix',
+                title: AppCopy.price,
                 children: [
                   TextFormField(
                     controller: _dailyPriceController,
-                    decoration: const InputDecoration(
-                      labelText: 'Prix par jour',
+                    decoration: InputDecoration(
+                      labelText: context.tr(AppCopy.dailyPrice),
                       suffixText: 'MAD',
                       prefixIcon: Icon(Icons.sell_outlined),
                     ),
@@ -576,12 +579,12 @@ class _ContractEditScreenState extends ConsumerState<ContractEditScreen> {
                   ),
                   TextFormField(
                     controller: _totalPriceController,
-                    decoration: const InputDecoration(
-                      labelText: 'Prix total du contrat',
+                    decoration: InputDecoration(
+                      labelText: context.tr(AppCopy.contractTotal),
                       suffixText: 'MAD',
                       prefixIcon: Icon(Icons.calculate_outlined),
                       helperText:
-                          'Calculé automatiquement, modifiable à la main.',
+                          context.tr(AppCopy.calculatedAutomaticallyYouCanEditItManually),
                     ),
                     keyboardType:
                         const TextInputType.numberWithOptions(decimal: true),
@@ -595,17 +598,16 @@ class _ContractEditScreenState extends ConsumerState<ContractEditScreen> {
                   ),
                   DetailRow(
                     icon: Icons.payments_outlined,
-                    label: 'Déjà payé',
-                    value: formatMad(widget.contract.amountPaid),
-                    trailing: Text(
-                      'Reste ${formatMad(remaining < 0 ? 0 : remaining)}',
+                    label: AppCopy.alreadyPaid,
+                    value: context.money(widget.contract.amountPaid),
+                    trailing: AppText(
+                      context.messages.balanceAmount((context.money(remaining < 0 ? 0 : remaining)).toString()),
                       style: theme.textTheme.bodyMedium
                           ?.copyWith(fontWeight: FontWeight.w700),
                     ),
                   ),
-                  Text(
-                    'Pour enregistrer un versement, utilisez « Ajouter un '
-                    'paiement » sur la fiche du contrat.',
+                  AppText(
+                    AppCopy.toRecordAPaymentUseAddAPayment,
                     style: theme.textTheme.bodySmall
                         ?.copyWith(color: AppColors.textSecondary),
                   ),
@@ -614,15 +616,15 @@ class _ContractEditScreenState extends ConsumerState<ContractEditScreen> {
               const SizedBox(height: 16),
               FormSection(
                 icon: Icons.notes_outlined,
-                title: 'Notes',
-                subtitle: 'Optionnel',
+                title: AppCopy.notes,
+                subtitle: AppCopy.optional,
                 children: [
                   TextFormField(
                     controller: _notesController,
                     maxLines: 3,
                     textCapitalization: TextCapitalization.sentences,
-                    decoration: const InputDecoration(
-                      labelText: 'Notes internes',
+                    decoration: InputDecoration(
+                      labelText: context.tr(AppCopy.internalNotes),
                       alignLabelWithHint: true,
                     ),
                   ),
@@ -654,11 +656,11 @@ class _DateTile extends StatelessWidget {
       borderRadius: BorderRadius.circular(12),
       child: InputDecorator(
         decoration: InputDecoration(
-          labelText: label,
+          labelText: context.tr(label),
           prefixIcon: const Icon(Icons.event_outlined),
           suffixIcon: const Icon(Icons.edit_calendar_outlined),
         ),
-        child: Text(
+        child: AppText(
           value,
           style: Theme.of(context)
               .textTheme

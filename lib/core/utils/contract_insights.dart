@@ -1,3 +1,6 @@
+import 'package:flutter/widgets.dart';
+import 'package:intl/intl.dart';
+import '../localization/app_localizations.dart';
 import '../../data/models/contract_model.dart';
 import '../constants/app_colors.dart';
 import 'format_utils.dart';
@@ -49,7 +52,13 @@ class PaymentStatus {
   final bool isSettled;
 }
 
-PaymentStatus paymentStatusOf(ContractModel c) {
+PaymentStatus paymentStatusOf(ContractModel c, {Locale? locale}) {
+  if (locale != null) {
+    final messages = lookupAppMessages(locale);
+    String amount(num value) => NumberFormat.currency(locale: locale.languageCode, name:'MAD', symbol:locale.languageCode=='ar'?'د.م.':'MAD', decimalDigits:value % 1 == 0 ? 0 : 2).format(value);
+    if(c.remainingAmount <= 0.009) return PaymentStatus(messages.paid, AppTone.success, true);
+    return PaymentStatus(c.amountPaid > 0 ? messages.balanceAmount(amount(c.remainingAmount)) : messages.unpaidAmount(amount(c.totalPrice)), c.amountPaid > 0 ? AppTone.warning : AppTone.danger, false);
+  }
   if (c.remainingAmount <= 0.009) {
     return const PaymentStatus('Payé', AppTone.success, true);
   }

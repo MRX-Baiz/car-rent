@@ -1,4 +1,6 @@
+import 'package:car_rent_manager/core/localization/app_localizations.dart';
 import 'package:flutter/material.dart';
+import 'package:car_rent_manager/presentation/widgets/common/app_text.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -39,11 +41,11 @@ class VehicleDetailScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Véhicule'),
+        title: const AppText(AppCopy.vehicle),
         actions: [
           IconButton(
             icon: const Icon(Icons.edit_outlined),
-            tooltip: 'Modifier le véhicule',
+            tooltip: context.tr(AppCopy.editVehicle),
             onPressed: () {
               final vehicle = _findVehicle(vehiclesAsync.value, vehicleId);
               if (vehicle != null) {
@@ -60,7 +62,7 @@ class VehicleDetailScreen extends ConsumerWidget {
           child: FilledButton.icon(
             onPressed: () => context.push('/contracts/new', extra: vehicleId),
             icon: const Icon(Icons.key_outlined),
-            label: const Text('Louer ce véhicule'),
+            label: const AppText(AppCopy.rentThisVehicle),
           ),
         );
       }(),
@@ -70,8 +72,8 @@ class VehicleDetailScreen extends ConsumerWidget {
           final vehicle = _findVehicle(vehicles, vehicleId);
           if (vehicle == null) {
             return const EmptyStateWidget(
-              title: 'Véhicule introuvable.',
-              subtitle: 'Ce véhicule a peut-être été supprimé.',
+              title: AppCopy.vehicleNotFound,
+              subtitle: AppCopy.thisVehicleMayHaveBeenDeleted,
               icon: Icons.directions_car_filled_outlined,
             );
           }
@@ -80,10 +82,8 @@ class VehicleDetailScreen extends ConsumerWidget {
         },
         loading: () => AppShimmer.detailLayer(),
         error: (error, _) => Center(
-          child: Text(
-            'Erreur lors du chargement du véhicule.\n'
-            'خطأ أثناء تحميل السيارة.\n'
-            'Vehicle loading error: $error',
+          child: AppText(
+            context.trError(error),
             textAlign: TextAlign.center,
           ),
         ),
@@ -96,18 +96,18 @@ class VehicleDetailScreen extends ConsumerWidget {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Supprimer le véhicule'),
-        content: const Text(AppStrings.confirmDeleteVehicle),
+        title: const AppText(AppCopy.deleteVehicle),
+        content: const AppText(AppStrings.confirmDeleteVehicle),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Annuler'),
+            child: const AppText(AppCopy.cancel),
           ),
           FilledButton(
             style:
                 FilledButton.styleFrom(backgroundColor: AppTone.danger.color),
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Supprimer'),
+            child: const AppText(AppCopy.delete),
           ),
         ],
       ),
@@ -119,7 +119,7 @@ class VehicleDetailScreen extends ConsumerWidget {
         await ref.read(vehiclesProvider.notifier).deleteVehicle(vehicle.id!);
         if (!context.mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text(AppStrings.successDeleted)),
+          const SnackBar(content: AppText(AppStrings.successDeleted)),
         );
         context.go('/vehicles');
       }
@@ -127,10 +127,8 @@ class VehicleDetailScreen extends ConsumerWidget {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            'Erreur lors de la suppression.\n'
-            'حدث خطأ أثناء الحذف.\n'
-            'Delete error: $e',
+          content: AppText(
+            context.trError(e),
           ),
         ),
       );
@@ -197,7 +195,7 @@ class _Body extends ConsumerWidget {
                           crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
                             PlateBadge(vehicle.registrationNumber),
-                            Text('Année ${vehicle.year}',
+                            AppText(context.messages.vehicleYear((vehicle.year).toString()),
                                 style: theme.textTheme.bodyMedium
                                     ?.copyWith(color: AppColors.textSecondary)),
                           ],
@@ -216,15 +214,15 @@ class _Body extends ConsumerWidget {
                       ? AppTone.danger
                       : AppTone.warning,
                   title: alerts.length == 1
-                      ? '1 point à traiter'
-                      : '${alerts.length} points à traiter',
+                      ? AppCopy.message1ItemNeedsAttention
+                      : context.messages.attentionCount((alerts.length).toString()),
                   message: alerts
-                      .map((a) => '${a.label} : ${a.status.toLowerCase()}')
+                      .map((a) => '${context.tr(a.label)} : ${context.tr(a.status)}')
                       .join('\n'),
                 ),
               ],
               const SectionHeader(
-                title: 'Informations du véhicule',
+                title: AppCopy.vehicleInformation,
                 padding: EdgeInsets.fromLTRB(4, 20, 4, 10),
               ),
               AppCard(
@@ -232,19 +230,19 @@ class _Body extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     MetricGrid(items: [
-                      MetricItem(Icons.speed_outlined, 'Kilométrage',
-                          formatKm(vehicle.currentMileage)),
-                      MetricItem(fuelTypeIcon(vehicle.fuelType), 'Carburant',
+                      MetricItem(Icons.speed_outlined, AppCopy.mileage,
+                          context.distance(vehicle.currentMileage)),
+                      MetricItem(fuelTypeIcon(vehicle.fuelType), AppCopy.fuel,
                           fuelTypeName(vehicle.fuelType)),
                       MetricItem(Icons.local_gas_station_outlined,
-                          'Niveau de carburant', '${vehicle.fuelLevel} %'),
-                      MetricItem(Icons.settings_outlined, 'Boîte',
+                          AppCopy.fuelLevel, '${vehicle.fuelLevel} %'),
+                      MetricItem(Icons.settings_outlined, AppCopy.transmissioncbe91c,
                           transmissionName(vehicle.transmission)),
                     ]),
                     const SizedBox(height: 12),
                     Row(
                       children: [
-                        Text('État général',
+                        AppText(AppCopy.generalCondition,
                             style: theme.textTheme.bodyMedium
                                 ?.copyWith(color: AppColors.textSecondary)),
                         const Spacer(),
@@ -259,7 +257,7 @@ class _Body extends ConsumerWidget {
                 ),
               ),
               const SectionHeader(
-                title: 'Photos et dégâts',
+                title: AppCopy.photosAndDamage,
                 padding: EdgeInsets.fromLTRB(4, 20, 4, 10),
               ),
               AppCard(
@@ -281,10 +279,10 @@ class _Body extends ConsumerWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Photos extérieures et dégâts',
+                          AppText(AppCopy.exteriorPhotosAndDamage,
                               style: theme.textTheme.titleSmall),
-                          Text(
-                            'Avant, arrière, côtés et dégâts existants.',
+                          AppText(
+                            AppCopy.frontRearSidesAndExistingDamage,
                             style: theme.textTheme.bodySmall
                                 ?.copyWith(color: AppColors.textSecondary),
                           ),
@@ -304,13 +302,12 @@ class _Body extends ConsumerWidget {
                 // shown whether needed or not.
                 child: CollapsibleSection(
                   icon: Icons.build_outlined,
-                  title: 'Entretien et documents légaux',
+                  title: AppCopy.maintenanceAndLegalDocuments,
                   subtitle: alerts.isEmpty
-                      ? 'À jour'
-                      : '${alerts.length} '
-                          '${alerts.length > 1 ? 'points' : 'point'} à surveiller',
+                      ? AppCopy.upToDate
+                      : context.messages.monitorCount((alerts.length).toString()),
                   badge: StatusChip(
-                    label: alerts.isEmpty ? 'À jour' : '${alerts.length}',
+                    label: alerts.isEmpty ? AppCopy.upToDate : '${alerts.length}',
                     tone: alerts.isEmpty
                         ? AppTone.success
                         : (alerts.any((a) => a.tone == AppTone.danger)
@@ -324,7 +321,7 @@ class _Body extends ConsumerWidget {
                       DetailRow(
                         icon: item.icon,
                         label: item.label,
-                        value: item.value,
+                        value: context.tr(item.value),
                         trailing: StatusChip(
                           label: item.status,
                           tone: item.tone,
@@ -336,9 +333,9 @@ class _Body extends ConsumerWidget {
                 ),
               ),
               SectionHeader(
-                title: 'Historique de location',
+                title: AppCopy.rentalHistory,
                 padding: const EdgeInsets.fromLTRB(4, 20, 4, 10),
-                actionLabel: 'Tous les contrats',
+                actionLabel: AppCopy.allContracts,
                 onAction: () => context.go('/contracts'),
               ),
               if (history == null)
@@ -347,8 +344,8 @@ class _Body extends ConsumerWidget {
                 history.when(
                   data: (contracts) => contracts.isEmpty
                       ? AppCard(
-                          child: Text(
-                            'Ce véhicule n’a pas encore été loué.',
+                          child: AppText(
+                            AppCopy.thisVehicleHasNotBeenRentedYet,
                             style: theme.textTheme.bodyMedium,
                           ),
                         )
@@ -369,12 +366,11 @@ class _Body extends ConsumerWidget {
                         ),
                   loading: () => const AppShimmer.rectangular(height: 80),
                   error: (_, __) =>
-                      const Text('Historique indisponible pour le moment.'),
+                      const AppText(AppCopy.historyIsUnavailableAtTheMoment),
                 ),
               const SizedBox(height: 16),
-              Text(
-                'Ajouté le ${formatDate(vehicle.createdAt)} · '
-                'modifié le ${formatDate(vehicle.updatedAt)}',
+              AppText(
+                context.messages.recordDates((formatDate(vehicle.createdAt)).toString(), (formatDate(vehicle.updatedAt)).toString()),
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodySmall
                     ?.copyWith(color: AppColors.textSecondary),
@@ -387,7 +383,7 @@ class _Body extends ConsumerWidget {
                   side: BorderSide(color: AppTone.danger.color),
                 ),
                 icon: const Icon(Icons.delete_outline),
-                label: const Text('Supprimer ce véhicule'),
+                label: const AppText(AppCopy.deleteThisVehicle01bd94),
               ),
             ],
           ),

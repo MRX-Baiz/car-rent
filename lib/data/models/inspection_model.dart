@@ -10,7 +10,8 @@ class InspectionModel {
       this.extraCharges = 0,
       this.signaturePath,
       required this.createdAt});
-  final int? id, contractId, mileage, fuelLevel;
+  final int? id;
+  final int contractId, mileage, fuelLevel;
   final String type, conditionStatus;
   final String? damageNotes, signaturePath;
   final double extraCharges;

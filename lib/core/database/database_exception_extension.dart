@@ -7,7 +7,8 @@ extension DatabaseExceptionExtension on DatabaseException {
     // SQLite error code for SQLITE_CONSTRAINT_UNIQUE is 2067.
     // Some versions expose result or only message.
     final msg = toString().toLowerCase();
-    if (msg.contains('unique constraint') || msg.contains('unique_constraint')) {
+    if (msg.contains('unique constraint') ||
+        msg.contains('unique_constraint')) {
       return true;
     }
     return false;

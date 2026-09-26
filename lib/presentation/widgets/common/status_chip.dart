@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:car_rent_manager/presentation/widgets/common/app_text.dart';
 
 import '../../../core/constants/app_colors.dart';
 
@@ -35,7 +36,7 @@ class StatusChip extends StatelessWidget {
             const SizedBox(width: 4),
           ],
           Flexible(
-            child: Text(
+            child: AppText(
               label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,

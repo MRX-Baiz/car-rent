@@ -1,0 +1,1701 @@
+{
+  "@@locale": "fr",
+  "settings": "Paramètres",
+  "home": "Accueil",
+  "vehicles": "Véhicules",
+  "clients": "Clients",
+  "contracts": "Contrats",
+  "drivers": "Chauffeurs",
+  "assistant": "Assistant",
+  "localAssistant": "Assistant local",
+  "quickActions": "Actions rapides",
+  "overview": "Vue d’ensemble",
+  "currentRentals": "Locations en cours",
+  "paymentsReceived": "Encaissements",
+  "seeAll": "Voir tout",
+  "newClient": "Nouveau client",
+  "newVehicle": "Nouveau véhicule",
+  "newContract": "Nouveau contrat",
+  "add": "Ajouter",
+  "addAVehicle": "Ajouter un véhicule",
+  "addAClient": "Ajouter un client",
+  "save": "Enregistrer",
+  "cancel": "Annuler",
+  "delete": "Supprimer",
+  "edit": "Modifier",
+  "back": "Retour",
+  "close": "Fermer",
+  "confirm": "Confirmer",
+  "search": "Rechercher",
+  "filter": "Filtrer",
+  "reset": "Réinitialiser",
+  "available": "Disponible",
+  "available61af94": "Disponibles",
+  "rented": "Loué",
+  "rentede06686": "Loués",
+  "overdue": "En retard",
+  "activeContracts": "Contrats en cours",
+  "noRentalInProgressCreateAContractTo": "Aucune location en cours. Créez un contrat pour démarrer.",
+  "companyInformation": "Informations de la société",
+  "nameAddressLogoAndSignatureOnContracts": "Nom, adresse, logo et signature sur les contrats.",
+  "companyName": "Nom de la société",
+  "address": "Adresse",
+  "phone": "Téléphone",
+  "companyLogo": "Logo de la société",
+  "agencySignature": "Signature de l’agence",
+  "change": "Changer",
+  "reminders": "Rappels",
+  "returnsPaymentsAndLicence": "Retours, paiements et licence.",
+  "backup": "Sauvegarde",
+  "protectYourDataIfThePhoneIsLost": "Protégez vos données si le téléphone est perdu.",
+  "licence": "Licence",
+  "security": "Sécurité",
+  "renewLicence": "Renouveler la licence",
+  "newLicenceKey": "Nouvelle clé de licence",
+  "applyNewKey": "Appliquer la nouvelle clé",
+  "changePIN": "Modifier le code PIN",
+  "recoveryCode": "Code de récupération",
+  "biometricUnlock": "Déverrouillage biométrique",
+  "automaticLock": "Verrouillage automatique",
+  "lockNow": "Verrouiller maintenant",
+  "remindersActive": "Rappels actifs",
+  "remindersNeedAttention": "Rappels à corriger",
+  "activeLicence": "Licence active",
+  "inactiveLicence": "Licence inactive",
+  "createABackup": "Créer une sauvegarde",
+  "restoreABackup": "Restaurer une sauvegarde",
+  "restore": "Restaurer",
+  "language": "Langue",
+  "chooseTheApplicationLanguage": "Choisissez la langue de l’application.",
+  "french": "Français",
+  "english": "Anglais",
+  "arabic": "Arabe",
+  "vehicleInspection": "État des lieux",
+  "photosAndDamage": "Photos et dégâts",
+  "clientSignature": "Signature du client",
+  "contractDeletedSuccessfully": "Contrat supprimé avec succès.",
+  "unableToLoadContracts": "Erreur de chargement des contrats.",
+  "deleteClient": "Supprimer le client",
+  "deleteVehicle": "Supprimer le véhicule",
+  "deleteThisContract": "Supprimer ce contrat ?",
+  "deleteThisClient": "Supprimer ce client ?",
+  "deleteThisVehicle": "Supprimer ce véhicule ?",
+  "savedSuccessfully": "Enregistré avec succès.",
+  "deletedSuccessfully": "Supprimé avec succès.",
+  "anErrorOccurred": "Une erreur est survenue.",
+  "client": "Client",
+  "vehicle": "Véhicule",
+  "contract": "Contrat",
+  "addAPayment": "Ajouter un paiement",
+  "recordPayment": "Enregistrer un paiement",
+  "confirmPayment": "Valider le paiement",
+  "payAll": "Tout payer",
+  "closee9f075": "Clôturer",
+  "closeContract": "Clôturer le contrat",
+  "createContract": "Créer le contrat",
+  "rentThisVehicle": "Louer ce véhicule",
+  "maintenance": "Maintenance",
+  "documentsAndMaintenance": "Documents et entretien",
+  "exteriorPhotos": "Photos extérieures",
+  "takeAPhoto": "Prendre une photo",
+  "chooseAPhoto": "Choisir une photo",
+  "chooseAFile": "Choisir un fichier",
+  "useCamera": "Utiliser la caméra",
+  "scanNationalID": "Scanner la CIN",
+  "scanDrivingLicence": "Scanner le permis",
+  "generalCondition": "État général",
+  "vehicleCondition": "État du véhicule",
+  "fuelLevel": "Niveau de carburant",
+  "goodCondition": "Bon état",
+  "damaged": "Endommagé",
+  "diesel": "Diesel",
+  "petrol": "Essence",
+  "hybrid": "Hybride",
+  "electric": "Électrique",
+  "manual": "Manuelle",
+  "automatic": "Automatique",
+  "tryAgain": "Réessayer",
+  "generate": "Générer",
+  "forgotPIN": "Code PIN oublié",
+  "unlock": "Débloquer",
+  "remoteSignature": "Signature à distance",
+  "signOnThisPhone": "Signer sur ce téléphone",
+  "viewContractPDF": "Voir le contrat PDF",
+  "viewSignedPDF": "Voir le PDF signé",
+  "localModel": "Modèle local",
+  "offlineLocalModel": "Modèle local hors ligne",
+  "noResultsFound": "Aucun résultat trouvé.",
+  "noRevenueData": "Pas de données de revenus.",
+  "name": "Nom",
+  "firstName": "Prénom",
+  "brandModelOrRegistration": "Marque, modèle ou immatriculation",
+  "nameOrNationalID": "Nom ou CIN",
+  "nameNationalIDOrPhone": "Nom, CIN ou téléphone",
+  "searchByNameOrNationalID": "Rechercher par nom ou CIN",
+  "searchForAClient": "Rechercher un client",
+  "chooseAClient": "Choisir un client",
+  "chooseAVehicle": "Choisir un véhicule",
+  "driver": "Chauffeur",
+  "additionalDriver": "Conducteur secondaire",
+  "searchForAnAdditionalDriver": "Rechercher un conducteur secondaire",
+  "brand": "Marque",
+  "fuel": "Carburant",
+  "transmission": "Boîte de vitesses",
+  "dailyPrice": "Prix par jour",
+  "hourlyRate": "Prix par heure",
+  "contractTotal": "Prix total du contrat",
+  "amountDue": "Montant à payer",
+  "amountPaidNow": "Montant payé maintenant",
+  "additionalFees": "Frais supplémentaires",
+  "notes": "Notes",
+  "internalNotes": "Notes internes",
+  "existingDamageNote": "Note sur les dégâts existants",
+  "drivingLicenceNumber": "Numéro de permis",
+  "licenceExpiry": "Expiration du permis",
+  "status": "Statut",
+  "phoneOptional": "Téléphone (optionnel)",
+  "numberOfDriverHours": "Nombre d’heures chauffeur",
+  "todaySOperations": "Opérations du jour",
+  "unableToLoadTodaySOperations": "Impossible de charger les opérations du jour.",
+  "todaySPriorities": "À faire aujourd’hui",
+  "handleReturnsAndBlockedVehiclesFirst": "Traitez d’abord les retours et les véhicules bloqués.",
+  "pickupsToday": "Départs aujourd’hui",
+  "noPickupsScheduledToday": "Aucun départ prévu aujourd’hui.",
+  "returnsToday": "Retours aujourd’hui",
+  "noReturnsScheduledToday": "Aucun retour prévu aujourd’hui.",
+  "lateReturns": "Retours en retard",
+  "noLateReturns": "Aucun retour en retard.",
+  "amountsToCollect": "Montants à encaisser",
+  "noOutstandingAmounts": "Aucun montant en attente.",
+  "carsBlockedForMaintenance": "Véhicules bloqués en entretien",
+  "noCarsAreBlockedForMaintenance": "Aucun véhicule bloqué en entretien.",
+  "expiringDocuments": "Documents à échéance",
+  "noDocumentsNeedRenewal": "Aucun document à renouveler.",
+  "paid": "Réglé",
+  "blocked": "Bloqué",
+  "since": "Depuis",
+  "everythingIsInOrderToday": "Tout est en ordre pour aujourd’hui.",
+  "operationsToFollowUpToday": "opérations à suivre aujourd’hui.",
+  "globalSearch": "Recherche globale",
+  "collectedThisMonth": "Encaissé ce mois-ci",
+  "last7Days": "7 derniers jours",
+  "toHandle": "À traiter",
+  "paymentsToCollect": "Paiements à encaisser",
+  "maintenanceAndDocuments": "Entretien et documents",
+  "everythingIsInOrderNoLateReturnsOutstanding": "Tout est en ordre : aucun retard, aucun solde à encaisser et aucun document à renouveler.",
+  "yourAgency": "Votre agence",
+  "myAgency": "Mon agence",
+  "manageDriversTheirHourlyRateAndAvailability": "Gérer les chauffeurs, leur prix par heure et leur disponibilité.",
+  "askAboutYourAgencyOfflineTheModelStays": "Questions sur l’agence, hors ligne : le modèle reste sur le téléphone.",
+  "onlyToRenewOrAfterChangingDevices": "Seulement pour prolonger ou après un changement d’appareil.",
+  "pasteTheKeySuppliedByYourProviderHere": "Collez ici la clé fournie par votre fournisseur",
+  "requiresTheCurrentPINBeforeAnyChange": "Demande le code actuel avant tout changement.",
+  "generateANewCodeTheOldOneWill": "Générer un nouveau code. L’ancien sera annulé.",
+  "useFingerprintOrFaceRecognitionInsteadOfThe": "Utiliser l’empreinte ou le visage à la place du code.",
+  "noFingerprintIsRegisteredOnThisDevice": "Aucune empreinte enregistrée sur cet appareil.",
+  "backToDashboard": "Retour au tableau de bord",
+  "returnReminders": "Rappels de retour",
+  "scheduledReturnsLateVehiclesPayments": "Retours prévus, véhicules en retard, paiements",
+  "notifyBeforeTheDeadline": "Prévenir avant l'échéance",
+  "paymentReminders": "Rappels de paiement",
+  "whenABalanceRemainsDueAtTheDeadline": "Quand un solde reste dû à l’échéance.",
+  "licenceExpiry70b960": "Expiration de la licence",
+  "alertsAt307And1Days": "Alertes à 30, 7 et 1 jour.",
+  "quietHours": "Heures silencieuses",
+  "from": "De",
+  "to": "À",
+  "remindersAreWorking": "Les rappels fonctionnent",
+  "scheduledReminderS": "rappel(s) programmé(s)",
+  "remindersUnavailable": "Rappels indisponibles",
+  "notificationsBlockedByAndroid": "Notifications bloquées par Android",
+  "remindersMayBeDelayed": "Rappels possiblement en retard",
+  "biometricsNotConfirmedOptionNotEnabled": "Biométrie non confirmée. Option non activée.",
+  "newRecoveryCode": "Nouveau code de récupération",
+  "backupFailed": "Sauvegarde impossible :",
+  "restoreThisBackup": "Restaurer cette sauvegarde ?",
+  "backupRestoredRemindersWereRecreated": "Sauvegarde restaurée. Les rappels ont été recréés.",
+  "restoreFailed": "Restauration impossible :",
+  "deviceIDCopied": "ID de l'appareil copié !",
+  "statusd3b28a": "État",
+  "licensedTo": "Licencié à",
+  "expiresOn": "Expire le",
+  "thisDeviceID": "ID de cet appareil",
+  "busy": "Occupé",
+  "noDrivers": "Aucun chauffeur.",
+  "noDriversFound": "Aucun chauffeur trouvé.",
+  "changeTheSearchOrFilter": "Modifiez la recherche ou le filtre.",
+  "newDriver": "Nouveau chauffeur",
+  "deleteThisDriver": "Supprimer le chauffeur ?",
+  "deleteDriver": "Supprimer le chauffeur",
+  "identityAndDrivingLicence": "Identité et permis",
+  "youCanScanTheNationalIDOrDriving": "Vous pouvez scanner la CIN ou le permis.",
+  "contactAndRate": "Contact et tarif",
+  "availability": "Disponibilité",
+  "availabilityCalendar": "Disponibilités",
+  "availabilityCalendarb8c1ea": "Calendrier des disponibilités",
+  "today": "Aujourd’hui",
+  "previousWeek": "Semaine précédente",
+  "nextWeek": "Semaine suivante",
+  "quote": "Devis",
+  "maintenance799eec": "Entretien",
+  "newQuote": "Nouveau devis",
+  "startDate": "Date de départ",
+  "returnDate": "Date de retour",
+  "clientOptional": "Client (optionnel)",
+  "noClient": "Sans client",
+  "estimatedTotal": "Total estimé",
+  "saveQuote": "Enregistrer le devis",
+  "thisQuoteBlocksTheVehicleUntilItIs": "Ce devis bloque le véhicule jusqu’à sa conversion ou son annulation.",
+  "quoteSaved": "Devis enregistré.",
+  "savedQuotes": "Devis enregistrés",
+  "noSavedQuotes": "Aucun devis enregistré.",
+  "convertToContract": "Convertir en contrat",
+  "cancelReservation": "Annuler la réservation",
+  "reservationCancelled": "Réservation annulée.",
+  "thisVehicleIsAlreadyReservedForThisPeriod": "Ce véhicule est déjà réservé sur cette période.",
+  "thisVehicleIsUnavailableBecauseOfMaintenance": "Ce véhicule est indisponible pour entretien.",
+  "chooseAReturnDateAfterTheStartDate": "Choisissez une date de retour après la date de départ.",
+  "perHour": "par heure",
+  "importNationalID": "Importer CIN",
+  "importDrivingLicence": "Importer Permis",
+  "informationExtractedSuccessfully": "Informations extraites avec succès.",
+  "codeCopied": "Code copié.",
+  "importFromDevice": "Importer depuis l'appareil",
+  "clientNotFound": "Client introuvable.",
+  "thisClientMayHaveBeenDeleted": "Ce client a peut-être été supprimé.",
+  "vehicleNotFound": "Véhicule introuvable.",
+  "thisVehicleMayHaveBeenDeleted": "Ce véhicule a peut-être été supprimé.",
+  "contractNotFound": "Contrat introuvable.",
+  "thisContractMayHaveBeenDeleted": "Ce contrat a peut-être été supprimé.",
+  "nationalIDCard": "Carte d’identité (CIN)",
+  "drivingLicenceValidity": "Validité du permis",
+  "contactDetails": "Coordonnées",
+  "email": "E-mail",
+  "documents": "Documents",
+  "tapAnImageToEnlargeIt": "Touchez une image pour l’agrandir.",
+  "contractHistory": "Historique des contrats",
+  "historyIsUnavailableAtTheMoment": "Historique indisponible pour le moment.",
+  "notAdded": "Non ajouté",
+  "vehicleInformation": "Informations du véhicule",
+  "exteriorPhotosAndDamage": "Photos extérieures et dégâts",
+  "maintenanceAndLegalDocuments": "Entretien et documents légaux",
+  "rentalHistory": "Historique de location",
+  "addedOn": "Ajouté le",
+  "editedOn": "modifié le",
+  "features": "Caractéristiques",
+  "currentMileage": "Kilométrage actuel",
+  "insuranceExpiryDate": "Assurance : date d’expiration",
+  "technicalInspectionExpiryDate": "Visite technique : date d’expiration",
+  "roadTaxDueDate": "Vignette : date limite",
+  "oilChangeNextDate": "Vidange : prochaine date",
+  "oilChangeNextMileage": "Vidange : prochain kilométrage",
+  "beltChainNextDate": "Courroie / chaîne : prochaine date",
+  "beltChainNextMileage": "Courroie / chaîne : prochain kilométrage",
+  "model": "Modèle",
+  "registrationNumber": "Immatriculation",
+  "year": "Année",
+  "needsChecking": "À contrôler",
+  "lpg": "GPL",
+  "lastRateDay": "Dernier tarif / jour",
+  "noVehicleIsAvailable": "Aucun véhicule disponible.",
+  "addAVehicleOrCloseAnExistingContract": "Ajoutez un véhicule ou libérez un contrat existant.",
+  "clientMainDriver": "Client (conducteur principal)",
+  "mainDriver": "Conducteur principal",
+  "agencyDriver": "Chauffeur de l’agence",
+  "optional": "Optionnel",
+  "optionalBilledHourly": "Optionnel · facturé à l’heure",
+  "noDriver": "Sans chauffeur",
+  "none": "Aucun",
+  "rentalPeriod": "Période de location",
+  "start": "Début",
+  "pickup": "Départ",
+  "expectedReturn": "Retour prévu",
+  "actualReturn": "Retour réel",
+  "duration": "Durée",
+  "quickDuration": "Durée rapide",
+  "payment": "Paiement",
+  "noDeposit": "Aucun acompte",
+  "theAmountPaidExceedsTheTotal": "Le montant payé dépasse le total.",
+  "existingClient": "Client existant",
+  "findByScanningNationalID": "Retrouver par scan de CIN",
+  "selectAVehicle": "Sélectionnez un véhicule.",
+  "selectAMainDriver": "Sélectionnez un conducteur principal.",
+  "warnings": "Avertissements",
+  "doYouStillWantToContinue": "Souhaitez-vous quand même continuer ?",
+  "cancele326f7": "ANNULER",
+  "continue71e092": "CONTINUER",
+  "price": "Prix",
+  "alreadyPaid": "Déjà payé",
+  "pickupInspection": "État des lieux départ",
+  "pickupInspectiondc5650": "État des lieux de départ",
+  "returnInspection": "État des lieux de retour",
+  "unpaidBalance": "Solde impayé",
+  "rentalTracking": "Suivi de la location",
+  "signedContract": "Contrat signé",
+  "inspections": "États des lieux",
+  "pdfAndSignature": "PDF et signature",
+  "paymentHistory": "Historique des paiements",
+  "vehicleReturnDate": "Date de retour du véhicule",
+  "balanceDue": "Reste à payer :",
+  "enterTheAmountPaidByTheClient": "Saisissez le montant versé par le client.",
+  "theAmountIsRequired": "Le montant est requis.",
+  "invalidAmount": "Montant invalide.",
+  "noLATER": "NON, PLUS TARD",
+  "yesPAYALL": "OUI, PAYER TOUT",
+  "pickupReading": "Relevé au départ",
+  "vehicleReading": "Relevé du véhicule",
+  "photos": "Photos",
+  "requiredToValidateThePickup": "Obligatoire pour valider le départ.",
+  "theClientSignatureIsRequiredAtPickup": "La signature du client est requise au départ.",
+  "inspectionSaved": "État des lieux enregistré.",
+  "chooseFromPhone": "Choisir depuis le téléphone",
+  "imageFromDevice": "Image depuis l'appareil",
+  "noTextExtracted": "Aucun texte extrait.",
+  "noTextExtractedTryAnotherFile": "Aucun texte extrait. Essayez un autre fichier.",
+  "fieldsFilledFromTheDocument": "Champs remplis selon le document.",
+  "nationalIDNotRecognised": "CIN non reconnu.",
+  "unableToSaveTryAgain": "Impossible d’enregistrer. Réessayez.",
+  "signWithYourFingerInTheWhiteArea": "Signez avec votre doigt dans le cadre blanc.",
+  "signatureDrawingArea": "Zone de dessin de la signature",
+  "clearAndStartAgain": "Effacer et recommencer",
+  "signatureAndSignedPDFSaved": "Signature et PDF signés enregistrés.",
+  "signedPDFReceivedAndSaved": "PDF signé reçu et enregistré.",
+  "sendToClientForSignature": "Envoyer au client pour signature",
+  "importSignedPDF": "Importer le PDF signé",
+  "shareSignedPDF": "Partager le PDF signé",
+  "viewOriginalPDF": "Voir le PDF original",
+  "selectGGUFFile": "Sélectionner le fichier GGUF",
+  "forgetThisFile": "Oublier ce fichier",
+  "configureLocalModel": "Configurer le modèle local",
+  "send": "Envoyer",
+  "writtenWithTheLocalModel": "Rédigé avec le modèle local",
+  "currentPIN": "Code actuel",
+  "enterYourCurrentPINToContinue": "Entrez votre code actuel pour continuer.",
+  "confirmPIN": "Confirmez le code",
+  "enterTheSamePINASecondTime": "Saisissez le même code une seconde fois.",
+  "pinChanged": "Code PIN modifié.",
+  "forgotPINbeb8db": "Code oublié ?",
+  "accessRestoredChooseANewPIN": "Accès rétabli. Choisissez un nouveau code PIN.",
+  "licenceActivation": "Activation de la licence",
+  "addADriver": "Ajouter un chauffeur",
+  "addYourAgencyDriversSoTheyCanBe": "Ajoutez les chauffeurs de votre agence pour les proposer dans les contrats.",
+  "calculatedAutomaticallyYouCanEditItManually": "Calculé automatiquement, modifiable à la main.",
+  "missingFuelCleaningRepair": "Carburant manquant, nettoyage, réparation…",
+  "clientAndDrivers": "Client et conducteurs",
+  "copy": "Copier",
+  "copyID": "Copier l'ID",
+  "copyCode": "Copier le code",
+  "beltChain": "Courroie / chaîne",
+  "unlockWithFingerprint": "Déverrouiller par empreinte",
+  "clear": "Effacer",
+  "thisDeviceIdentifier": "Identifiant de cet appareil",
+  "licenceExpiringSoon": "Licence bientôt expirée",
+  "editClient": "Modifier le client",
+  "editVehicle": "Modifier le véhicule",
+  "optionalDescribeScratchesDentsOrMissingItems": "Optionnel. Décrivez rayures, chocs ou éléments manquants.",
+  "openSettings": "Ouvrir les paramètres",
+  "paymentPending": "Paiement en attente",
+  "payments": "Paiements",
+  "drivingLicence": "Permis",
+  "takePhoto": "Prendre la photo",
+  "preparing": "Préparation...",
+  "vehicleReturn": "Retour du véhicule",
+  "scanNationalIDe0c6e8": "Scanner le CIN",
+  "onlyAvailableDriversAreOfferedForANew": "Seuls les chauffeurs disponibles sont proposés dans un nouveau contrat.",
+  "trackingIsUnavailableAtTheMoment": "Suivi indisponible pour le moment.",
+  "deleteThisClienteb4aa3": "Supprimer ce client",
+  "deleteThisContract893d83": "Supprimer ce contrat",
+  "deleteThisVehicle01bd94": "Supprimer ce véhicule",
+  "deleteThisContractbe8a00": "Supprimer le contrat ?",
+  "typeAtLeast2Characters": "Tapez au moins 2 caractères...",
+  "validate": "Valider",
+  "viewContract": "Voir le contrat",
+  "viewVehicle": "Voir le véhicule",
+  "viewDrivers": "Voir les chauffeurs",
+  "viewClients": "Voir les clients",
+  "viewContracts": "Voir les contrats",
+  "viewVehicles": "Voir les véhicules",
+  "lateVehicle": "Véhicule en retard",
+  "lastRateDay205ab8": "dernier tarif / jour",
+  "notProvided": "Non renseigné",
+  "expiresToday": "Expire aujourd’hui",
+  "valid": "Valide",
+  "oilChange": "Vidange",
+  "insurance": "Assurance",
+  "technicalInspection": "Visite technique",
+  "roadTax": "Vignette",
+  "timingBeltChain": "Courroie / chaîne de distribution",
+  "thisFieldIsRequired": "Ce champ est requis.",
+  "invalidNumericValue": "Valeur numérique invalide.",
+  "theValueMustBePositive": "La valeur doit être positive.",
+  "theValueCannotBeNegative": "La valeur ne peut pas être négative.",
+  "minimum": "Minimum",
+  "maximum": "Maximum",
+  "phoneNumberIsRequired": "Le téléphone est requis.",
+  "phoneNumberMustContainDigitsOnly": "Le téléphone doit contenir uniquement des chiffres.",
+  "phoneNumberIsTooShort": "Numéro de téléphone trop court.",
+  "phoneNumberIsTooLong": "Numéro de téléphone trop long.",
+  "invalidEmailAddress": "Adresse email invalide.",
+  "invalidNationalIDLettersDigitsAndHyphenAllowed": "CIN invalide (caractères autorisés: lettres, chiffres, tiret).",
+  "firstNameIsRequired": "Le prénom est requis.",
+  "lastNameIsRequired": "Le nom est requis.",
+  "nationalIDIsRequired": "Le CIN est requis.",
+  "drivingLicenceNumberIsRequired": "Le numéro de permis est requis.",
+  "brandIsRequired": "La marque est requise.",
+  "invalidMileage": "Kilométrage invalide.",
+  "modelIsRequired": "Le modèle est requis.",
+  "registrationNumberIsRequired": "L’immatriculation est requise.",
+  "yearIsRequired": "L’année est requise.",
+  "invalidYear": "Année invalide.",
+  "licenceKeyIsRequired": "La clé de licence est requise.",
+  "theAmountExceedsTheBalance": "Le montant dépasse le reste",
+  "markAsBusy": "Marquer occupé",
+  "markAsAvailable": "Marquer disponible",
+  "editDriver": "Modifier le chauffeur",
+  "saving": "Enregistrement...",
+  "fieldRequired": "Champ requis.",
+  "drivingLicenceIsRequired": "Le permis est requis.",
+  "expectedFormat33345678": "Format attendu : 33/345678",
+  "invalidPrice": "Prix invalide.",
+  "noClientsSaved": "Aucun client enregistré.",
+  "addAClientWithOrWithoutScanningTheir": "Ajoutez un client, avec ou sans scan de ses documents.",
+  "nationalIDScanned": "CIN scannée",
+  "nationalIDMissing": "CIN manquante",
+  "drivingLicenceScanned": "Permis scanné",
+  "drivingLicenceMissing": "Permis manquant",
+  "all": "Tous",
+  "allContracts": "Tous les contrats",
+  "noVehiclesFound": "Aucun véhicule trouvé.",
+  "yourFleet": "Votre flotte",
+  "addAPhoto": "Ajouter une photo",
+  "changePhoto": "Modifier la photo",
+  "editVehicle10dfd7": "Modifier un véhicule",
+  "editClient58dfe3": "Modifier un client",
+  "create": "Créer",
+  "active": "En cours",
+  "completed": "Terminés",
+  "createANewContractToGetStarted": "Créez un nouveau contrat pour commencer.",
+  "returnCompleted": "Retour fait",
+  "contractToSign": "Contrat à signer",
+  "continueAndSign": "Continuer et signer",
+  "yourSignedRentalContract": "Votre contrat de location signé.",
+  "saveSignedPDF": "Enregistrer le PDF signé",
+  "signed": "Signé",
+  "toSign": "À signer",
+  "signedOnThisPhone": "Signé sur ce téléphone",
+  "pdfReadyAwaitingSignature": "PDF prêt • en attente de signature",
+  "received": "Reçu",
+  "front": "Avant",
+  "back1a55ee": "Arrière",
+  "left": "Gauche",
+  "right": "Droite",
+  "existingDamage": "Dégât existant",
+  "newDamage": "Nouveau dégât",
+  "inspectionPickup": "État des lieux · départ",
+  "inspectionReturn": "État des lieux · retour",
+  "saveInspection": "Enregistrer l’état des lieux",
+  "whatYouObserveBeforeHandingOverTheKeys": "Ce que vous constatez avant la remise des clés.",
+  "whatYouObserveAtReturn": "Ce que vous constatez au retour.",
+  "mileageAtPickup": "Kilométrage au départ",
+  "mileageAtReturn": "Kilométrage au retour",
+  "mileageIsRequired": "Kilométrage requis.",
+  "driven": "parcourus",
+  "existingDamagef545de": "Dégâts existants",
+  "newDamagefc6db9": "Nouveaux dégâts",
+  "notesOnNewDamage": "Notes sur les nouveaux dégâts",
+  "signatureAddedRedo": "Signature ajoutée · refaire",
+  "signatureForInspection": "Signature pour l’état des lieux",
+  "noModelLoaded": "Aucun modèle chargé",
+  "loading": "Chargement…",
+  "loadModel": "Charger le modèle",
+  "localQuickAnswersAddAGGUFModelTo": "Réponses rapides locales. Ajoutez un modèle GGUF pour discuter hors ligne.",
+  "iCouldNotReadTheDataTryAgain": "Je n’ai pas pu lire les données. Réessayez dans un instant.",
+  "enterYour": "Entrez votre code à",
+  "digitPIN": "chiffres",
+  "newPIN": "Nouveau code",
+  "createYourPIN": "Créez votre code",
+  "iNotedThisCode": "J’ai noté ce code",
+  "expiresSoon": "Expire bientôt",
+  "thisPlatformDoesNotSupportLocalReminders": "Cette plateforme ne gère pas les rappels locaux.",
+  "noRemindersWillAppearNeitherVehicleReturnsNor": "Aucun rappel ne s’affichera : ni retours de véhicules, ni paiements.",
+  "allowNotifications": "Autoriser les notifications",
+  "withoutTheAlarmsRemindersPermissionAndroidMayDelay": "Sans l’autorisation « Alarmes et rappels », Android peut retarder les rappels.",
+  "allowExactAlarms": "Autoriser les alarmes exactes",
+  "remindersMaySoundDuringTheNight": "Les rappels peuvent sonner la nuit.",
+  "quietHoursStart": "Début du silence",
+  "quietHoursEnd": "Fin du silence",
+  "confirmToEnableBiometricUnlocking": "Confirmez pour activer le déverrouillage biométrique",
+  "termsAreLockedCreateANewContractTo": "Conditions figées — créez un nouveau contrat pour les modifier.",
+  "driverSelected": "Conducteur sélectionné.",
+  "clientNotFoundInTheDatabase": "Client non trouvé dans la base.",
+  "dataExtractedVerifyItAndSelectTheClient": "Données extraites. Vérifiez et sélectionnez le client si besoin.",
+  "textExtractedButNationalIDFormatWasNot": "Texte extrait mais format CIN non reconnu. Vérifiez et complétez.",
+  "textExtractedButDrivingLicenceFormatWasNot": "Texte extrait mais format permis non reconnu. Vérifiez et complétez.",
+  "signWithYourFingerInTheWhiteArea6872ef": "Signez avec votre doigt dans le cadre blanc. Cette signature sera ajoutée au contrat que vous venez de lire et accepter.",
+  "message1DayBefore": "1 jour avant",
+  "immediately": "Immédiatement",
+  "after1MinuteInTheBackground": "Après 1 minute en arrière-plan",
+  "upToDate": "À jour",
+  "contractNoVehicleOrClient": "N° contrat, véhicule ou client",
+  "goodMorning": "Bonjour",
+  "goodEvening": "Bonsoir",
+  "paidfa02fd": "Payé",
+  "signedPDFImportedVerifiedByYou": "PDF signé importé • vérifié par vous",
+  "thePDFWillBePreparedWhenItIs": "Le PDF sera préparé à la première ouverture.",
+  "theClientMustUseAPDFAppSuch": "Le client doit utiliser une application PDF, comme Adobe Acrobat Reader (Remplir et signer). Envoyez le PDF par WhatsApp ou e-mail. Le client le signe et vous renvoie le fichier signé.",
+  "theFirstPreparedPDFIsKeptUnchangedCheck": "Le premier PDF préparé est conservé tel quel. Vérifiez les informations avant de continuer. Les paiements et la clôture restent disponibles.",
+  "theSignedPDFKeepsTheAmountsFromWhen": "Le PDF signé conserve les montants au moment de sa création. Consultez les paiements du contrat pour le solde actuel.",
+  "noRecoveryCodeHasBeenCreated": "Aucun code de récupération n'a été créé.",
+  "incorrectRecoveryCode": "Code de récupération incorrect.",
+  "thisCodeWasGeneratedForAnotherDevice": "Ce code a été généré pour un autre appareil.",
+  "thisCodeHasExpiredAskYourProviderFor": "Ce code a expiré. Demandez-en un nouveau au vendeur.",
+  "thisCodeHasAlreadyBeenUsedRequestA": "Ce code a déjà été utilisé. Demandez-en un nouveau.",
+  "thisCodeIsInvalidCheckWhatYouEntered": "Ce code n'est pas valide. Vérifiez la saisie.",
+  "unreadableCodeCopyTheEntireCodeAgain": "Code illisible. Recopiez-le en entier.",
+  "incorrectPIN": "Code incorrect.",
+  "unlockCarRentManager": "Déverrouillez CarRent Manager",
+  "chooseAModelFileEndingInGguf": "Choisissez un fichier modèle qui se termine par .gguf.",
+  "theFileCannotBeAccessed": "Le fichier n’est pas accessible.",
+  "modelFileCopiedIntoTheAppLoadIt": "Fichier modèle copié dans l’application. Chargez-le maintenant.",
+  "theModelIsReadyToUse": "Le modèle est prêt à être utilisé.",
+  "importAGGUFChatModelEachImportReplaces": "Importez un modèle conversationnel GGUF. Chaque import remplace le modèle actuellement chargé.",
+  "theModelIsStoredSeparatelyFromTheApp": "Le modèle reste séparé de l’APK. Les grands modèles demandent beaucoup d’espace et de RAM. Les questions et les données de l’agence restent sur ce téléphone.",
+  "modelLoaded": "Modèle chargé",
+  "selectAGgufFileDownloadedToYourPhone": "Sélectionnez un fichier .gguf téléchargé sur le téléphone.",
+  "helloISearchThisAgencySDataDirectly": "Bonjour. Je cherche dans les données de cette agence, directement sur ce téléphone.",
+  "availableVehicles": "Véhicules disponibles",
+  "overdueContracts": "Contrats en retard",
+  "outstandingPayments": "Paiements en attente",
+  "maintenanceAlerts": "Alertes entretien",
+  "eGWhichContractsAreOverdue": "Ex. Quels contrats sont en retard ?",
+  "theLocalModel": "Le modèle local",
+  "anErrorOccurred9a1331": "Une erreur est survenue.",
+  "cameraUnavailableChooseAFileInstead": "Caméra non disponible. Sélection depuis les fichiers.",
+  "imagePDFOrWordFile": "Fichier image, PDF ou Word",
+  "noTextExtractedTryAClearerImageOr": "Aucun texte extrait. Essayez une image plus nette ou un autre fichier.",
+  "unableToSaveTheClient": "Impossible d’enregistrer le client",
+  "thisClientHasNoContractsYet": "Ce client n’a pas encore de contrat.",
+  "noClientsFound": "Aucun client trouvé.",
+  "checkTheSpellingOrTryTheNationalID": "Vérifiez l’orthographe ou essayez le numéro de CIN.",
+  "somePermissionsAreStillDeniedOpenThisApp": "Certaines autorisations sont encore refusées. Ouvrez les réglages Android de l'application.",
+  "noReturnOrPaymentRemindersWillAppearAllow": "Aucun rappel ne s’affichera : ni retours de véhicules, ni paiements. Autorisez les notifications pour cette application.",
+  "withoutTheAlarmsAndRemindersPermissionAndroidMay": "Sans l’autorisation « Alarmes et rappels », Android peut retarder un rappel de 14h37 jusqu’au prochain réveil du téléphone.",
+  "noPendingRemindersThereAreNoUpcomingActive": "Aucun rappel en attente : aucun contrat en cours à venir.",
+  "notificationsAreBlockedForThisAppEnableThem": "Les notifications sont bloquées pour cette application. Activez-les dans les réglages Android.",
+  "aNewCodeWillBeGeneratedAndShown": "Un nouveau code sera généré et affiché une seule fois. Votre code actuel cessera immédiatement de fonctionner.\n\nContinuer ?",
+  "askForThePINAgainAfterEachDocument": "Redemande le code après chaque scan de document.",
+  "carrentBackup": "Sauvegarde CarRent",
+  "carrentManagerBackup": "Sauvegarde CarRent Manager",
+  "backupCreatedSaveTheZIPFileSomewhereSafe": "Sauvegarde créée. Enregistrez le fichier ZIP dans un endroit sûr.",
+  "theAppSCurrentDataAndDocumentsWill": "Les données et documents actuels de cette application seront remplacés. Le code PIN et la licence de ce téléphone resteront en place.",
+  "aZIPFileContainingYourDataAndDocuments": "Un fichier ZIP avec les données et les documents. Gardez-le hors du téléphone.",
+  "replaceCurrentDataWithTheDataInA": "Remplace les données actuelles par celles du fichier ZIP.",
+  "licenceKeyIsRequired853b1e": "La clé de licence est requise.",
+  "noValidLicenceOnThisDevice": "Aucune licence valide sur cet appareil.",
+  "licenceActivatedSuccessfully": "Licence activée avec succès.",
+  "enterYourLicenceKeyToActivateCarRentManager": "Entrez votre clé de licence pour activer CarRent Manager.",
+  "deviceIDRequiredForTheLicence": "ID DE CET APPAREIL (Obligatoire pour la licence):",
+  "licenceKey": "Code de licence / License Key",
+  "pasteYourBase64LicenceKeyHere": "Collez ici votre code de licence Base64...",
+  "validating": "Validation en cours...",
+  "validateLicence": "Valider la licence",
+  "noVehicles": "Aucun véhicule.",
+  "addAVehicleToPlanReservations": "Ajoutez un véhicule pour planifier les réservations.",
+  "editContract": "Modifier le contrat",
+  "completeBeforeHandingOverTheKeys": "À faire avant la remise des clés.",
+  "signedPDFSaved": "PDF signé enregistré.",
+  "toBeSignedByTheClientSeeBelow": "À signer par le client (voir plus bas).",
+  "contractPaidInFull": "Contrat entièrement payé.",
+  "viewOrRedo": "Voir ou refaire",
+  "noPaymentsRecordedForThisContract": "Aucun paiement enregistré pour ce contrat.",
+  "selectAnAdditionalDriverOrTurnOffThe": "Sélectionnez un conducteur secondaire, ou désactivez l’option.",
+  "theTotalPriceMustBeGreaterThan0": "Le prix total doit être supérieur à 0.",
+  "saveChanges": "Enregistrer les modifications",
+  "toRecordAPaymentUseAddAPayment": "Pour enregistrer un versement, utilisez « Ajouter un paiement » sur la fiche du contrat.",
+  "iHaveReadTheContractAndAcceptIts": "J’ai lu le contrat et accepté ses conditions.",
+  "signatureIsEmpty": "Signature vide.",
+  "confirmMySignature": "Valider ma signature",
+  "clientAndDetailsFilledFromTheDocument": "Client et données remplis à partir du document.",
+  "lastNameFirstNameNationalIDAndLicence": "Nom, Prénom, CIN et Permis sont requis pour le conducteur principal.",
+  "lastNameFirstNameNationalIDAndLicence40cf2a": "Nom, Prénom, CIN et Permis sont requis pour le conducteur secondaire.",
+  "theMainAndAdditionalDriversAreTheSame": "Le conducteur principal et secondaire sont identiques.",
+  "paidInFull": "Entièrement payé",
+  "noContractsFound": "Aucun contrat trouvé.",
+  "noOverdueReturns": "Aucun retard.",
+  "noCompletedContracts": "Aucun contrat terminé.",
+  "noActiveRentals": "Aucune location en cours.",
+  "noContracts": "Aucun contrat.",
+  "tryAnotherNameVehicleOrNumber": "Essayez un autre nom, véhicule ou numéro.",
+  "allVehiclesWereReturnedOnTime": "Tous les véhicules sont rentrés à l’heure.",
+  "notesOnExistingDamage": "Notes sur les dégâts existants",
+  "getTheClientSSignature": "Faire signer le client",
+  "unableToLoadDocuments": "Impossible de charger les documents.",
+  "readTheContract": "Lire le contrat",
+  "pleaseReadThisContractSignItWithA": "Merci de lire ce contrat, de le signer avec une application PDF comme Adobe Acrobat Reader (Remplir et signer), puis de nous renvoyer le PDF signé.",
+  "pdfTooLargeMaximum30MB": "PDF trop volumineux (maximum 30 Mo).",
+  "fileInaccessibleSaveItOnThePhone": "Fichier inaccessible. Enregistrez-le sur le téléphone.",
+  "checkReceivedPDF": "Vérifier le PDF reçu",
+  "iHaveCheckedTheClientDatesAmountTerms": "J’ai vérifié le client, les dates, le montant, les conditions et la signature. L’application ne vérifie pas automatiquement l’identité du signataire.",
+  "avoidAPINMadeOfTheSameDigit": "Évitez un code composé du même chiffre.",
+  "avoidConsecutiveDigits": "Évitez une suite de chiffres consécutifs.",
+  "currentPINIsIncorrect": "Code actuel incorrect.",
+  "theTwoPINsDoNotMatchTryAgain": "Les deux codes ne correspondent pas. Recommencez.",
+  "appLocked": "Application verrouillée",
+  "pasteTheCodeSuppliedByYourProvider": "Collez le code fourni par votre vendeur.",
+  "invalidCode": "Code invalide.",
+  "yourDataWillNotBeDeletedOnlyThe": "Vos données ne seront pas effacées. Seul le code PIN est réinitialisé.",
+  "iHaveMyRecoveryCode": "J'ai mon code de récupération",
+  "iLostMyRecoveryCode": "J'ai perdu mon code de récupération",
+  "contactYourProviderAndGiveThemTheID": "Contactez votre vendeur et communiquez-lui l'identifiant ci-dessous. Il vous transmettra un code de déblocage valable 24 heures.",
+  "idCopied": "Identifiant copié.",
+  "providerUnlockCode": "Code de déblocage du vendeur",
+  "pasteTheReceivedCodeHere": "Collez ici le code reçu",
+  "noPhoto": "Aucune photo",
+  "message1ItemNeedsAttention": "1 point à traiter",
+  "mileage": "Kilométrage",
+  "transmissioncbe91c": "Boîte",
+  "frontRearSidesAndExistingDamage": "Avant, arrière, côtés et dégâts existants.",
+  "thisVehicleHasNotBeenRentedYet": "Ce véhicule n’a pas encore été loué.",
+  "noVehiclesSaved": "Aucun véhicule enregistré.",
+  "addYourFirstVehicleToCreateContracts": "Ajoutez votre premier véhicule pour créer des contrats.",
+  "notProvidedd6a3c5": "Non renseignée",
+  "busy9fadb4": "Occupés",
+  "detailsFilledFromTheDocumentCheckThemBefore": "Informations remplies depuis le document. Vérifiez-les avant d’enregistrer.",
+  "unableToReadTheDocumentEnterTheDetails": "Lecture du document impossible. Saisissez les informations manuellement.",
+  "madH": "MAD / h",
+  "theVehicleWillBecomeAvailableAgain": "Le véhicule redeviendra disponible.",
+  "anyPDFPreparedForThisContractWillBe": "Le document PDF préparé pour ce contrat, s'il existe, sera perdu.",
+  "completed3bc597": "Terminé",
+  "noCameraAvailable": "Aucune caméra disponible.",
+  "cameraCapture": "Capture Caméra",
+  "unableToOpenThisImage": "Impossible d'ouvrir cette image.",
+  "writeThisCodeDownAndKeepItSomewhere": "Notez ce code et rangez-le en lieu sûr. C'est le seul moyen de récupérer vos données si vous oubliez votre code PIN.",
+  "itWillNeverBeShownAgain": "Il ne vous sera plus jamais affiché.",
+  "unableToCompleteThisActionTryAgain": "Impossible de terminer cette opération. Réessayez.",
+  "continueAction": "Continuer",
+  "retryAfter": "Trop de tentatives. Réessayez dans {p0}.",
+  "@retryAfter": {
+    "description": "Parameterized interface message. Values are provided by the presentation layer.",
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "vehicleNumber": "Véhicule #{p0}",
+  "@vehicleNumber": {
+    "description": "Parameterized interface message. Values are provided by the presentation layer.",
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "clientNumber": "Client #{p0}",
+  "@clientNumber": {
+    "description": "Parameterized interface message. Values are provided by the presentation layer.",
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "modelActive": "{p0} est actif. Les données affichées restent celles de l’agence.",
+  "@modelActive": {
+    "description": "Parameterized interface message. Values are provided by the presentation layer.",
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "copiedValue": "{p0} copié.",
+  "@copiedValue": {
+    "description": "Parameterized interface message. Values are provided by the presentation layer.",
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "nationalIdValue": "CIN {p0}",
+  "@nationalIdValue": {
+    "description": "Parameterized interface message. Values are provided by the presentation layer.",
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "licenceStatus": "Permis · {p0}",
+  "@licenceStatus": {
+    "description": "Parameterized interface message. Values are provided by the presentation layer.",
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "otherContracts": "+ {p0} autre(s) contrat(s)",
+  "@otherContracts": {
+    "description": "Parameterized interface message. Values are provided by the presentation layer.",
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "enlargeImage": "Agrandir {p0}",
+  "@enlargeImage": {
+    "description": "Parameterized interface message. Values are provided by the presentation layer.",
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "scheduledReminderCount": "{p0} rappel(s) programmé(s).",
+  "@scheduledReminderCount": {
+    "description": "Parameterized interface message. Values are provided by the presentation layer.",
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "leadHours": "{p0} heure(s) avant",
+  "@leadHours": {
+    "description": "Parameterized interface message. Values are provided by the presentation layer.",
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "leadMinutes": "{p0} minutes avant",
+  "@leadMinutes": {
+    "description": "Parameterized interface message. Values are provided by the presentation layer.",
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "quietHoursSummary": "De {p0} à {p1} : reporté au matin.",
+  "@quietHoursSummary": {
+    "description": "Parameterized interface message. Values are provided by the presentation layer.",
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      },
+      "p1": {
+        "type": "String"
+      }
+    }
+  },
+  "lockDelayMinutes": "Après {p0} minutes en arrière-plan",
+  "@lockDelayMinutes": {
+    "description": "Parameterized interface message. Values are provided by the presentation layer.",
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "balanceDueAmount": "Reste à payer : {p0}",
+  "@balanceDueAmount": {
+    "description": "Parameterized interface message. Values are provided by the presentation layer.",
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "payBeforeClosing": "Il reste {p0} à payer. Voulez-vous enregistrer ce paiement avant la clôture ?",
+  "@payBeforeClosing": {
+    "description": "Parameterized interface message. Values are provided by the presentation layer.",
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "returnWasDue": "Le retour était prévu le {p0}.",
+  "@returnWasDue": {
+    "description": "Parameterized interface message. Values are provided by the presentation layer.",
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "completedContractBalance": "Il reste {p0} à encaisser sur ce contrat terminé.",
+  "@completedContractBalance": {
+    "description": "Parameterized interface message. Values are provided by the presentation layer.",
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "completedOn": "Fait le {p0}",
+  "@completedOn": {
+    "description": "Parameterized interface message. Values are provided by the presentation layer.",
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "balanceToCollect": "Reste {p0} à encaisser.",
+  "@balanceToCollect": {
+    "description": "Parameterized interface message. Values are provided by the presentation layer.",
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "rentalDays": "{p0} jour(s)",
+  "@rentalDays": {
+    "description": "Parameterized interface message. Values are provided by the presentation layer.",
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "driverNumber": "Chauffeur #{p0}",
+  "@driverNumber": {
+    "description": "Parameterized interface message. Values are provided by the presentation layer.",
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "paymentCount": "{p0} versement(s)",
+  "@paymentCount": {
+    "description": "Parameterized interface message. Values are provided by the presentation layer.",
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "editRecord": "Modifier {p0}",
+  "@editRecord": {
+    "description": "Parameterized interface message. Values are provided by the presentation layer.",
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "durationDays": "Durée : {p0} jour(s)",
+  "@durationDays": {
+    "description": "Parameterized interface message. Values are provided by the presentation layer.",
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "mainLicenceExpired": "Le permis du conducteur principal est expiré ({p0}).",
+  "@mainLicenceExpired": {
+    "description": "Parameterized interface message. Values are provided by the presentation layer.",
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "additionalLicenceExpired": "Le permis du conducteur secondaire est expiré ({p0}).",
+  "@additionalLicenceExpired": {
+    "description": "Parameterized interface message. Values are provided by the presentation layer.",
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "totalAmount": "Total {p0}",
+  "@totalAmount": {
+    "description": "Parameterized interface message. Values are provided by the presentation layer.",
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "availableCount": "{p0} disponible(s)",
+  "@availableCount": {
+    "description": "Parameterized interface message. Values are provided by the presentation layer.",
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "departureReading": "{p0} · carburant {p1} % · {p2}",
+  "@departureReading": {
+    "description": "Parameterized interface message. Values are provided by the presentation layer.",
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      },
+      "p1": {
+        "type": "String"
+      },
+      "p2": {
+        "type": "String"
+      }
+    }
+  },
+  "distanceTravelled": "{p0} parcourus",
+  "@distanceTravelled": {
+    "description": "Parameterized interface message. Values are provided by the presentation layer.",
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "photosTaken": "{p0}/{p1} prises · touchez une case pour photographier.",
+  "@photosTaken": {
+    "description": "Parameterized interface message. Values are provided by the presentation layer.",
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      },
+      "p1": {
+        "type": "String"
+      }
+    }
+  },
+  "choosePinDigits": "Choisissez un code à {p0} chiffres. Il protège vos clients, contrats et documents sur cet appareil.",
+  "@choosePinDigits": {
+    "description": "Parameterized interface message. Values are provided by the presentation layer.",
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "enterPinDigits": "Entrez votre code à {p0} chiffres",
+  "@enterPinDigits": {
+    "description": "Parameterized interface message. Values are provided by the presentation layer.",
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "recoveryCodeDigits": "Le code de récupération compte {p0} chiffres.",
+  "@recoveryCodeDigits": {
+    "description": "Parameterized interface message. Values are provided by the presentation layer.",
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "recoveryCodeHint": "Les {p0} chiffres affichés lors de la création de votre code PIN.",
+  "@recoveryCodeHint": {
+    "description": "Parameterized interface message. Values are provided by the presentation layer.",
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "seeCount": "Voir les {p0}",
+  "@seeCount": {
+    "description": "Parameterized interface message. Values are provided by the presentation layer.",
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "vehicleYear": "Année {p0}",
+  "@vehicleYear": {
+    "description": "Parameterized interface message. Values are provided by the presentation layer.",
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "attentionCount": "{p0} points à traiter",
+  "@attentionCount": {
+    "description": "Parameterized interface message. Values are provided by the presentation layer.",
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "monitorCount": "{p0} point(s) à surveiller",
+  "@monitorCount": {
+    "description": "Parameterized interface message. Values are provided by the presentation layer.",
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "recordDates": "Ajouté le {p0} · modifié le {p1}",
+  "@recordDates": {
+    "description": "Parameterized interface message. Values are provided by the presentation layer.",
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      },
+      "p1": {
+        "type": "String"
+      }
+    }
+  },
+  "fleetSummary": "{p0} véhicule(s) · {p2} disponible(s)",
+  "@fleetSummary": {
+    "description": "Parameterized interface message. Values are provided by the presentation layer.",
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      },
+      "p2": {
+        "type": "String"
+      }
+    }
+  },
+  "removeDriverConfirmation": "{p0} sera retiré de la liste des chauffeurs. Les contrats existants ne sont pas modifiés.",
+  "@removeDriverConfirmation": {
+    "description": "Parameterized interface message. Values are provided by the presentation layer.",
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "deletePaymentsConfirmation": "Les {p0} de paiements enregistrés seront supprimés.",
+  "@deletePaymentsConfirmation": {
+    "description": "Parameterized interface message. Values are provided by the presentation layer.",
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "deleteContractConfirmation": "Le contrat n° {p0} sera supprimé définitivement. Cette action est irréversible.",
+  "@deleteContractConfirmation": {
+    "description": "Parameterized interface message. Values are provided by the presentation layer.",
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "searchStatus": "Status: {p0}",
+  "@searchStatus": {
+    "description": "Parameterized interface message. Values are provided by the presentation layer.",
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "missingImage": "Image introuvable : {p0}",
+  "@missingImage": {
+    "description": "Parameterized interface message. Values are provided by the presentation layer.",
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "dayShort": "{p0} j",
+  "@dayShort": {
+    "description": "Parameterized interface message. Values are provided by the presentation layer.",
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "hourlyDriverCost": "{p0} h × {p1}",
+  "@hourlyDriverCost": {
+    "description": "Parameterized interface message. Values are provided by the presentation layer.",
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      },
+      "p1": {
+        "type": "String"
+      }
+    }
+  },
+  "rentalDateRange": "{p0} → {p1} · {p2} j",
+  "@rentalDateRange": {
+    "description": "Parameterized interface message. Values are provided by the presentation layer.",
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      },
+      "p1": {
+        "type": "String"
+      },
+      "p2": {
+        "type": "String"
+      }
+    }
+  },
+  "balanceAmount": "Reste {p0}",
+  "remainingBalance": "Reste à payer",
+  "@balanceAmount": {
+    "description": "Parameterized interface message. Values are provided by the presentation layer.",
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "remainingDayCount": "{p0} j restants",
+  "daysRemaining": "j restants",
+  "@remainingDayCount": {
+    "description": "Parameterized interface message. Values are provided by the presentation layer.",
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "assistantWriteQuestion": "Écrivez votre question.",
+  "assistantNoAvailableCars": "Aucun véhicule disponible actuellement.",
+  "assistantNoCars": "Aucun véhicule enregistré pour le moment.",
+  "assistantNoClients": "Aucun client enregistré pour le moment.",
+  "assistantNoDrivers": "Aucun chauffeur enregistré pour le moment.",
+  "assistantNoLate": "Aucun contrat actif en retard.",
+  "assistantNoBalance": "Aucun solde restant sur les contrats actifs.",
+  "assistantNoDeadline": "Aucune échéance correspondante n’est renseignée ou proche.",
+  "assistantBackupHelp": "Ouvrez Paramètres, puis Sauvegarde et restauration. La sauvegarde crée un ZIP avec les données et documents.",
+  "assistantInspectionHelp": "Ouvrez le contrat concerné. Vous pouvez remplir l’état des lieux de départ ou de retour avec kilométrage, carburant, photos et dégâts.",
+  "assistantHelp": "Je peux aider avec les véhicules disponibles, contrats en retard, paiements en attente, alertes d’entretien, sauvegardes et états des lieux.",
+  "assistantPendingSignature": "Signature client : en attente",
+  "assistantSavedSignature": "Signature client : enregistrée",
+  "assistantUnknown": "inconnu",
+  "assistantMore": " et {p0} autre(s).",
+  "@assistantMore": {
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "assistantFleet": "{p0} véhicule(s) {p1} : {p2}{p3}",
+  "@assistantFleet": {
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      },
+      "p1": {
+        "type": "String"
+      },
+      "p2": {
+        "type": "String"
+      },
+      "p3": {
+        "type": "String"
+      }
+    }
+  },
+  "assistantAvailable": "disponible(s)",
+  "assistantRecorded": "enregistré(s)",
+  "assistantClientList": "{p0} client(s) enregistré(s) : {p1}{p2}",
+  "@assistantClientList": {
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      },
+      "p1": {
+        "type": "String"
+      },
+      "p2": {
+        "type": "String"
+      }
+    }
+  },
+  "assistantDriverList": "{p0} chauffeur(s) enregistré(s) : {p1}{p2}",
+  "@assistantDriverList": {
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      },
+      "p1": {
+        "type": "String"
+      },
+      "p2": {
+        "type": "String"
+      }
+    }
+  },
+  "assistantLateList": "{p0} contrat(s) en retard : {p1}",
+  "@assistantLateList": {
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      },
+      "p1": {
+        "type": "String"
+      }
+    }
+  },
+  "assistantPaymentList": "{p0} paiement(s) en attente, pour {p1} MAD : {p2}",
+  "@assistantPaymentList": {
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      },
+      "p1": {
+        "type": "String"
+      },
+      "p2": {
+        "type": "String"
+      }
+    }
+  },
+  "assistantVehicle": "Véhicule : {p0}",
+  "@assistantVehicle": {
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "assistantClient": "Client : {p0}",
+  "@assistantClient": {
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "assistantStatus": "Statut : {p0}",
+  "@assistantStatus": {
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "assistantDeparture": "Départ : {p0}",
+  "@assistantDeparture": {
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "assistantReturn": "Retour prévu : {p0}",
+  "@assistantReturn": {
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "assistantTotal": "Total : {p0} MAD",
+  "@assistantTotal": {
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "assistantPaid": "Payé : {p0} MAD",
+  "@assistantPaid": {
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "assistantBalance": "Reste : {p0} MAD",
+  "@assistantBalance": {
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "assistantDriver": "Chauffeur : {p0}",
+  "@assistantDriver": {
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "assistantPayments": "Paiements enregistrés : {p0}",
+  "@assistantPayments": {
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "assistantInspections": "États des lieux : {p0}",
+  "@assistantInspections": {
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "assistantId": "CIN : {p0}",
+  "@assistantId": {
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "assistantLicence": "Permis : {p0}",
+  "@assistantLicence": {
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "assistantPhone": "Téléphone : {p0}",
+  "@assistantPhone": {
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "assistantEmail": "Email : {p0}",
+  "@assistantEmail": {
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "assistantContracts": "Contrats : {p0}, dont {p1} actif(s).",
+  "@assistantContracts": {
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      },
+      "p1": {
+        "type": "String"
+      }
+    }
+  },
+  "assistantDriverDetails": "{p0}\nCIN : {p1}\nPermis : {p2}\nTéléphone : {p3}\nStatut : {p4}\nPrix : {p5} MAD/heure\nContrats liés : {p6}",
+  "@assistantDriverDetails": {
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      },
+      "p1": {
+        "type": "String"
+      },
+      "p2": {
+        "type": "String"
+      },
+      "p3": {
+        "type": "String"
+      },
+      "p4": {
+        "type": "String"
+      },
+      "p5": {
+        "type": "String"
+      },
+      "p6": {
+        "type": "String"
+      }
+    }
+  },
+  "assistantVehicleNoContract": "{p0} n’a pas de contrat actif.",
+  "@assistantVehicleNoContract": {
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "assistantVehicleRental": "{p0} est loué avec le contrat {p1}. Retour prévu : {p2}. Reste à encaisser : {p3} MAD. Client : {p4}.",
+  "@assistantVehicleRental": {
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      },
+      "p1": {
+        "type": "String"
+      },
+      "p2": {
+        "type": "String"
+      },
+      "p3": {
+        "type": "String"
+      },
+      "p4": {
+        "type": "String"
+      }
+    }
+  },
+  "assistantVehicleNoDeadline": "{p0} : aucune échéance proche renseignée.",
+  "@assistantVehicleNoDeadline": {
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "assistantYear": "Année : {p0}",
+  "@assistantYear": {
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "assistantMileage": "Kilométrage : {p0} km",
+  "@assistantMileage": {
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "assistantFuel": "Carburant : {p0}",
+  "@assistantFuel": {
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "assistantGearbox": "Boîte : {p0}",
+  "@assistantGearbox": {
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "assistantFuelLevel": "Niveau carburant : {p0}%",
+  "@assistantFuelLevel": {
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "assistantCondition": "État : {p0}",
+  "@assistantCondition": {
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "assistantInsurance": "Assurance : {p0}",
+  "@assistantInsurance": {
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "assistantInspection": "Visite technique : {p0}",
+  "@assistantInspection": {
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "assistantTax": "Vignette : {p0}",
+  "@assistantTax": {
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "assistantWarning": "{p0} — {p1} {p2}",
+  "@assistantWarning": {
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      },
+      "p1": {
+        "type": "String"
+      },
+      "p2": {
+        "type": "String"
+      }
+    }
+  },
+  "assistantLateDays": "en retard de {p0} j",
+  "@assistantLateDays": {
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "assistantInDays": "dans {p0} j",
+  "@assistantInDays": {
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "overdueHours": "En retard de {p0} h",
+  "@overdueHours": {
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "overdueDays": "En retard de {p0} j",
+  "@overdueDays": {
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "expiredDays": "Expiré depuis {p0} j",
+  "@expiredDays": {
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "expiresInDays": "Expire dans {p0} j",
+  "@expiresInDays": {
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "returnTodayAt": "Retour aujourd’hui à {p0}",
+  "@returnTodayAt": {
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "returnTomorrowAt": "Retour demain à {p0}",
+  "@returnTomorrowAt": {
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "returnInDays": "Retour dans {p0} j",
+  "@returnInDays": {
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "returnedOn": "Rendu le {p0}",
+  "@returnedOn": {
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "unpaidAmount": "Non payé · {p0}",
+  "@unpaidAmount": {
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "fleetCount": "{p0} véhicule(s) · {p1} disponible(s)",
+  "@fleetCount": {
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      },
+      "p1": {
+        "type": "String"
+      }
+    }
+  },
+  "signedOnDate": "Signé le {p0}",
+  "@signedOnDate": {
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "receivedOnDate": "Reçu le {p0}",
+  "@receivedOnDate": {
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "overdueDistance": "Dépassée de {p0}",
+  "@overdueDistance": {
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "inDistance": "Dans {p0}",
+  "@inDistance": {
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "pinAttempts": "Code incorrect. {p0} essai(s) restant(s).",
+  "@pinAttempts": {
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "secondsUnit": "{p0} s",
+  "@secondsUnit": {
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  },
+  "minutesUnit": "{p0} min",
+  "@minutesUnit": {
+    "placeholders": {
+      "p0": {
+        "type": "String"
+      }
+    }
+  }
+}

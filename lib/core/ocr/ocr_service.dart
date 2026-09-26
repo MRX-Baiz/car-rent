@@ -51,6 +51,7 @@ class OcrService {
   }
 
   Future<void> dispose() => _reader.dispose();
+
   /// Extracts text from any supported file (image, PDF, Word).
   /// [filePath] must be a local path. Throws on unsupported type.
   Future<String> extractText(String filePath) async {
@@ -115,7 +116,11 @@ class OcrService {
   /// Returns a [ClientModel] with filled fields where detected; null if nothing useful.
   Future<ClientModel?> extractCINData(String ocrText) async {
     if (ocrText.trim().isEmpty) return null;
-    final lines = ocrText.split(RegExp(r'\n')).map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
+    final lines = ocrText
+        .split(RegExp(r'\n'))
+        .map((s) => s.trim())
+        .where((s) => s.isNotEmpty)
+        .toList();
     String? firstName;
     String? lastName;
     String? cin;
@@ -127,14 +132,16 @@ class OcrService {
       if (cinMatch != null && cin == null) cin = cinMatch.group(1);
 
       // Name: often "Nom / Name" or first two words
-      if (line.toLowerCase().contains('nom') || line.toLowerCase().contains('name')) {
+      if (line.toLowerCase().contains('nom') ||
+          line.toLowerCase().contains('name')) {
         final parts = line.split(RegExp(r'[\s:]+'));
         if (parts.length >= 2) {
           lastName = parts.last;
           if (parts.length >= 3) firstName = parts[parts.length - 2];
         }
       }
-      if (line.toLowerCase().contains('adresse') || line.toLowerCase().contains('address')) {
+      if (line.toLowerCase().contains('adresse') ||
+          line.toLowerCase().contains('address')) {
         final idx = line.indexOf(RegExp(r'[:\s]'));
         address = idx >= 0 ? line.substring(idx + 1).trim() : line;
       }
@@ -163,13 +170,19 @@ class OcrService {
     final result = <String, String>{};
     if (ocrText.trim().isEmpty) return result;
 
-    final lines = ocrText.split(RegExp(r'\n')).map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
+    final lines = ocrText
+        .split(RegExp(r'\n'))
+        .map((s) => s.trim())
+        .where((s) => s.isNotEmpty)
+        .toList();
     for (final line in lines) {
-      if (line.toLowerCase().contains('permis') || line.toLowerCase().contains('license')) {
+      if (line.toLowerCase().contains('permis') ||
+          line.toLowerCase().contains('license')) {
         final numMatch = RegExp(r'[\dA-Z]{5,15}').firstMatch(line);
         if (numMatch != null) result['license_number'] = numMatch.group(0)!;
       }
-      if (line.toLowerCase().contains('nom') || line.toLowerCase().contains('name')) {
+      if (line.toLowerCase().contains('nom') ||
+          line.toLowerCase().contains('name')) {
         final parts = line.split(RegExp(r'[\s:]+'));
         if (parts.length >= 2) {
           result['last_name'] = parts.last;
@@ -177,7 +190,10 @@ class OcrService {
         }
       }
       if (line.contains(RegExp(r'[A-B]\d?'))) {
-        result['categories'] = RegExp(r'[A-B]\d?').allMatches(line).map((m) => m.group(0)!).join(', ');
+        result['categories'] = RegExp(r'[A-B]\d?')
+            .allMatches(line)
+            .map((m) => m.group(0)!)
+            .join(', ');
       }
     }
     return result;
@@ -216,13 +232,14 @@ class OcrService {
 
     // 2. Extract dates (ex: 01/01/1990 or 01-01-1990 or 01.01.1990)
     final dateRegex = RegExp(r'\b\d{2}[\/\-.]\d{2}[\/\-.]\d{4}\b');
-    final dateMatches = dateRegex.allMatches(text).map((m) => m.group(0)!).toList();
-    
+    final dateMatches =
+        dateRegex.allMatches(text).map((m) => m.group(0)!).toList();
+
     if (dateMatches.isNotEmpty) {
       // Heuristic: On a CIN, the first date is usually birthDate, second is expiryDate
       result['birthDate'] = dateMatches[0];
       if (dateMatches.length >= 2) {
-        // Expiry date is usually the later one if they are both in the future/past mix, 
+        // Expiry date is usually the later one if they are both in the future/past mix,
         // but on CIN it's simply the second one found.
         result['expiryDate'] = dateMatches[1];
       }
@@ -230,15 +247,32 @@ class OcrService {
 
     // 3. Lines to skip (not names)
     final skipKeywords = [
-      'ROYAUME', 'MAROC', 'CARTE', 'NATIONALE', 'IDENTITE',
-      'IDENTITY', 'NATIONAL', 'CARD', 'VALABLE', 'VALID',
-      'EXPIRE', 'DATE', 'LIEU', 'PLACE', 'BORN', 'NÉ',
-      'المملكة', 'المغربية', 'بطاقة', 'التعريف', 'الوطنية',
+      'ROYAUME',
+      'MAROC',
+      'CARTE',
+      'NATIONALE',
+      'IDENTITE',
+      'IDENTITY',
+      'NATIONAL',
+      'CARD',
+      'VALABLE',
+      'VALID',
+      'EXPIRE',
+      'DATE',
+      'LIEU',
+      'PLACE',
+      'BORN',
+      'NÉ',
+      'المملكة',
+      'المغربية',
+      'بطاقة',
+      'التعريف',
+      'الوطنية',
     ];
 
     bool isSkippable(String line) {
-      if (skipKeywords.any((k) =>
-          line.toUpperCase().contains(k.toUpperCase()))) return true;
+      if (skipKeywords.any((k) => line.toUpperCase().contains(k.toUpperCase())))
+        return true;
       if (RegExp(r'\d').hasMatch(line)) return true;
       if (line.length < 3) return true;
       return false;
@@ -284,8 +318,10 @@ class OcrService {
     // 5. Extract address (usually after birth info)
     for (int i = 0; i < lines.length; i++) {
       final upper = lines[i].toUpperCase();
-      if (upper.contains('NÉ') || upper.contains('NEE') ||
-          upper.contains('BORN') || dateRegex.hasMatch(lines[i])) {
+      if (upper.contains('NÉ') ||
+          upper.contains('NEE') ||
+          upper.contains('BORN') ||
+          dateRegex.hasMatch(lines[i])) {
         for (int j = i + 1; j < lines.length && j <= i + 2; j++) {
           if (!isSkippable(lines[j]) && !cinRegex.hasMatch(lines[j])) {
             result['address'] = lines[j];
@@ -315,13 +351,16 @@ class OcrService {
     result['cin'] = cinData['cin'] ?? '';
     result['firstName'] = cinData['firstName'] ?? '';
     result['lastName'] = cinData['lastName'] ?? '';
-    final dateRegex = RegExp(r'\b(\d{2}[\/\-]\d{2}[\/\-]\d{4}|\d{4}[\/\-]\d{2}[\/\-]\d{2})\b');
+    final dateRegex = RegExp(
+        r'\b(\d{2}[\/\-]\d{2}[\/\-]\d{4}|\d{4}[\/\-]\d{2}[\/\-]\d{2})\b');
     final dates = dateRegex.allMatches(text).map((m) => m.group(0)!).toList();
     if (dates.isNotEmpty) result['startDate'] = dates[0];
     if (dates.length >= 2) result['endDate'] = dates[1];
-    final madRegex = RegExp(r'(\d+(?:[.,]\d+)?)\s*(?:MAD|DH|د\.م\.ج)?', caseSensitive: false);
+    final madRegex = RegExp(r'(\d+(?:[.,]\d+)?)\s*(?:MAD|DH|د\.م\.ج)?',
+        caseSensitive: false);
     final madMatch = madRegex.firstMatch(text);
-    if (madMatch != null) result['amount'] = madMatch.group(1)!.replaceAll(',', '.');
+    if (madMatch != null)
+      result['amount'] = madMatch.group(1)!.replaceAll(',', '.');
     return result;
   }
 
@@ -334,7 +373,11 @@ class OcrService {
       'expiryDate': '',
     };
     if (text.trim().isEmpty) return result;
-    final lines = text.split(RegExp(r'\n')).map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
+    final lines = text
+        .split(RegExp(r'\n'))
+        .map((s) => s.trim())
+        .where((s) => s.isNotEmpty)
+        .toList();
 
     final dateRegex = RegExp(r'\b\d{2}[\/\-.]\d{2}[\/\-.]\d{4}\b');
 
@@ -374,10 +417,13 @@ class OcrService {
     // the recognised text, since OCR line order is not guaranteed.
     for (final line in lines) {
       final low = line.toLowerCase();
-      if (low.contains('permis') || low.contains('license') || low.contains('n°')) {
+      if (low.contains('permis') ||
+          low.contains('license') ||
+          low.contains('n°')) {
         final match = licenseRegex.firstMatch(line);
         if (match != null) {
-          result['licenseNumber'] = match.group(0)!.replaceAll(RegExp(r'\s'), '');
+          result['licenseNumber'] =
+              match.group(0)!.replaceAll(RegExp(r'\s'), '');
           break;
         }
       }
@@ -393,8 +439,8 @@ class OcrService {
 
     // The permis also prints the holder's CIN under N.C.N.I.E. — a reliable
     // cross-check against the identity card.
-    final cinMatch =
-        RegExp(r'\b[A-Z]{1,2}\d{5,10}\b', caseSensitive: false).firstMatch(text);
+    final cinMatch = RegExp(r'\b[A-Z]{1,2}\d{5,10}\b', caseSensitive: false)
+        .firstMatch(text);
     if (cinMatch != null) {
       result['cin'] = cinMatch.group(0)!.toUpperCase();
     }

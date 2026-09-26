@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:car_rent_manager/core/localization/app_localizations.dart';
+import 'package:car_rent_manager/presentation/widgets/common/app_text.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -6,7 +8,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/license/license_manager.dart';
 import '../../../core/security/pin_reset_token.dart';
 import '../../../core/security/recovery_code.dart';
-import '../../../data/repositories/auth_repository.dart';
+import '../../../domain/entities/unlock_outcome.dart';
 import '../../providers/auth_provider.dart';
 
 /// Two ways back in for someone who has forgotten their PIN.
@@ -51,8 +53,8 @@ class _PinRecoveryScreenState extends ConsumerState<PinRecoveryScreen> {
   Future<void> _submitRecoveryCode() async {
     final code = _codeController.text;
     if (!RecoveryCode.isComplete(code)) {
-      _showMessage('Le code de récupération compte '
-          '${RecoveryCode.length} chiffres.');
+      _showMessage(context.messages
+          .recoveryCodeDigits((RecoveryCode.length).toString()));
       return;
     }
 
@@ -72,7 +74,7 @@ class _PinRecoveryScreenState extends ConsumerState<PinRecoveryScreen> {
   Future<void> _submitResetToken() async {
     final token = _tokenController.text.trim();
     if (token.isEmpty) {
-      _showMessage('Collez le code fourni par votre vendeur.');
+      _showMessage(AppCopy.pasteTheCodeSuppliedByYourProvider);
       return;
     }
 
@@ -92,7 +94,7 @@ class _PinRecoveryScreenState extends ConsumerState<PinRecoveryScreen> {
   void _onRecovered() {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('Accès rétabli. Choisissez un nouveau code PIN.'),
+        content: AppText(AppCopy.accessRestoredChooseANewPIN),
       ),
     );
     // The lock state is now needsSetup, so the guard routes to /pin-setup on
@@ -101,7 +103,8 @@ class _PinRecoveryScreenState extends ConsumerState<PinRecoveryScreen> {
   }
 
   void _showMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: AppText(message)));
   }
 
   @override
@@ -110,7 +113,7 @@ class _PinRecoveryScreenState extends ConsumerState<PinRecoveryScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Code PIN oublié'),
+        title: const AppText(AppCopy.forgotPIN),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => context.pop(),
@@ -143,9 +146,8 @@ class _PinRecoveryScreenState extends ConsumerState<PinRecoveryScreen> {
                             color: theme.colorScheme.primary, size: 20),
                         const SizedBox(width: 8),
                         Expanded(
-                          child: Text(
-                            'Vos données ne seront pas effacées. Seul le code '
-                            'PIN est réinitialisé.',
+                          child: AppText(
+                            AppCopy.yourDataWillNotBeDeletedOnlyThe,
                             style: theme.textTheme.bodySmall,
                           ),
                         ),
@@ -153,16 +155,15 @@ class _PinRecoveryScreenState extends ConsumerState<PinRecoveryScreen> {
                     ),
                   ),
                   const SizedBox(height: 24),
-
-                  Text(
-                    'J\'ai mon code de récupération',
+                  AppText(
+                    AppCopy.iHaveMyRecoveryCode,
                     style: theme.textTheme.titleMedium
                         ?.copyWith(fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    'Les ${RecoveryCode.length} chiffres affichés lors de la '
-                    'création de votre code PIN.',
+                  AppText(
+                    context.messages
+                        .recoveryCodeHint((RecoveryCode.length).toString()),
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
@@ -173,9 +174,9 @@ class _PinRecoveryScreenState extends ConsumerState<PinRecoveryScreen> {
                     keyboardType: TextInputType.number,
                     enabled: !_busy,
                     maxLength: 17, // 12 digits plus the separators.
-                    decoration: const InputDecoration(
-                      labelText: 'Code de récupération',
-                      hintText: '4821 9037 5566',
+                    decoration: InputDecoration(
+                      labelText: context.tr(AppCopy.recoveryCode),
+                      hintText: context.tr('4821 9037 5566'),
                       prefixIcon: Icon(Icons.vpn_key_outlined),
                       counterText: '',
                     ),
@@ -184,33 +185,28 @@ class _PinRecoveryScreenState extends ConsumerState<PinRecoveryScreen> {
                   const SizedBox(height: 8),
                   FilledButton(
                     onPressed: _busy ? null : _submitRecoveryCode,
-                    child: const Text('Valider'),
+                    child: const AppText(AppCopy.validate),
                   ),
-
                   const SizedBox(height: 32),
                   const Divider(),
                   const SizedBox(height: 16),
-
-                  Text(
-                    'J\'ai perdu mon code de récupération',
+                  AppText(
+                    AppCopy.iLostMyRecoveryCode,
                     style: theme.textTheme.titleMedium
                         ?.copyWith(fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    'Contactez votre vendeur et communiquez-lui l\'identifiant '
-                    'ci-dessous. Il vous transmettra un code de déblocage '
-                    'valable 24 heures.',
+                  AppText(
+                    AppCopy.contactYourProviderAndGiveThemTheID,
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
                   ),
                   const SizedBox(height: 12),
-
                   Card(
                     margin: EdgeInsets.zero,
                     child: ListTile(
-                      title: const Text('Identifiant de cet appareil'),
+                      title: const AppText(AppCopy.thisDeviceIdentifier),
                       subtitle: SelectableText(
                         _deviceId ?? 'Chargement…',
                         style: const TextStyle(
@@ -220,7 +216,7 @@ class _PinRecoveryScreenState extends ConsumerState<PinRecoveryScreen> {
                       ),
                       trailing: IconButton(
                         icon: const Icon(Icons.copy),
-                        tooltip: 'Copier',
+                        tooltip: context.tr(AppCopy.copy),
                         onPressed: _deviceId == null
                             ? null
                             : () async {
@@ -228,28 +224,27 @@ class _PinRecoveryScreenState extends ConsumerState<PinRecoveryScreen> {
                                   ClipboardData(text: _deviceId!),
                                 );
                                 if (!context.mounted) return;
-                                _showMessage('Identifiant copié.');
+                                _showMessage(AppCopy.idCopied);
                               },
                       ),
                     ),
                   ),
                   const SizedBox(height: 12),
-
                   TextField(
                     controller: _tokenController,
                     enabled: !_busy,
                     minLines: 2,
                     maxLines: 4,
-                    decoration: const InputDecoration(
-                      labelText: 'Code de déblocage du vendeur',
-                      hintText: 'Collez ici le code reçu',
+                    decoration: InputDecoration(
+                      labelText: context.tr(AppCopy.providerUnlockCode),
+                      hintText: context.tr(AppCopy.pasteTheReceivedCodeHere),
                       alignLabelWithHint: true,
                     ),
                   ),
                   const SizedBox(height: 8),
                   OutlinedButton(
                     onPressed: _busy ? null : _submitResetToken,
-                    child: const Text('Débloquer'),
+                    child: const AppText(AppCopy.unlock),
                   ),
                 ],
               ),

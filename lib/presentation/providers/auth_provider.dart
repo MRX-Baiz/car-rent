@@ -3,8 +3,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/security/pin_reset_token.dart';
 import '../../data/repositories/auth_repository.dart';
+import '../../domain/entities/unlock_outcome.dart';
+import '../../domain/repositories/app_lock_repository.dart';
 
-final authRepositoryProvider = Provider<AuthRepository>((ref) {
+/// Kept in presentation so lock screens do not know which persistence class
+/// happens to enforce the PIN policy.
+const appPinLength = 6;
+const defaultAppAutoLockMinutes = 1;
+
+final authRepositoryProvider = Provider<AppLockRepository>((ref) {
   return AuthRepository.instance;
 });
 
@@ -74,7 +81,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     refresh();
   }
 
-  final AuthRepository _repository;
+  final AppLockRepository _repository;
 
   // Every assignment funnels through here, so the router can never be looking
   // at a stale lock status.
@@ -165,16 +172,59 @@ class AuthNotifier extends StateNotifier<AuthState> {
           'Ce code a expiré. Demandez-en un nouveau au vendeur.',
         ResetTokenReplayed() =>
           'Ce code a déjà été utilisé. Demandez-en un nouveau.',
-        ResetTokenForged() =>
-          'Ce code n\'est pas valide. Vérifiez la saisie.',
+        ResetTokenForged() => 'Ce code n\'est pas valide. Vérifiez la saisie.',
         _ => 'Code illisible. Recopiez-le en entier.',
       },
     );
     return outcome;
   }
 
-  Future<String> regenerateRecoveryCode() =>
-      _repository.generateRecoveryCode();
+  Future<String> regenerateRecoveryCode() => _repository.generateRecoveryCode();
+
+  /// Checks the current PIN for the change-PIN flow without changing the
+  /// router lock state. The setup screen owns the intermediate step.
+  Future<UnlockOutcome> verifyCurrentPin(String pin) {
+    return _repository.verifyPin(pin);
+  }
+
+  Future<UnlockOutcome> changePin({
+    required String currentPin,
+    required String newPin,
+  }) {
+    return _repository.changePin(currentPin: currentPin, newPin: newPin);
+  }
+
+  Future<({bool available, bool enabled, int autoLockMinutes})>
+      loadSecuritySettings() async {
+    final available = await _repository.biometricAvailable();
+    final enabled = await _repository.biometricEnabled();
+    final autoLockMinutes = await _repository.autoLockMinutes();
+    return (
+      available: available,
+      enabled: enabled,
+      autoLockMinutes: autoLockMinutes,
+    );
+  }
+
+  /// Enabling biometrics requires one successful biometric check first.
+  Future<bool> setBiometricEnabled({
+    required bool enabled,
+    required String confirmationReason,
+  }) async {
+    if (enabled &&
+        !await _repository.authenticateWithBiometrics(
+          reason: confirmationReason,
+        )) {
+      return false;
+    }
+    await _repository.setBiometricEnabled(enabled);
+    await refresh();
+    return true;
+  }
+
+  Future<void> setAutoLockMinutes(int minutes) {
+    return _repository.setAutoLockMinutes(minutes);
+  }
 
   void clearMessage() => state = state.copyWith(message: null);
 

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:car_rent_manager/core/localization/app_localizations.dart';
+import 'package:car_rent_manager/presentation/widgets/common/app_text.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/assistant/assistant_models.dart';
@@ -15,9 +17,9 @@ class AssistantScreen extends StatefulWidget {
 class _AssistantScreenState extends State<AssistantScreen> {
   final _input = TextEditingController();
   final _messages = <_ChatLine>[
-    const _ChatLine(
+     _ChatLine(
       text:
-          'Bonjour. Je cherche dans les données de cette agence, directement sur ce téléphone.',
+          AppCopy.helloISearchThisAgencySDataDirectly,
       isUser: false,
     ),
   ];
@@ -52,7 +54,7 @@ class _AssistantScreenState extends State<AssistantScreen> {
       _messages.add(_ChatLine(text: question, isUser: true));
     });
     try {
-      final answer = await AssistantService.instance.answer(question);
+      final answer = await AssistantService.instance.answer(question, languageCode: Localizations.localeOf(context).languageCode);
       if (!mounted) return;
       setState(() {
         _messages.add(_ChatLine(
@@ -64,8 +66,8 @@ class _AssistantScreenState extends State<AssistantScreen> {
       });
     } catch (error) {
       if (!mounted) return;
-      setState(() => _messages.add(const _ChatLine(
-            text: 'Je n’ai pas pu lire les données. Réessayez dans un instant.',
+      setState(() => _messages.add( _ChatLine(
+            text: context.tr(AppCopy.iCouldNotReadTheDataTryAgain),
             isUser: false,
           )));
     } finally {
@@ -79,10 +81,10 @@ class _AssistantScreenState extends State<AssistantScreen> {
     final status = _gemma.status;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Assistant local'),
+        title: const AppText(AppCopy.localAssistant),
         actions: [
           IconButton(
-            tooltip: 'Configurer le modèle local',
+            tooltip: context.tr(AppCopy.configureLocalModel),
             icon: const Icon(Icons.memory_outlined),
             onPressed: () => context.push('/assistant/model'),
           ),
@@ -110,10 +112,10 @@ class _AssistantScreenState extends State<AssistantScreen> {
                           : theme.colorScheme.primary),
                   const SizedBox(width: 10),
                   Expanded(
-                    child: Text(
+                    child: AppText(
                       status.isLoaded
-                          ? '${_modelLabel(status.path)} est actif. Les données affichées restent celles de l’agence.'
-                          : 'Réponses rapides locales. Ajoutez un modèle GGUF pour discuter hors ligne.',
+                          ? context.messages.modelActive(context.tr(_modelLabel(status.path)))
+                          : AppCopy.localQuickAnswersAddAGGUFModelTo,
                       style: theme.textTheme.bodySmall,
                     ),
                   ),
@@ -126,10 +128,10 @@ class _AssistantScreenState extends State<AssistantScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 scrollDirection: Axis.horizontal,
                 children: [
-                  _SuggestionChip('Véhicules disponibles', _ask),
-                  _SuggestionChip('Contrats en retard', _ask),
-                  _SuggestionChip('Paiements en attente', _ask),
-                  _SuggestionChip('Alertes entretien', _ask),
+                  _SuggestionChip(AppCopy.availableVehicles, _ask),
+                  _SuggestionChip(AppCopy.overdueContracts, _ask),
+                  _SuggestionChip(AppCopy.outstandingPayments, _ask),
+                  _SuggestionChip(AppCopy.maintenanceAlerts, _ask),
                 ],
               ),
             ),
@@ -142,7 +144,7 @@ class _AssistantScreenState extends State<AssistantScreen> {
                     return const Padding(
                       padding: EdgeInsets.all(12),
                       child: Align(
-                        alignment: Alignment.centerLeft,
+                        alignment: AlignmentDirectional.centerStart,
                         child: SizedBox(
                             width: 20,
                             height: 20,
@@ -169,15 +171,16 @@ class _AssistantScreenState extends State<AssistantScreen> {
                       controller: _input,
                       textInputAction: TextInputAction.send,
                       onSubmitted: (_) => _ask(),
-                      decoration: const InputDecoration(
-                        hintText: 'Ex. Quels contrats sont en retard ?',
+                      decoration: InputDecoration(
+                        hintText:
+                            context.tr(AppCopy.eGWhichContractsAreOverdue),
                         border: OutlineInputBorder(),
                       ),
                     ),
                   ),
                   const SizedBox(width: 8),
                   IconButton.filled(
-                    tooltip: 'Envoyer',
+                    tooltip: context.tr(AppCopy.send),
                     onPressed: _sending ? null : _ask,
                     icon: const Icon(Icons.send),
                   ),
@@ -192,7 +195,7 @@ class _AssistantScreenState extends State<AssistantScreen> {
 }
 
 String _modelLabel(String? path) {
-  if (path == null || path.isEmpty) return 'Le modèle local';
+  if (path == null || path.isEmpty) return AppCopy.theLocalModel;
   final name = path.split('/').last;
   return name.length > 28 ? '${name.substring(0, 28)}…' : name;
 }
@@ -205,8 +208,8 @@ class _SuggestionChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(right: 8),
-        child: ActionChip(label: Text(text), onPressed: () => onTap(text)),
+        padding: const EdgeInsetsDirectional.only(end: 8),
+        child: ActionChip(label: AppText(text), onPressed: () => onTap(context.tr(text))),
       );
 }
 
@@ -234,7 +237,7 @@ class _MessageBubble extends StatelessWidget {
     final theme = Theme.of(context);
     final isUser = message.isUser;
     return Align(
-      alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+      alignment: isUser ? AlignmentDirectional.centerEnd : AlignmentDirectional.centerStart,
       child: Container(
         constraints: const BoxConstraints(maxWidth: 460),
         margin: const EdgeInsets.only(bottom: 10),
@@ -249,13 +252,13 @@ class _MessageBubble extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              message.text,
+              isUser || message.model ? message.text : context.tr(message.text),
               style:
                   TextStyle(color: isUser ? theme.colorScheme.onPrimary : null),
             ),
             if (message.model) ...[
               const SizedBox(height: 6),
-              Text('Rédigé avec le modèle local',
+              AppText(AppCopy.writtenWithTheLocalModel,
                   style: theme.textTheme.labelSmall),
             ],
             for (final action in message.actions)
@@ -264,7 +267,7 @@ class _MessageBubble extends StatelessWidget {
                     padding: const EdgeInsets.only(top: 8)),
                 onPressed: () => context.push(action.route),
                 icon: const Icon(Icons.arrow_forward, size: 16),
-                label: Text(action.label),
+                label: AppText(action.label),
               ),
           ],
         ),

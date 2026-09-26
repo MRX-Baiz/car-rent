@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:car_rent_manager/presentation/widgets/common/app_text.dart';
 
 import '../common/app_card.dart';
 import '../motion/count_up.dart';
@@ -53,9 +54,9 @@ class StatCard extends StatelessWidget {
               Flexible(
                 child: FittedBox(
                   fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerRight,
+                  alignment: AlignmentDirectional.centerEnd,
                   child: countTo == null
-                      ? Text(
+                      ? AppText(
                           value,
                           maxLines: 1,
                           style: theme.textTheme.headlineMedium?.copyWith(
@@ -76,7 +77,7 @@ class StatCard extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Flexible(
-            child: Text(
+            child: AppText(
               title,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,

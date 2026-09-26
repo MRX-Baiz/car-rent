@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:car_rent_manager/core/localization/app_localizations.dart';
+import 'package:car_rent_manager/presentation/widgets/common/app_text.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -56,18 +58,18 @@ class _VehiclesListScreenState extends ConsumerState<VehiclesListScreen>
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Supprimer le véhicule'),
-        content: const Text(AppStrings.confirmDeleteVehicle),
+        title: const AppText(AppCopy.deleteVehicle),
+        content: const AppText(AppStrings.confirmDeleteVehicle),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Annuler'),
+            child: const AppText(AppCopy.cancel),
           ),
           FilledButton(
             style:
                 FilledButton.styleFrom(backgroundColor: AppTone.danger.color),
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Supprimer'),
+            child: const AppText(AppCopy.delete),
           ),
         ],
       ),
@@ -81,16 +83,14 @@ class _VehiclesListScreenState extends ConsumerState<VehiclesListScreen>
       await ref.read(vehiclesProvider.notifier).deleteVehicle(vehicle.id!);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text(AppStrings.successDeleted)),
+        const SnackBar(content: AppText(AppStrings.successDeleted)),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            'Erreur lors de la suppression.\n'
-            'حدث خطأ أثناء الحذف.\n'
-            'Delete error: $e',
+          content: AppText(
+            context.trError(e),
           ),
         ),
       );
@@ -124,9 +124,7 @@ class _VehiclesListScreenState extends ConsumerState<VehiclesListScreen>
     final all = vehiclesAsync.value;
     final subtitle = all == null
         ? null
-        : '${all.length} véhicule${all.length > 1 ? 's' : ''} · '
-            '${all.where((v) => v.status == 'available').length} disponible'
-            '${all.where((v) => v.status == 'available').length > 1 ? 's' : ''}';
+        : context.messages.fleetSummary((all.length).toString(), (all.where((v) => v.status == 'available').length).toString());
 
     // The whole page is dark, from the hero down: a light backdrop under the
     // dark hero made the colours clash, so the page keeps one mood and only the
@@ -175,8 +173,8 @@ class _VehiclesListScreenState extends ConsumerState<VehiclesListScreen>
                         pinned: true,
                         delegate: HeroHeaderDelegate(
                           asset: 'assets/backgrounds/bg_vehicles.webp',
-                          eyebrow: 'Votre flotte',
-                          title: 'Véhicules',
+                          eyebrow: AppCopy.yourFleet,
+                          title: AppCopy.vehicles,
                           subtitle: subtitle,
                           showTitle: false,
                           expanded: expanded,
@@ -195,7 +193,7 @@ class _VehiclesListScreenState extends ConsumerState<VehiclesListScreen>
                           collapsedForeground: Colors.white,
                           leading: IconButton(
                             icon: const Icon(Icons.arrow_back),
-                            tooltip: 'Retour',
+                            tooltip: context.tr(AppCopy.back),
                             onPressed: () => context.canPop()
                                 ? context.pop()
                                 : context.go('/dashboard'),
@@ -225,7 +223,7 @@ class _VehiclesListScreenState extends ConsumerState<VehiclesListScreen>
           floatingActionButton: FloatingActionButton.extended(
             onPressed: () => context.push('/vehicles/add'),
             icon: const Icon(Icons.add),
-            label: const Text('Ajouter'),
+            label: const AppText(AppCopy.add),
           ),
         ),
       ),
@@ -254,10 +252,8 @@ class _VehiclesListScreenState extends ConsumerState<VehiclesListScreen>
           child: Center(
             child: Padding(
               padding: const EdgeInsets.all(24),
-              child: Text(
-                'Erreur lors du chargement des véhicules.\n'
-                'خطأ أثناء تحميل السيارات.\n'
-                'Vehicles loading error: $error',
+              child: AppText(
+                context.trError(error),
                 textAlign: TextAlign.center,
                 style: const TextStyle(color: Colors.white),
               ),
@@ -277,10 +273,10 @@ class _VehiclesListScreenState extends ConsumerState<VehiclesListScreen>
         vehicles.where((v) => v.status == status).length;
 
     final filters = [
-      ('Tous', 'all', vehicles.length),
-      ('Disponibles', 'available', count('available')),
-      ('Loués', 'rented', count('rented')),
-      ('Maintenance', 'maintenance', count('maintenance')),
+      (AppCopy.all, 'all', vehicles.length),
+      (AppCopy.available61af94, 'available', count('available')),
+      (AppCopy.rentede06686, 'rented', count('rented')),
+      (AppCopy.maintenance, 'maintenance', count('maintenance')),
     ];
 
     final q = _searchQuery;
@@ -299,11 +295,10 @@ class _VehiclesListScreenState extends ConsumerState<VehiclesListScreen>
           padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
           child: AnimatedTitle(
             color: Colors.white,
-            eyebrow: 'Votre flotte',
-            title: 'Véhicules',
+            eyebrow: AppCopy.yourFleet,
+            title: AppCopy.vehicles,
             subtitle:
-                '${vehicles.length} véhicule${vehicles.length > 1 ? 's' : ''}'
-                ' · $available disponible${available > 1 ? 's' : ''}',
+                context.messages.fleetSummary((vehicles.length).toString(), (available).toString()),
           ),
         ),
       ),
@@ -311,9 +306,9 @@ class _VehiclesListScreenState extends ConsumerState<VehiclesListScreen>
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
           child: TextField(
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               prefixIcon: Icon(Icons.search),
-              hintText: 'Marque, modèle ou immatriculation',
+              hintText: context.tr(AppCopy.brandModelOrRegistration),
             ),
             onChanged: (value) =>
                 setState(() => _searchQuery = value.trim().toLowerCase()),
@@ -330,9 +325,9 @@ class _VehiclesListScreenState extends ConsumerState<VehiclesListScreen>
             children: [
               for (final filter in filters)
                 Padding(
-                  padding: const EdgeInsets.only(right: 8),
+                  padding: const EdgeInsetsDirectional.only(end: 8),
                   child: ChoiceChip(
-                    label: Text('${filter.$1} (${filter.$3})'),
+                    label: AppText('${context.tr(filter.$1)} (${filter.$3})'),
                     selected: _statusFilter == filter.$2,
                     onSelected: (_) =>
                         setState(() => _statusFilter = filter.$2),
@@ -347,18 +342,18 @@ class _VehiclesListScreenState extends ConsumerState<VehiclesListScreen>
           hasScrollBody: false,
           child: EmptyStateWidget(
             title: vehicles.isEmpty
-                ? 'Aucun véhicule enregistré.'
-                : 'Aucun véhicule trouvé.',
+                ? AppCopy.noVehiclesSaved
+                : AppCopy.noVehiclesFound,
             subtitle: vehicles.isEmpty
-                ? 'Ajoutez votre premier véhicule pour créer des contrats.'
-                : 'Modifiez la recherche ou le filtre.',
+                ? AppCopy.addYourFirstVehicleToCreateContracts
+                : AppCopy.changeTheSearchOrFilter,
             icon: Icons.directions_car_filled_outlined,
             onDark: true,
             // Top-aligned and compact: under the tall hero there is little
             // room, and a centred message would sit beneath the "Ajouter"
             // button.
             compact: true,
-            actionLabel: vehicles.isEmpty ? 'Ajouter un véhicule' : null,
+            actionLabel: vehicles.isEmpty ? AppCopy.addAVehicle : null,
             onAction: () => context.push('/vehicles/add'),
           ),
         )
@@ -381,7 +376,7 @@ class _VehiclesListScreenState extends ConsumerState<VehiclesListScreen>
                         color: AppTone.danger.color,
                         borderRadius: BorderRadius.circular(16),
                       ),
-                      alignment: Alignment.centerRight,
+                      alignment: AlignmentDirectional.centerEnd,
                       padding: const EdgeInsets.symmetric(horizontal: 20),
                       child:
                           const Icon(Icons.delete_forever, color: Colors.white),
@@ -474,10 +469,10 @@ class VehicleCard extends StatelessWidget {
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
-                          Text(formatMad(dailyRate!.round()),
+                          AppText(context.money(dailyRate!.round()),
                               style: theme.textTheme.titleMedium
                                   ?.copyWith(color: AppColors.primary)),
-                          Text('dernier tarif / jour',
+                          AppText(AppCopy.lastRateDay205ab8,
                               style: theme.textTheme.bodySmall
                                   ?.copyWith(color: AppColors.textSecondary)),
                         ],
@@ -490,7 +485,7 @@ class VehicleCard extends StatelessWidget {
                   runSpacing: 6,
                   children: [
                     _Fact(
-                        Icons.speed_outlined, formatKm(vehicle.currentMileage)),
+                        Icons.speed_outlined, context.distance(vehicle.currentMileage)),
                     _Fact(fuelTypeIcon(vehicle.fuelType),
                         fuelTypeName(vehicle.fuelType)),
                     _Fact(Icons.settings_outlined,
@@ -500,7 +495,7 @@ class VehicleCard extends StatelessWidget {
                 if (urgent != null) ...[
                   const SizedBox(height: 10),
                   StatusChip(
-                    label: '${urgent.label} · ${urgent.status}',
+                    label: '${context.tr(urgent.label)} · ${context.tr(urgent.status)}',
                     tone: urgent.tone,
                     icon: urgent.tone.icon,
                     dense: true,
@@ -527,7 +522,7 @@ class _Fact extends StatelessWidget {
       children: [
         Icon(icon, size: 18, color: AppColors.textSecondary),
         const SizedBox(width: 5),
-        Text(label, style: Theme.of(context).textTheme.bodyMedium),
+        AppText(label, style: Theme.of(context).textTheme.bodyMedium),
       ],
     );
   }

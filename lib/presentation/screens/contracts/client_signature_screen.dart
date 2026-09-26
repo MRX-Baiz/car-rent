@@ -1,7 +1,9 @@
+import 'package:car_rent_manager/core/localization/app_localizations.dart';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:car_rent_manager/presentation/widgets/common/app_text.dart';
 
 class ClientSignatureScreen extends StatefulWidget {
   const ClientSignatureScreen({super.key, required this.clientName});
@@ -37,14 +39,14 @@ class _ClientSignatureScreenState extends State<ClientSignatureScreen> {
       picture.dispose();
       final data = await image.toByteData(format: ui.ImageByteFormat.png);
       image.dispose();
-      if (data == null) throw StateError('Signature vide.');
+      if (data == null) throw StateError(AppCopy.signatureIsEmpty);
       if (mounted) {
         Navigator.of(context).pop<Uint8List>(data.buffer.asUint8List());
       }
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('Impossible d’enregistrer. Réessayez.')));
+            content: AppText(AppCopy.unableToSaveTryAgain)));
       }
     } finally {
       if (mounted) setState(() => _exporting = false);
@@ -53,18 +55,17 @@ class _ClientSignatureScreenState extends State<ClientSignatureScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: const Text('Signature du client')),
+        appBar: AppBar(title: const AppText(AppCopy.clientSignature)),
         body: SafeArea(
             child: SingleChildScrollView(
                 child: Padding(
           padding: const EdgeInsets.all(20),
           child:
               Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Text(widget.clientName,
+            AppText(widget.clientName,
                 style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 8),
-            const Text('Signez avec votre doigt dans le cadre blanc. '
-                'Cette signature sera ajoutée au contrat que vous venez de lire et accepter.'),
+            const AppText(AppCopy.signWithYourFingerInTheWhiteArea6872ef),
             const SizedBox(height: 20),
             AspectRatio(
                 aspectRatio: 2.5,
@@ -73,7 +74,7 @@ class _ClientSignatureScreenState extends State<ClientSignatureScreen> {
                       (position.dx / box.maxWidth).clamp(0, 1),
                       (position.dy / box.maxHeight).clamp(0, 1));
                   return Semantics(
-                      label: 'Zone de dessin de la signature',
+                      label: AppCopy.signatureDrawingArea,
                       child: DecoratedBox(
                         decoration: BoxDecoration(
                             color: Colors.white,
@@ -103,13 +104,13 @@ class _ClientSignatureScreenState extends State<ClientSignatureScreen> {
             TextButton.icon(
                 onPressed: _exporting ? null : () => setState(_strokes.clear),
                 icon: const Icon(Icons.clear),
-                label: const Text('Effacer et recommencer')),
+                label: const AppText(AppCopy.clearAndStartAgain)),
             const SizedBox(height: 12),
             FilledButton.icon(
                 onPressed: _hasSignature && !_exporting ? _confirm : null,
                 icon: const Icon(Icons.check),
-                label: Text(
-                    _exporting ? 'Enregistrement…' : 'Valider ma signature')),
+                label: AppText(
+                    _exporting ? 'Enregistrement…' : AppCopy.confirmMySignature)),
           ]),
         ))),
       );
