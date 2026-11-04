@@ -24,6 +24,15 @@ codebase.
   ML Kit (Android) or Apple Vision (macOS). No OCR server to deploy.
 - **Local notifications** — return and payment reminders, a daily overdue
   repeat, and restoration after a phone restart.
+- **Offline assistant (RAG)** — ask questions about your own agency data
+  (overdue returns, balances, vehicle status). It works in two modes:
+  - *Without a model*: retrieval alone. The question is matched against a
+    read-only view of the local SQLite data and answered from the retrieved
+    facts.
+  - *With a small on-device LLM*: load a Gemma `.gguf` model (run through
+    llama.cpp) and the same retrieved facts are passed to it for a more natural
+    answer. Its output is checked against the facts and discarded in favour of
+    the retrieved answer if it drops them. Nothing leaves the phone.
 - **Security** — 6-digit PIN (PBKDF2-HMAC-SHA256) with lockout ladder and
   optional biometrics; two-tier PIN recovery.
 - **Licensing** — RSA-4096 signed, device-bound, verified fully offline, with
@@ -72,4 +81,5 @@ licence issuing is covered in [docs/licensing.md](docs/licensing.md).
 ## Tech stack
 
 Flutter · Riverpod · go_router · sqflite · flutter_local_notifications ·
-fast_rsa · local_auth · pdf / printing · ML Kit / Apple Vision OCR
+fast_rsa · local_auth · pdf / printing · ML Kit / Apple Vision OCR ·
+llama.cpp (on-device Gemma)

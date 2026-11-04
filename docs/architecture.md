@@ -48,3 +48,13 @@ SQLite queries and model mapping are contained in `SqliteAgencySearchRepository`
 
 New features should follow this pattern. Existing areas will be migrated when
 they are enhanced, beginning with contracts and payments.
+
+## Offline assistant
+
+`lib/core/assistant/` answers questions about the agency's data in two modes.
+`AssistantService` first retrieves the small, relevant slice of local SQLite
+data through a read-only store (no embeddings, no index to maintain). Without a
+model, that retrieved text is the answer. If the operator has loaded a `.gguf`
+model, `GemmaRuntimeService` (llama.cpp via `llama_flutter_android`) rewrites
+it, and the result is rejected in favour of the retrieved answer when it does
+not preserve the facts. Android only; everything runs on the device.
