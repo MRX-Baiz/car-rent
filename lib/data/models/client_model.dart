@@ -11,6 +11,12 @@ class ClientModel {
   final String? licenseImagePath;
   final DateTime? licenseExpiryDate;
   final bool isArchived;
+
+  /// A reminder the operator sets on a client themselves — a late return, an
+  /// unpaid balance, damage — so the next rental gets a second look before
+  /// the keys go out. There's one operator and no roles to enforce this
+  /// against (see CLAUDE.md), so it's a flag, not a permission gate.
+  final bool requiresManagerApproval;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -27,6 +33,7 @@ class ClientModel {
     this.licenseImagePath,
     this.licenseExpiryDate,
     this.isArchived = false,
+    this.requiresManagerApproval = false,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -46,6 +53,7 @@ class ClientModel {
     String? licenseImagePath,
     DateTime? licenseExpiryDate,
     bool? isArchived,
+    bool? requiresManagerApproval,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -62,6 +70,8 @@ class ClientModel {
       licenseImagePath: licenseImagePath ?? this.licenseImagePath,
       licenseExpiryDate: licenseExpiryDate ?? this.licenseExpiryDate,
       isArchived: isArchived ?? this.isArchived,
+      requiresManagerApproval:
+          requiresManagerApproval ?? this.requiresManagerApproval,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -81,6 +91,7 @@ class ClientModel {
       'license_image_path': licenseImagePath,
       'license_expiry_date': licenseExpiryDate?.toIso8601String(),
       'is_archived': isArchived ? 1 : 0,
+      'requires_manager_approval': requiresManagerApproval ? 1 : 0,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
     };
@@ -102,6 +113,8 @@ class ClientModel {
           ? DateTime.parse(map['license_expiry_date'] as String)
           : null,
       isArchived: (map['is_archived'] as int? ?? 0) == 1,
+      requiresManagerApproval:
+          (map['requires_manager_approval'] as int? ?? 0) == 1,
       createdAt: DateTime.parse(map['created_at'] as String),
       updatedAt: DateTime.parse(map['updated_at'] as String),
     );

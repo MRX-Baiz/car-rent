@@ -80,6 +80,23 @@ class ClientNotifier extends AsyncNotifier<List<ClientModel>> {
     }
   }
 
+  Future<void> setRequiresManagerApproval(int id, bool value) async {
+    final current = state.value ?? const <ClientModel>[];
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(() async {
+      await _repository.setRequiresManagerApproval(id, value);
+      return current
+          .map((c) =>
+              c.id == id ? c.copyWith(requiresManagerApproval: value) : c)
+          .toList();
+    });
+    if (state is AsyncError) {
+      final err = (state as AsyncError).error;
+      state = AsyncValue.data(current);
+      throw err is Exception ? err : Exception(err.toString());
+    }
+  }
+
   Future<void> deleteClient(int id) async {
     final current = state.value ?? const <ClientModel>[];
     // Keep current list visible; update only on success.

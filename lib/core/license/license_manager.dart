@@ -1,10 +1,17 @@
 import 'dart:io';
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:android_id/android_id.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import '../../data/models/license_model.dart';
 import 'asymmetric_crypto_helper.dart';
+
+/// Which gated features the active licence includes, so a screen can hide a
+/// feature it isn't in without an async re-check on every build. Set once at
+/// launch (`SplashScreen._checkLicense`) and again the moment a new licence
+/// is saved, so a renewal takes effect without restarting the app.
+final licenseFeaturesSignal = ValueNotifier<Set<String>>(const {});
 
 class LicenseManager {
   static const String _licenseFileName = '.app_license.bin';
@@ -99,6 +106,8 @@ class LicenseManager {
     final storage = await _readFromStorage();
     storage['license'] = licenseString;
     await _writeToStorage(storage);
+
+    licenseFeaturesSignal.value = validation.data?.features ?? const {};
 
     // Initialize last run on activation
     await _updateLastRunDate();

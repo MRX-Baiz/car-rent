@@ -11,7 +11,7 @@ import 'package:sqflite/sqflite.dart';
 /// - Applies schema migrations on creation / upgrade
 class DatabaseHelper {
   static const _databaseName = 'car_rent_manager.db';
-  static const _databaseVersion = 8;
+  static const _databaseVersion = 10;
 
   static const _createContractDocuments = '''
     CREATE TABLE contract_documents (
@@ -129,6 +129,7 @@ class DatabaseHelper {
         license_image_path TEXT,
         is_archived INTEGER NOT NULL DEFAULT 0,
         license_expiry_date TEXT,
+        requires_manager_approval INTEGER NOT NULL DEFAULT 0,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
       );
@@ -289,6 +290,24 @@ class DatabaseHelper {
         PRIMARY KEY (vehicle_id, alert_key, threshold)
       );
     ''');
+    // Money the agency spends on a vehicle (repairs, insurance premiums,
+    // fines) — nothing tracked its cost before this, only maintenance due
+    // dates. This is what profitability-per-vehicle nets against revenue.
+    batch.execute('''
+      CREATE TABLE vehicle_expenses (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        vehicle_id INTEGER NOT NULL,
+        category TEXT NOT NULL,
+        amount REAL NOT NULL,
+        expense_date TEXT NOT NULL,
+        notes TEXT,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (vehicle_id) REFERENCES vehicles(id) ON DELETE CASCADE
+      );
+    ''');
+    batch.execute(
+      'CREATE INDEX idx_vehicle_expenses_vehicle ON vehicle_expenses(vehicle_id)',
+    );
     await batch.commit(noResult: true);
   }
 
@@ -297,6 +316,30 @@ class DatabaseHelper {
   /// Currently only version 1 exists, so this is a no-op, but the method
   /// is implemented for forward compatibility.
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 10) {
+      try {
+        await db.execute(
+          'ALTER TABLE clients ADD COLUMN requires_manager_approval INTEGER NOT NULL DEFAULT 0',
+        );
+      } catch (_) {
+        // Column might already exist if migration partially ran.
+      }
+    }
+    if (oldVersion < 9) {
+      await db.execute('''CREATE TABLE IF NOT EXISTS vehicle_expenses (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        vehicle_id INTEGER NOT NULL,
+        category TEXT NOT NULL,
+        amount REAL NOT NULL,
+        expense_date TEXT NOT NULL,
+        notes TEXT,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (vehicle_id) REFERENCES vehicles(id) ON DELETE CASCADE
+      )''');
+      await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_vehicle_expenses_vehicle ON vehicle_expenses(vehicle_id)',
+      );
+    }
     if (oldVersion < 8) {
       await db.execute('''CREATE TABLE IF NOT EXISTS reservations (
         id INTEGER PRIMARY KEY AUTOINCREMENT,

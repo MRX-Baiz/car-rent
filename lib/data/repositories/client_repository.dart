@@ -1,6 +1,5 @@
 import 'package:sqflite/sqflite.dart';
 
-import '../../core/database/database_exception_extension.dart';
 import '../../core/database/database_helper.dart';
 import '../models/client_model.dart';
 
@@ -222,6 +221,19 @@ LIMIT 1
     } catch (e) {
       throw Exception('Failed to update client: $e');
     }
+  }
+
+  /// A plain flag toggle, not a full [updateClient] — it skips the CIN/
+  /// licence duplicate checks that mutation needs, which have nothing to do
+  /// with this field.
+  Future<void> setRequiresManagerApproval(int id, bool value) async {
+    final db = await _dbHelper.database;
+    await db.update(
+      'clients',
+      {'requires_manager_approval': value ? 1 : 0},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
   }
 
   Future<int> deleteClient(int id) async {

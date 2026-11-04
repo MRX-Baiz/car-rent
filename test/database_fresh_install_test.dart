@@ -88,4 +88,58 @@ void main() {
       throwsA(isA<Exception>()),
     );
   });
+
+  test('fresh install can insert a vehicle expense (vehicle_expenses exists)',
+      () async {
+    await DatabaseHelper.instance.database;
+    final db = await DatabaseHelper.instance.database;
+
+    final now = DateTime.now().toIso8601String();
+    final vehicleId = await db.insert('vehicles', {
+      'brand': 'Dacia',
+      'model': 'Logan',
+      'registration_number': '00000-A-1',
+      'year': 2022,
+      'status': 'available',
+      'created_at': now,
+      'updated_at': now,
+    });
+
+    final id = await db.insert('vehicle_expenses', {
+      'vehicle_id': vehicleId,
+      'category': 'repair',
+      'amount': 250.0,
+      'expense_date': now,
+      'created_at': now,
+    });
+
+    expect(id, greaterThan(0));
+  });
+
+  test('fresh install defaults requires_manager_approval to 0 and can flip it',
+      () async {
+    await DatabaseHelper.instance.database;
+    final db = await DatabaseHelper.instance.database;
+
+    final now = DateTime.now().toIso8601String();
+    final id = await db.insert('clients', {
+      'first_name': 'A',
+      'last_name': 'B',
+      'cin': 'D000003',
+      'license_number': 'APR/000001',
+      'phone': '0600000003',
+      'is_archived': 0,
+      'created_at': now,
+      'updated_at': now,
+    });
+
+    final inserted =
+        await db.query('clients', where: 'id = ?', whereArgs: [id]);
+    expect(inserted.single['requires_manager_approval'], 0);
+
+    await db.update('clients', {'requires_manager_approval': 1},
+        where: 'id = ?', whereArgs: [id]);
+    final flagged = await db.query('clients', where: 'id = ?', whereArgs: [id]);
+    expect(flagged.single['requires_manager_approval'], 1);
+  });
 }

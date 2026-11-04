@@ -5,17 +5,32 @@ class LicenseData {
   final DateTime expiryDate;
   final String deviceId;
 
+  /// Which gated features this licence includes, e.g. `LicenseFeature.
+  /// customerHistory`. Empty for every licence issued before this field
+  /// existed, and for one deliberately issued with no extra features.
+  final Set<String> features;
+
   LicenseData({
     required this.name,
     required this.expiryDate,
     required this.deviceId,
+    this.features = const {},
   });
 
+  // `verifyLicense` checks the signature by re-deriving this JSON from the
+  // decoded object, not by keeping the original signed bytes around — so
+  // this must serialize an old, feature-less licence to the exact same bytes
+  // it was signed with. Omitting the key entirely when empty (rather than
+  // emitting `"features":[]`) is what makes that hold; do not "simplify" this
+  // to an unconditional key or every licence issued before this field
+  // existed stops verifying. Sorted, so the signed bytes never depend on
+  // insertion order.
   Map<String, dynamic> toMap() {
     return {
       'name': name,
       'expiry': expiryDate.toIso8601String(),
       'device_id': deviceId,
+      if (features.isNotEmpty) 'features': (features.toList()..sort()),
     };
   }
 
@@ -24,6 +39,9 @@ class LicenseData {
       name: map['name'] as String,
       expiryDate: DateTime.parse(map['expiry'] as String),
       deviceId: map['device_id'] as String,
+      features:
+          (map['features'] as List<dynamic>?)?.cast<String>().toSet() ??
+              const {},
     );
   }
 
