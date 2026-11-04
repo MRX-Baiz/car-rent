@@ -1,5 +1,5 @@
 name: car_rent_manager
-description: Vehicle Rental Management App
+description: Offline-first vehicle rental management for small agencies.
 publish_to: "none"
 version: 1.0.2+3
 
@@ -14,7 +14,6 @@ dependencies:
 
   # State Management
   flutter_riverpod: ^2.4.0
-  riverpod_annotation: ^2.3.0
 
   # Database
   sqflite: ^2.3.0
@@ -58,18 +57,18 @@ dependencies:
   share_plus: ^7.2.1
   uuid: ^4.3.3
   camera: ^0.11.0+2
+  # Not endorsed by `camera`, so it is never imported but must be listed for
+  # the Windows camera dialog to work.
   camera_windows: ^0.2.6+2
   camera_macos: ^0.0.9
 
   # UX & Aesthetics
   fl_chart: ^0.66.2
   shimmer: ^3.0.0
-  animations: ^2.0.11
   fast_rsa: ^3.6.6
   device_info_plus: ^11.3.0
   # Settings.Secure.ANDROID_ID - device_info_plus exposes no per-device id
   android_id: ^0.5.2
-  package_info_plus: ^9.0.1
   local_auth: ^3.0.2
   flutter_timezone: ^5.1.0
   llama_flutter_android: ^0.2.6
@@ -77,8 +76,6 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  build_runner: ^2.4.7
-  riverpod_generator: ^2.3.9
   flutter_lints: ^3.0.0
   flutter_launcher_icons: ^0.14.4
 
@@ -87,7 +84,6 @@ flutter:
   uses-material-design: true
 
   assets:
-    - assets/images/logo.png
     - assets/images/logo_new.png
     - assets/backgrounds/
     - assets/fonts/Roboto-Regular.ttf
