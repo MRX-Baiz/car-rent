@@ -12,16 +12,17 @@
 #   ./generate_reset_token.sh DEVICE_ID              # 24 hours
 #   ./generate_reset_token.sh DEVICE_ID 72           # valid 72 hours
 #
-# Requires private_key.pem beside this script (or set PRIVATE_KEY=/path).
+# Needs the vendor private key, which is NOT in this repository. It is read from
+# $PRIVATE_KEY if set, otherwise ~/.carrent/private_key.pem (see docs/licensing.md).
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PRIVATE_KEY="${PRIVATE_KEY:-$SCRIPT_DIR/private_key.pem}"
+PRIVATE_KEY="${PRIVATE_KEY:-$HOME/.carrent/private_key.pem}"
 
 if [ ! -f "$PRIVATE_KEY" ]; then
   echo "ERROR: private key not found at: $PRIVATE_KEY" >&2
-  echo "Place private_key.pem next to this script, or set PRIVATE_KEY=/path/to/key" >&2
+  echo "Keep the vendor key outside the repo at ~/.carrent/private_key.pem, or set PRIVATE_KEY=/path/to/key" >&2
   exit 1
 fi
 

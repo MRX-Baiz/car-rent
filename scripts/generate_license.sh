@@ -7,17 +7,23 @@
 # Usage:
 #   ./generate_license.sh                     # interactive
 #   ./generate_license.sh "Name" 2027-12-31 DEVICE_ID
+#   ./generate_license.sh "Name" 2027-12-31 DEVICE_ID customer_history
 #
-# Requires private_key.pem beside this script (or set PRIVATE_KEY=/path).
+# The 4th argument is an optional comma-separated list of feature keys to
+# include (see lib/core/license/license_features.dart for the known keys).
+# Leave it empty for a licence with no gated features.
+#
+# Needs the vendor private key, which is NOT in this repository. It is read from
+# $PRIVATE_KEY if set, otherwise ~/.carrent/private_key.pem (see docs/licensing.md).
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PRIVATE_KEY="${PRIVATE_KEY:-$SCRIPT_DIR/private_key.pem}"
+PRIVATE_KEY="${PRIVATE_KEY:-$HOME/.carrent/private_key.pem}"
 
 if [ ! -f "$PRIVATE_KEY" ]; then
   echo "ERROR: private key not found at: $PRIVATE_KEY" >&2
-  echo "Place private_key.pem next to this script, or set PRIVATE_KEY=/path/to/key" >&2
+  echo "Keep the vendor key outside the repo at ~/.carrent/private_key.pem, or set PRIVATE_KEY=/path/to/key" >&2
   exit 1
 fi
 
@@ -29,6 +35,7 @@ fi
 NAME="${1:-}"
 EXPIRY="${2:-}"
 DEVICE_ID="${3:-}"
+FEATURES="${4:-}"
 
 if [ -z "$NAME" ]; then
   printf 'Customer name: '
@@ -41,6 +48,10 @@ fi
 if [ -z "$DEVICE_ID" ]; then
   printf 'Device ID (copy it from the app licence screen): '
   read -r DEVICE_ID
+fi
+if [ $# -lt 4 ]; then
+  printf 'Features, comma-separated, or leave empty (e.g. customer_history): '
+  read -r FEATURES
 fi
 
 if ! printf '%s' "$EXPIRY" | grep -Eq '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'; then
@@ -55,7 +66,18 @@ fi
 # Must match Dart's json.encode(LicenseData.toMap()) byte for byte: compact
 # separators, this key order, and DateTime.toIso8601String()'s milliseconds.
 # The signature covers this exact string, so any difference breaks validation.
-DATA_JSON="{\"name\":\"$NAME\",\"expiry\":\"${EXPIRY}T00:00:00.000\",\"device_id\":\"$DEVICE_ID\"}"
+# `features` must be entirely absent (not even an empty array) when there are
+# none, and sorted when there are - LicenseData.toMap() only emits it that
+# way, so a licence with a different shape here fails to verify in the app.
+if [ -n "$FEATURES" ]; then
+  SORTED_FEATURES="$(printf '%s' "$FEATURES" | tr ',' '\n' | sed '/^$/d' | sort | paste -sd, -)"
+  FEATURES_JSON="$(printf '%s' "$SORTED_FEATURES" | awk -F, '{
+    printf "["; for (i=1;i<=NF;i++) { printf "%s\"%s\"", (i>1?",":""), $i } printf "]"
+  }')"
+  DATA_JSON="{\"name\":\"$NAME\",\"expiry\":\"${EXPIRY}T00:00:00.000\",\"device_id\":\"$DEVICE_ID\",\"features\":$FEATURES_JSON}"
+else
+  DATA_JSON="{\"name\":\"$NAME\",\"expiry\":\"${EXPIRY}T00:00:00.000\",\"device_id\":\"$DEVICE_ID\"}"
+fi
 
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
@@ -82,6 +104,7 @@ echo "--- LICENCE GENERATED ---"
 echo "  customer : $NAME"
 echo "  expires  : $EXPIRY"
 echo "  device   : $DEVICE_ID"
+echo "  features : ${FEATURES:-(none)}"
 echo
 echo "$LICENCE"
 echo
