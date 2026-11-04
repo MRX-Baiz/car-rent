@@ -1,40 +1,75 @@
 # CarRent Manager
 
-Vehicle rental management app (Flutter). Android is the current focus; iOS,
-Windows and macOS build from the same codebase but are not yet the priority.
+Offline-first vehicle rental management for small agencies, built with Flutter.
+One operator, one phone: vehicles, clients, contracts, payments, signed PDF
+contracts, on-device OCR of identity documents, and local reminders for return
+deadlines. No server, no account, no network required.
 
-**Continuing development on a new machine, or working with Claude Code on
-this project? Start with [CLAUDE.md](CLAUDE.md)** — it covers environment
-setup (including Windows-specific gotchas), the architecture decisions worth
-knowing before touching auth/navigation/storage/notifications, and what's
-still open. This README is just the quick pitch.
+Android is the primary target. iOS, macOS and Windows build from the same
+codebase.
 
 ## Features
 
-- Vehicles, clients, contracts, payments
-- License activation (RSA-signed, device-bound, offline)
-- Local PIN + biometric lock, with a two-tier recovery path
-- PDF contract generation and printing
-- Local notifications (return reminders, overdue vehicles, licence expiry)
-- Company settings
-- On-device OCR scanning of CIN / driving licences (works offline, no server)
+- **Fleet and clients** — vehicles with photos, expenses and maintenance dates;
+  clients with scanned CIN / driving-licence attachments.
+- **Contracts and payments** — create, edit and close contracts, record
+  payments, and track balances. Double-booking of a vehicle or chauffeur is
+  refused at the repository level.
+- **Reservations** — availability calendar with plate search, and quotes that
+  convert into contracts.
+- **Contract PDFs and signatures** — one permanent original per contract,
+  signed on the phone or returned signed by the client, archived with its
+  SHA-256.
+- **On-device OCR** — Moroccan CIN and driving-licence field extraction using
+  ML Kit (Android) or Apple Vision (macOS). No OCR server to deploy.
+- **Local notifications** — return and payment reminders, a daily overdue
+  repeat, and restoration after a phone restart.
+- **Security** — 6-digit PIN (PBKDF2-HMAC-SHA256) with lockout ladder and
+  optional biometrics; two-tier PIN recovery.
+- **Licensing** — RSA-4096 signed, device-bound, verified fully offline, with
+  per-customer feature flags (vehicle profitability, customer history).
+- **Backup and restore** — a single ZIP including attachments and signed PDFs.
+- **Localization** — French, English and Arabic, including right-to-left layout.
 
-## Getting Started
+## Architecture
 
-1. Install [Flutter](https://flutter.dev).
-2. Clone the project and run:
-   ```bash
-   flutter pub get
-   ```
-3. Run on your target device (see [DEPLOY.md](DEPLOY.md)):
-   - **Windows**: `flutter run -d windows --release`
-   - **macOS**: on a Mac, `flutter run -d macos`
+Clean architecture applied feature by feature:
 
-4. **Hot reload** (while the app is running in the terminal):
-   - Press **`r`** for hot reload (fast, keeps state).
-   - Press **`R`** for hot restart (full restart, resets state).
-   - No need to stop and rebuild unless you change native code or dependencies.
+```
+lib/
+  presentation/   screens, widgets, Riverpod providers, routing
+  domain/         entities, repository ports, pure use cases (no Flutter/SQLite)
+  data/           SQLite models, mappers, repository implementations
+  core/           licensing, security, notifications, OCR, PDF, storage, l10n
+```
 
-## Multi-Platform Deployment
+Business rules such as availability, profitability and customer history are
+pure use cases tested with plain objects. See
+[docs/architecture.md](docs/architecture.md) for the reasoning and
+[CLAUDE.md](CLAUDE.md) for the design decisions behind the parts that do not
+look like a first draft (back-button handling, attachment storage,
+notification delivery, licence compatibility).
 
-See **[DEPLOY.md](DEPLOY.md)** for run and build commands for Windows/macOS and how to deliver the app.
+## Getting started
+
+Requires Flutter 3.44 (stable).
+
+```bash
+flutter pub get
+flutter run
+```
+
+Quality gates:
+
+```bash
+flutter analyze   # no issues
+flutter test      # 301 tests
+```
+
+Build and release instructions are in [docs/building.md](docs/building.md);
+licence issuing is covered in [docs/licensing.md](docs/licensing.md).
+
+## Tech stack
+
+Flutter · Riverpod · go_router · sqflite · flutter_local_notifications ·
+fast_rsa · local_auth · pdf / printing · ML Kit / Apple Vision OCR

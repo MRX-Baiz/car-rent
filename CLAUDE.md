@@ -6,7 +6,7 @@ driving-licence documents, and local notifications for return deadlines.
 Flutter, one codebase, Android first — other platforms build but are not the
 current focus.
 
-**If you are Claude Code opening this project fresh**: read this whole file
+**If you are an AI assistant or a new contributor opening this project fresh**: read this whole file
 before touching code. It records decisions that were reached by trial and
 error, including two approaches that looked reasonable and did not work. If
 you're about to re-derive one of them, the "why" is below — read it first.
@@ -16,27 +16,21 @@ you're about to re-derive one of them, the "why" is below — read it first.
 ## 1. The signing key
 
 `private_key.pem` (RSA-4096) signs every licence key and every PIN-reset
-token. `.gitignore` still lists `*.pem` — that line is what keeps a routine
-`git add .` from ever picking it up by accident — but it **is** committed to
-this repo (force-added, deliberately, so it travels with `git clone` instead
-of needing an out-of-band transfer). The app embeds the matching **public**
-key separately (`lib/core/license/asymmetric_crypto_helper.dart`), which can
-verify but not sign.
+token. It is **not in this repository** and must never be committed: `.gitignore`
+excludes `*.pem` and the other key/keystore formats. It lives at
+`~/.carrent/private_key.pem` (or wherever `$PRIVATE_KEY` points), and
+`scripts/generate_license.sh` / `scripts/generate_reset_token.sh` read it from
+there. The app embeds the matching **public** key
+(`lib/core/license/asymmetric_crypto_helper.dart`), which can verify but not
+sign. See `docs/licensing.md`.
 
-This is a considered trade-off, not an oversight: it only holds up as long as
-this repository stays private. If it is ever made public, forked to a public
-remote, or added as a dependency anywhere, **rotate the key immediately** —
-regenerate the pair, update the embedded public key in
-`asymmetric_crypto_helper.dart`, and every licence and reset token already
-issued from the old key stops verifying (existing installs keep running;
-issuing *new* licences/tokens for them needs the new key). Anyone who reaches
-this repo can otherwise mint a valid licence or PIN-reset token for any
-device without contacting the vendor at all.
+You don't need the key to build, run, or test the app — the tests that touch
+signing generate their own throwaway RSA keypair (`test/pin_recovery_test.dart`,
+`test/license_crypto_test.dart`).
 
-You don't need the key to build, run, or test the app day to day — the tests
-that touch signing generate their own throwaway RSA keypair
-(`test/pin_recovery_test.dart`, `test/license_crypto_test.dart`). It's only
-read by `scripts/generate_license.sh` and `scripts/generate_reset_token.sh`.
+If the key is ever exposed, rotate it: regenerate the pair, update the embedded
+public key, and re-issue licences. Existing installs keep running; issuing new
+licences/tokens for them needs the new key.
 
 ---
 
@@ -244,6 +238,43 @@ clear, and a narrow phone layout. `contract_repository_test.dart` covers the
 edit-time vehicle/chauffeur reassignment and double-booking guards. Real
 device signing/Adobe round-trip still needs manual validation.
 
+### Profitability per vehicle: computed, not stored
+
+`lib/domain/usecases/compute_vehicle_profitability.dart` turns a vehicle's
+contracts and its `vehicle_expenses` rows (repairs, insurance premiums,
+fines — a real table, schema v9, the first money-spent-on-a-vehicle tracking
+this app had; before this only maintenance *dates* existed, never amounts)
+into revenue, rental days, utilization %, and net profit. The use case itself
+is pure — no repository, no database access — the same shape as
+`BuildTodayOperations`: the provider layer (`vehicle_profitability_provider.dart`)
+joins the contracts/vehicles already loaded elsewhere in the app with a fresh
+read of expenses, maps them to plain domain entities, and only then calls the
+use case. This avoids a second database read of contracts purely for this
+report, and keeps the profit formula testable with plain objects
+(`test/vehicle_profitability_test.dart`) instead of a fake repository.
+
+**Utilization is rental days ÷ days since the vehicle was *added to the
+app*, not since it was bought.** There is no purchase-date field. This was a
+deliberate simplification, not an oversight — asked about explicitly, and a
+purchase-date field was declined for now. A vehicle added to the app long
+after it was actually bought will show an inflated utilization number; if
+that starts mattering, the fix is a real acquisition-date field, not a
+different formula.
+
+Reachable two ways: a "Rentabilité" section on the vehicle's own detail page
+(`VehicleDetailScreen`, with an "Ajouter une dépense" flow to record a cost),
+and a fleet-wide ranked report at `/vehicles/profitability` (icon in the
+Vehicles list header) showing every vehicle sorted by net profit — the "which
+cars should I buy again or sell" view.
+
+**Gated behind `LicenseFeature.profitability`** — both entry points, not just
+the nav icon: `VehicleProfitabilityScreen` checks `licenseFeaturesSignal`
+itself and shows a locked empty state if reached directly (a saved link, a
+typed URL), the same way `ClientDetailScreen`'s history section does.
+`test/vehicle_profitability_gate_test.dart` guards this; it was initially
+shipped ungated by mistake and caught only when asked directly whether it
+was — check a feature is actually gated before telling a customer it is.
+
 ### Licensing: RSA-4096, device-bound, offline
 
 `lib/core/license/`. A licence is a base64-wrapped `{data, signature}`
@@ -253,6 +284,56 @@ entirely on-device. `validateRuntime()` additionally detects clock rollback
 (a hash of the last-run timestamp, so winding the system clock back to defeat
 an expiry is caught). `scripts/generate_license.sh` mints one from the
 private key; the app's licence screen shows the device id you paste in there.
+
+**Licence-gated features, decided when the key is issued, not remotely.**
+`LicenseData` also carries an optional `features` set (`lib/core/license/
+license_features.dart` lists the known keys). This is what lets the same app
+be sold with different feature sets per customer — set `--features` when
+running `generate_license.sh`, nothing else changes. There is deliberately
+**no server-side toggle**: changing what a customer has means issuing them a
+new key, the same flow as a renewal, because a real-time remote switch would
+mean this app phoning home, contradicting the "no server, fully offline"
+choice above. `SplashScreen` populates `licenseFeaturesSignal` (a
+`ValueNotifier<Set<String>>`) once at launch, and `LicenseManager.saveLicense`
+updates it again the moment a new key is saved, so a renewal takes effect
+without restarting the app. A screen gates a feature by reading that signal
+directly (see `ClientDetailScreen`'s "Historique client" section) — no
+Riverpod provider needed for what is a device-local capability flag, not app
+data.
+
+**`LicenseData.toMap()` must omit `features` entirely when it's empty — do
+not "simplify" this to always emitting the key.** `verifyLicense` doesn't
+check the signature against the bytes that were actually signed; it decodes
+the licence into a typed `LicenseData` and re-derives the JSON from that
+object's own `toMap()`. Every licence issued before this field existed was
+signed over exactly three keys (`name`, `expiry`, `device_id`) with no
+`features` key at all. If `toMap()` ever emits `"features":[]` unconditionally,
+every one of those already-issued licences gets re-encoded with an extra key
+during verification — different bytes than what was signed — and the
+signature check fails. `generate_license.sh` mirrors the same rule: no
+`--features` argument means no `features` key in the signed JSON, byte for
+byte identical to the pre-this-feature format. `test/license_features_test.dart`
+pins this with a real licence minted by the actual script against the actual
+private key, at both a feature-less and a with-features call.
+
+### Customer history: the first licence-gated feature
+
+`ClientDetailScreen`'s "Historique client" section — total rentals, late
+returns (both a completed contract returned after its due date, and an
+active one already past it), unpaid balance, damage incidents — is a rollup
+of data that already existed (contracts, inspections), computed the same
+pure-use-case-joined-at-the-provider shape as vehicle profitability
+(`compute_client_history.dart`, `client_history_provider.dart`). It renders
+only when the active licence includes `LicenseFeature.customerHistory` —
+the first real feature built on the gating above, not just plumbing.
+
+The "Nécessite l'approbation du gérant" switch on the same screen is a
+separate, **ungated** thing: a plain flag the operator sets on a client
+themselves (new `requires_manager_approval` column, schema v10), not tied to
+any licence. There's one operator and no roles to enforce it against (see
+"Auth is a local PIN" above) — it's a reminder, not a permission wall, and it
+does something concrete: `ContractFormScreen` shows a warning chip when a
+flagged client is selected.
 
 ### OCR is on-device, no server
 
@@ -316,8 +397,8 @@ Full list in `pubspec.yaml`.
    Resolve anything `flutter doctor` flags before going further.
 6. **Verify the checkout is healthy**:
    ```
-   flutter analyze      # expect 0 errors
-   flutter test         # expect 208 passing
+   flutter analyze      # expect no issues
+   flutter test         # expect all 301 passing
    ```
 7. **Run it**:
    ```
@@ -329,15 +410,9 @@ Full list in `pubspec.yaml`.
 
 ## 5. Repository
 
-- `origin` → `github.com/MRX-Baiz/car-rent` — the active repo, push here.
-- An older repo, `V2-car-renting`, exists and is kept as a remote named
-  `v2-old` in the original development machine for history; it is not where
-  new work goes.
-- The commit history was deliberately restructured once (see the first dozen
-  commits) into one logical change per commit with a "why" in the message,
-  because the working history up to that point was one flat diff. Keep doing
-  that going forward rather than reverting to giant commits — it's what makes
-  `git log` useful on this project.
+- `origin` → `github.com/MRX-Baiz/car-rent` — the active repo.
+- The history is one logical change per commit with a "why" in the message.
+  Keep doing that rather than reverting to giant commits.
 
 ---
 
@@ -367,12 +442,12 @@ lib/
   main.dart               entry point, service init order matters here
 
 scripts/
-  generate_license.sh       mint a licence key (needs private_key.pem)
-  generate_reset_token.sh   mint a PIN-reset token (needs private_key.pem)
+  generate_license.sh       mint a licence key (needs the key from §1)
+  generate_reset_token.sh   mint a PIN-reset token (needs the key from §1)
   make_icon_assets.py       launcher icon from source art
   make_notification_icon.py status-bar icon (monochrome silhouette)
 
-test/                     208 tests; see §7
+test/                     301 tests; see §7
 ```
 
 ---
@@ -380,8 +455,8 @@ test/                     208 tests; see §7
 ## 7. Testing
 
 ```
-flutter analyze     # must be 0 errors before committing
-flutter test         # 208 tests as of this writing
+flutter analyze     # must report no issues before committing
+flutter test         # 301 tests, all passing
 ```
 
 Every security-relevant piece has a test that fails without the fix it's
@@ -405,9 +480,31 @@ guarding, not just a happy-path check:
   three-minute contract: no time-only daily match, first overdue date tomorrow,
   normal return/payment alarms intact, cancellation, startup replacement,
   quiet hours, and no background digest immediately after the deadline.
+- `vehicle_profitability_test.dart` — the profit formula against plain data:
+  an in-progress rental counts days up to now not to a fictitious end date,
+  expense categories sum independently, a vehicle added today doesn't divide
+  by zero, one vehicle's expenses never leak into another's total.
+- `vehicle_profitability_gate_test.dart` — reaching `/vehicles/profitability`
+  directly without the licence feature shows the locked state, not real
+  numbers; the nav icon being hidden is not itself a guard.
+- `compute_client_history_test.dart` — same shape, for customer history: a
+  completed contract returned late counts once, an active one already past
+  its due date counts as currently late, unpaid balance only sums active
+  contracts, a departure+return pair flagging the same contract counts as one
+  damage incident, not two.
+- `license_features_test.dart` — the licence backward-compatibility guard
+  above, with a real licence minted by `generate_license.sh` against the real
+  private key for both the feature-less and with-features cases.
+- `database_fresh_install_test.dart` — guards schema drift between
+  `_onCreate` and `_onUpgrade`; extended for `vehicle_expenses` and
+  `requires_manager_approval` when those were added.
 
 If you fix a bug, add the test that would have caught it before writing the
 fix — that's the standard the existing suite was held to.
+
+Widget tests that render screens must go through `test/helpers/french_app.dart`
+(`frenchApp`): the app's copy is French, so a bare English `MaterialApp`
+renders different strings and fails in ways that look like layout bugs.
 
 ---
 
@@ -447,4 +544,21 @@ Roughly in the order they'd bite someone:
 - Prefer fixing the root cause over adding a fallback/try-catch around it —
   several of the bugs in §2 were originally masked by exactly that kind of
   patch, which is why they took two rounds to actually fix.
+- **New screens are built on `AppPage`** (`lib/presentation/widgets/layout/
+  app_page.dart`), not on a hand-made `Scaffold`. Pass a `title` and
+  `children` and the page gets the app's look for free: the artwork backdrop
+  that pans as you scroll, drifting gold glints, the scroll rail, an app bar
+  that starts clear and turns white with a gold hairline, an animated title
+  block, cards that slide in one by one, safe-area padding, and reduced-motion
+  handling. Three styles, one per established look:
+  - `AppPage(...)` — the default (Settings look, no photo). Almost every page.
+  - `AppPage.hero(...)` — Settings in full: a pinned photo header that
+    collapses into the bar. For a section's landing page.
+  - `AppPage.home(...)` — Home: full-bleed artwork, the page supplies its own
+    header as the first child, no auto-reveal.
+  Long lazy lists pass `slivers:` instead of `children:`. `Settings` and the
+  dashboard are themselves built on it, so it cannot drift from what users see.
+  `test/app_page_adoption_test.dart` fails if a new screen builds its own
+  `Scaffold`; the `_legacy` list in it is the backlog of older screens (forms,
+  lock, licence…) still to migrate and may only shrink.
 - Don't commit without being asked to. Don't push without being asked to.
