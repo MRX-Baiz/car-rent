@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:car_rent_manager/presentation/widgets/common/app_text.dart';
 
 import '../../../core/constants/app_colors.dart';
-import '../../../core/utils/format_utils.dart';
 import '../../../data/models/contract_model.dart';
 
 /// Shared confirmation for deleting a contract, worded for what actually

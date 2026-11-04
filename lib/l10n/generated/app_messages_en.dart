@@ -2749,4 +2749,122 @@ class AppMessagesEn extends AppMessages {
   String minutesUnit(String p0) {
     return '$p0 min';
   }
+
+  @override
+  String get profitability => 'Profitability';
+
+  @override
+  String get revenue => 'Revenue';
+
+  @override
+  String get utilizationRate => 'Utilization rate';
+
+  @override
+  String get netProfit => 'Net profit';
+
+  @override
+  String get totalExpenses => 'Expenses';
+
+  @override
+  String get expenseCategoryRepair => 'Repair';
+
+  @override
+  String get expenseCategoryInsurance => 'Insurance';
+
+  @override
+  String get expenseCategoryFine => 'Fine';
+
+  @override
+  String get expenseCategoryOther => 'Other';
+
+  @override
+  String get addAnExpense => 'Add an expense';
+
+  @override
+  String get expenseAmount => 'Amount';
+
+  @override
+  String get expenseDateLabel => 'Expense date';
+
+  @override
+  String get expenseCategoryLabel => 'Category';
+
+  @override
+  String get expenseNoteOptional => 'Note (optional)';
+
+  @override
+  String get noExpensesRecordedForThisVehicle =>
+      'No expenses recorded for this vehicle.';
+
+  @override
+  String get fleetProfitability => 'Fleet profitability';
+
+  @override
+  String get fleetTotalRevenue => 'Total revenue';
+
+  @override
+  String get fleetTotalExpenses => 'Total expenses';
+
+  @override
+  String get fleetTotalNetProfit => 'Total net profit';
+
+  @override
+  String get noVehiclesToRank => 'No vehicles to rank.';
+
+  @override
+  String get expenseSaved => 'Expense saved.';
+
+  @override
+  String get expenseDeleted => 'Expense deleted.';
+
+  @override
+  String get notTrackedYet => 'Not tracked yet.';
+
+  @override
+  String get deleteThisExpenseQuestion => 'Delete this expense?';
+
+  @override
+  String get enterAValidAmount => 'Enter a valid amount.';
+
+  @override
+  String get rentalDaysLabel => 'Rental days';
+
+  @override
+  String get includedFeatures => 'Included features';
+
+  @override
+  String get customerHistoryFeatureLabel => 'Advanced customer history';
+
+  @override
+  String get clientHistorySectionTitle => 'Customer history';
+
+  @override
+  String get totalRentalsLabel => 'Total rentals';
+
+  @override
+  String get lateReturnsLabel => 'Late returns';
+
+  @override
+  String get unpaidBalanceLabel => 'Unpaid balance';
+
+  @override
+  String get damageIncidentsLabel => 'Damage incidents';
+
+  @override
+  String get requiresManagerApprovalLabel => 'Requires manager approval';
+
+  @override
+  String get requiresManagerApprovalSubtitle =>
+      'A reminder shown the next time this client rents';
+
+  @override
+  String get clientRequiresApprovalWarning =>
+      'This client requires manager approval before renting.';
+
+  @override
+  String get profitabilityFeatureLabel => 'Per-vehicle profitability';
+
+  @override
+  String get featureNotIncludedInLicence =>
+      'This feature is not included in your licence.';
 }

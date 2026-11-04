@@ -33,6 +33,7 @@ import 'presentation/screens/lock/pin_setup_screen.dart';
 import 'presentation/screens/vehicles/vehicle_detail_screen.dart';
 import 'presentation/screens/vehicles/vehicle_form_screen.dart';
 import 'presentation/screens/vehicles/vehicle_photos_screen.dart';
+import 'presentation/screens/vehicles/vehicle_profitability_screen.dart';
 import 'presentation/screens/vehicles/vehicles_list_screen.dart';
 import 'presentation/screens/chauffeurs/chauffeurs_screen.dart';
 import 'presentation/screens/assistant/assistant_model_screen.dart';
@@ -103,6 +104,12 @@ final _router = GoRouter(
         GoRoute(
           path: 'add',
           builder: (context, state) => const VehicleFormScreen(),
+        ),
+        GoRoute(
+          // Listed before ':id' so this static segment isn't swallowed by
+          // the parameterized vehicle-detail route below.
+          path: 'profitability',
+          builder: (context, state) => const VehicleProfitabilityScreen(),
         ),
         GoRoute(
           path: ':id',
@@ -207,8 +214,9 @@ final _router = GoRouter(
                 builder: (context, state) {
                   final id = int.tryParse(state.pathParameters['id'] ?? '');
                   final type = state.pathParameters['type'];
-                  if (id == null || (type != 'departure' && type != 'return'))
+                  if (id == null || (type != 'departure' && type != 'return')) {
                     return const SplashScreen();
+                  }
                   return InspectionFormScreen(contractId: id, type: type!);
                 }),
             GoRoute(

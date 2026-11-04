@@ -7,8 +7,9 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
+import '../../../core/license/license_features.dart';
+import '../../../core/license/license_manager.dart';
 import '../../../core/utils/contract_insights.dart';
-import '../../../core/utils/format_utils.dart';
 import '../../../core/utils/vehicle_labels.dart';
 import '../../../core/utils/vehicle_maintenance.dart';
 import '../../../data/models/vehicle_model.dart';
@@ -124,7 +125,8 @@ class _VehiclesListScreenState extends ConsumerState<VehiclesListScreen>
     final all = vehiclesAsync.value;
     final subtitle = all == null
         ? null
-        : context.messages.fleetSummary((all.length).toString(), (all.where((v) => v.status == 'available').length).toString());
+        : context.messages.fleetSummary((all.length).toString(),
+            (all.where((v) => v.status == 'available').length).toString());
 
     // The whole page is dark, from the hero down: a light backdrop under the
     // dark hero made the colours clash, so the page keeps one mood and only the
@@ -198,6 +200,24 @@ class _VehiclesListScreenState extends ConsumerState<VehiclesListScreen>
                                 ? context.pop()
                                 : context.go('/dashboard'),
                           ),
+                          actions: [
+                            ValueListenableBuilder<Set<String>>(
+                              valueListenable: licenseFeaturesSignal,
+                              builder: (context, features, _) {
+                                if (!features
+                                    .contains(LicenseFeature.profitability)) {
+                                  return const SizedBox.shrink();
+                                }
+                                return IconButton(
+                                  icon: const Icon(Icons.insights_outlined),
+                                  tooltip:
+                                      context.tr(AppCopy.fleetProfitability),
+                                  onPressed: () =>
+                                      context.push('/vehicles/profitability'),
+                                );
+                              },
+                            ),
+                          ],
                         ),
                       ),
                       ..._contentSlivers(context, vehiclesAsync, lastRate),
@@ -297,8 +317,8 @@ class _VehiclesListScreenState extends ConsumerState<VehiclesListScreen>
             color: Colors.white,
             eyebrow: AppCopy.yourFleet,
             title: AppCopy.vehicles,
-            subtitle:
-                context.messages.fleetSummary((vehicles.length).toString(), (available).toString()),
+            subtitle: context.messages.fleetSummary(
+                (vehicles.length).toString(), (available).toString()),
           ),
         ),
       ),
@@ -307,7 +327,7 @@ class _VehiclesListScreenState extends ConsumerState<VehiclesListScreen>
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
           child: TextField(
             decoration: InputDecoration(
-              prefixIcon: Icon(Icons.search),
+              prefixIcon: const Icon(Icons.search),
               hintText: context.tr(AppCopy.brandModelOrRegistration),
             ),
             onChanged: (value) =>
@@ -484,8 +504,8 @@ class VehicleCard extends StatelessWidget {
                   spacing: 14,
                   runSpacing: 6,
                   children: [
-                    _Fact(
-                        Icons.speed_outlined, context.distance(vehicle.currentMileage)),
+                    _Fact(Icons.speed_outlined,
+                        context.distance(vehicle.currentMileage)),
                     _Fact(fuelTypeIcon(vehicle.fuelType),
                         fuelTypeName(vehicle.fuelType)),
                     _Fact(Icons.settings_outlined,
@@ -495,7 +515,8 @@ class VehicleCard extends StatelessWidget {
                 if (urgent != null) ...[
                   const SizedBox(height: 10),
                   StatusChip(
-                    label: '${context.tr(urgent.label)} · ${context.tr(urgent.status)}',
+                    label:
+                        '${context.tr(urgent.label)} · ${context.tr(urgent.status)}',
                     tone: urgent.tone,
                     icon: urgent.tone.icon,
                     dense: true,

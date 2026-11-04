@@ -32,6 +32,7 @@ class _AvailabilityCalendarScreenState
   late DateTime _weekStart;
   List<Reservation> _reservations = const [];
   bool _loadingReservations = true;
+  String _vehicleSearchQuery = '';
 
   @override
   void initState() {
@@ -115,8 +116,9 @@ class _AvailabilityCalendarScreenState
             setSheetState(() {
               if (isStart) {
                 start = picked;
-                if (!end.isAfter(start))
+                if (!end.isAfter(start)) {
                   end = start.add(const Duration(days: 1));
+                }
               } else if (picked.isAfter(start)) {
                 end = picked;
               }
@@ -161,7 +163,7 @@ class _AvailabilityCalendarScreenState
                     ]),
                     const SizedBox(height: 12),
                     DropdownButtonFormField<ClientModel?>(
-                      value: client,
+                      initialValue: client,
                       isExpanded: true,
                       decoration: InputDecoration(
                           labelText: context.tr(AppCopy.clientOptional)),
@@ -197,7 +199,7 @@ class _AvailabilityCalendarScreenState
                       child: Row(children: [
                         const Icon(Icons.calculate_outlined),
                         const SizedBox(width: 12),
-                        Expanded(child: AppText(AppCopy.estimatedTotal)),
+                        const Expanded(child: AppText(AppCopy.estimatedTotal)),
                         AppText(context.money(total),
                             style:
                                 const TextStyle(fontWeight: FontWeight.w800)),
@@ -314,8 +316,43 @@ class _AvailabilityCalendarScreenState
                       icon: Icons.directions_car_outlined,
                     ),
                   )
-                else
-                  _calendar(context, vehicles, contracts),
+                else ...[
+                  // Scanning every row to find one car gets slow to *read*
+                  // long before the fleet is large enough to be slow to
+                  // *render" — search jumps straight to it instead.
+                  TextField(
+                    decoration: InputDecoration(
+                      prefixIcon: const Icon(Icons.search),
+                      hintText: context.tr(AppCopy.brandModelOrRegistration),
+                    ),
+                    onChanged: (value) => setState(
+                        () => _vehicleSearchQuery = value.trim().toLowerCase()),
+                  ),
+                  const SizedBox(height: 12),
+                  Builder(builder: (context) {
+                    final q = _vehicleSearchQuery;
+                    final filteredVehicles = q.isEmpty
+                        ? vehicles
+                        : vehicles
+                            .where((v) =>
+                                v.brand.toLowerCase().contains(q) ||
+                                v.model.toLowerCase().contains(q) ||
+                                v.registrationNumber.toLowerCase().contains(q))
+                            .toList();
+                    if (filteredVehicles.isEmpty) {
+                      return const SizedBox(
+                        height: 200,
+                        child: EmptyStateWidget(
+                          title: AppCopy.noVehiclesFound,
+                          subtitle: AppCopy.changeTheSearchOrFilter,
+                          icon: Icons.search_off,
+                          compact: true,
+                        ),
+                      );
+                    }
+                    return _calendar(context, filteredVehicles, contracts);
+                  }),
+                ],
                 const SizedBox(height: 24),
                 AppText(AppCopy.savedQuotes,
                     style: Theme.of(context).textTheme.titleLarge),
@@ -361,21 +398,28 @@ class _AvailabilityCalendarScreenState
         ]),
       );
 
-  Widget _legend(BuildContext context) => Wrap(
+  Widget _legend(BuildContext context) => const Wrap(
         spacing: 8,
         runSpacing: 8,
         children: [
-          _LegendItem(label: AppCopy.available, color: const Color(0xFFDDF7E8)),
-          _LegendItem(label: AppCopy.quote, color: const Color(0xFFFFE8B7)),
-          _LegendItem(label: AppCopy.contract, color: const Color(0xFFFFD9D9)),
+          _LegendItem(label: AppCopy.available, color: Color(0xFFDDF7E8)),
+          _LegendItem(label: AppCopy.quote, color: Color(0xFFFFE8B7)),
+          _LegendItem(label: AppCopy.contract, color: Color(0xFFFFD9D9)),
           _LegendItem(
-              label: AppCopy.maintenance799eec, color: const Color(0xFFE2E8F0)),
+              label: AppCopy.maintenance799eec, color: Color(0xFFE2E8F0)),
         ],
       );
+
+  // The fixed per-row height a bounded ListView.builder needs to actually
+  // build lazily instead of eagerly, the way a plain Column of every vehicle
+  // used to: 58 for the cell plus 8 spacing below it.
+  static const _rowHeight = 66.0;
+  static const _maxVisibleRows = 6;
 
   Widget _calendar(BuildContext context, List<VehicleModel> vehicles,
       List<ContractModel> contracts) {
     final locale = Localizations.localeOf(context).toLanguageTag();
+    final visibleRows = vehicles.length.clamp(1, _maxVisibleRows);
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: SizedBox(
@@ -400,27 +444,39 @@ class _AvailabilityCalendarScreenState
               ),
           ]),
           const SizedBox(height: 8),
-          for (final vehicle in vehicles)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Row(children: [
-                SizedBox(
-                  width: 174,
-                  child: Text(
-                      '${vehicle.brand} ${vehicle.model}\n${vehicle.registrationNumber}',
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontWeight: FontWeight.w700)),
-                ),
-                for (final day in _days)
-                  _CalendarCell(
-                    state: _stateFor(vehicle, day, contracts),
-                    onTap: vehicle.status == 'maintenance'
-                        ? null
-                        : () => _showQuoteSheet(vehicle, initialStart: day),
-                  ),
-              ]),
+          // A bounded, non-shrink-wrapped ListView.builder — unlike the
+          // Column this replaced, it only builds the rows actually on
+          // screen. shrinkWrap: true would have looked like the same fix
+          // while still building every row up front to measure them all.
+          SizedBox(
+            height: _rowHeight * visibleRows,
+            child: ListView.builder(
+              itemCount: vehicles.length,
+              itemBuilder: (context, index) {
+                final vehicle = vehicles[index];
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(children: [
+                    SizedBox(
+                      width: 174,
+                      child: Text(
+                          '${vehicle.brand} ${vehicle.model}\n${vehicle.registrationNumber}',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontWeight: FontWeight.w700)),
+                    ),
+                    for (final day in _days)
+                      _CalendarCell(
+                        state: _stateFor(vehicle, day, contracts),
+                        onTap: vehicle.status == 'maintenance'
+                            ? null
+                            : () => _showQuoteSheet(vehicle, initialStart: day),
+                      ),
+                  ]),
+                );
+              },
             ),
+          ),
         ]),
       ),
     );
@@ -429,7 +485,7 @@ class _AvailabilityCalendarScreenState
   Widget _quotes(BuildContext context, List<VehicleModel> vehicles,
       List<ClientModel> clients) {
     final quotes =
-        _reservations.where((item) => item.status == 'quote').toList();
+        _reservations.where((item) => item.status == ReservationStatus.quote).toList();
     if (quotes.isEmpty) {
       return const AppCard(
         child: AppText(AppCopy.noSavedQuotes),

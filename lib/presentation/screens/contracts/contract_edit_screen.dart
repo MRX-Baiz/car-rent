@@ -366,7 +366,7 @@ class _ContractEditScreenState extends ConsumerState<ContractEditScreen> {
                 children: [
                   DropdownButtonFormField<int>(
                     isExpanded: true,
-                    value: vehicle?.id,
+                    initialValue: vehicle?.id,
                     items: [
                       for (final v in vehicleOptions)
                         DropdownMenuItem(
@@ -380,7 +380,7 @@ class _ContractEditScreenState extends ConsumerState<ContractEditScreen> {
                     onChanged: (id) => setState(() => _vehicleId = id),
                     decoration: InputDecoration(
                       labelText: context.tr(AppCopy.vehicle),
-                      prefixIcon: Icon(Icons.directions_car_outlined),
+                      prefixIcon: const Icon(Icons.directions_car_outlined),
                     ),
                   ),
                   if (vehicle != null)
@@ -404,13 +404,13 @@ class _ContractEditScreenState extends ConsumerState<ContractEditScreen> {
                     decoration: InputDecoration(
                       labelText: context.tr(AppCopy.searchForAClient),
                       hintText: context.tr(AppCopy.nameOrNationalID),
-                      prefixIcon: Icon(Icons.search),
+                      prefixIcon: const Icon(Icons.search),
                     ),
                     onChanged: (v) => setState(() => _clientSearch = v),
                   ),
                   DropdownButtonFormField<int>(
                     isExpanded: true,
-                    value: filteredClients.any((c) => c.id == _primaryDriverId)
+                    initialValue: filteredClients.any((c) => c.id == _primaryDriverId)
                         ? _primaryDriverId
                         : null,
                     items: [
@@ -454,14 +454,14 @@ class _ContractEditScreenState extends ConsumerState<ContractEditScreen> {
                             labelText: context
                                 .tr(AppCopy.searchForAnAdditionalDriver),
                             hintText: context.tr(AppCopy.nameOrNationalID),
-                            prefixIcon: Icon(Icons.search),
+                            prefixIcon: const Icon(Icons.search),
                           ),
                           onChanged: (v) =>
                               setState(() => _secondaryClientSearch = v),
                         ),
                         DropdownButtonFormField<int?>(
                           isExpanded: true,
-                          value: secondaryOptions
+                          initialValue: secondaryOptions
                                   .any((c) => c.id == _secondaryDriverId)
                               ? _secondaryDriverId
                               : null,
@@ -491,7 +491,7 @@ class _ContractEditScreenState extends ConsumerState<ContractEditScreen> {
                 children: [
                   DropdownButtonFormField<int?>(
                     isExpanded: true,
-                    value: chauffeurOptions.any((c) => c.id == _chauffeurId)
+                    initialValue: chauffeurOptions.any((c) => c.id == _chauffeurId)
                         ? _chauffeurId
                         : null,
                     items: [
@@ -518,7 +518,7 @@ class _ContractEditScreenState extends ConsumerState<ContractEditScreen> {
                       controller: _chauffeurHoursController,
                       decoration: InputDecoration(
                         labelText: context.tr(AppCopy.numberOfDriverHours),
-                        prefixIcon: Icon(Icons.schedule),
+                        prefixIcon: const Icon(Icons.schedule),
                       ),
                       keyboardType:
                           const TextInputType.numberWithOptions(decimal: true),
@@ -571,7 +571,7 @@ class _ContractEditScreenState extends ConsumerState<ContractEditScreen> {
                     decoration: InputDecoration(
                       labelText: context.tr(AppCopy.dailyPrice),
                       suffixText: 'MAD',
-                      prefixIcon: Icon(Icons.sell_outlined),
+                      prefixIcon: const Icon(Icons.sell_outlined),
                     ),
                     keyboardType:
                         const TextInputType.numberWithOptions(decimal: true),
@@ -582,7 +582,7 @@ class _ContractEditScreenState extends ConsumerState<ContractEditScreen> {
                     decoration: InputDecoration(
                       labelText: context.tr(AppCopy.contractTotal),
                       suffixText: 'MAD',
-                      prefixIcon: Icon(Icons.calculate_outlined),
+                      prefixIcon: const Icon(Icons.calculate_outlined),
                       helperText:
                           context.tr(AppCopy.calculatedAutomaticallyYouCanEditItManually),
                     ),

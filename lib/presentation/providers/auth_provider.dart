@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/security/pin_reset_token.dart';
 import '../../data/repositories/auth_repository.dart';
-import '../../domain/entities/unlock_outcome.dart';
 import '../../domain/repositories/app_lock_repository.dart';
 
 /// Kept in presentation so lock screens do not know which persistence class

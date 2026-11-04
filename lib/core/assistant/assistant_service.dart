@@ -489,11 +489,6 @@ class _AssistantQuery {
   }
 
   String _vehicleDetails(VehicleModel vehicle) {
-    const statuses = {
-      'available': 'Disponible',
-      'rented': 'Loué',
-      'maintenance': 'En entretien',
-    };
     const transmissions = {'manual': 'Manuelle', 'automatic': 'Automatique'};
     const fuels = {
       'petrol': 'Essence',

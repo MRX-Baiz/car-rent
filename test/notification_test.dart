@@ -226,7 +226,7 @@ void main() {
 
   group('licence warnings', () {
     test('are ordered furthest-out first and are all distinct', () {
-      final days = NotificationService.licenseWarningDays;
+      const days = NotificationService.licenseWarningDays;
 
       expect(days, isNotEmpty);
       expect(days.toSet().length, days.length);

@@ -27,6 +27,7 @@ class SqliteVehiclePhotoRepository implements VehiclePhotoRepository {
     return result;
   }
 
+  @override
   Future<void> replacePhoto({
     required int vehicleId,
     required VehiclePhotoKind kind,

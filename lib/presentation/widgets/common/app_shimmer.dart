@@ -45,18 +45,18 @@ class AppShimmer extends StatelessWidget {
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       itemCount: itemCount,
-      itemBuilder: (context, index) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+      itemBuilder: (context, index) => const Padding(
+        padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
         child: Row(
           children: [
-            const AppShimmer.circular(width: 48, height: 48),
-            const SizedBox(width: 16),
+            AppShimmer.circular(width: 48, height: 48),
+            SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   AppShimmer.rectangular(height: 16, width: double.infinity),
-                  const SizedBox(height: 8),
+                  SizedBox(height: 8),
                   AppShimmer.rectangular(height: 12, width: 150),
                 ],
               ),
@@ -83,22 +83,22 @@ class AppShimmer extends StatelessWidget {
   }
 
   static Widget detailLayer() {
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
+    return const Padding(
+      padding: EdgeInsets.all(16.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const AppShimmer.rectangular(height: 200),
-          const SizedBox(height: 24),
-          const AppShimmer.rectangular(height: 32, width: 200),
-          const SizedBox(height: 16),
-          const AppShimmer.rectangular(height: 16, width: double.infinity),
-          const SizedBox(height: 8),
-          const AppShimmer.rectangular(height: 16, width: double.infinity),
-          const SizedBox(height: 24),
-          const AppShimmer.rectangular(height: 24, width: 150),
-          const SizedBox(height: 12),
-          const AppShimmer.rectangular(height: 100),
+          AppShimmer.rectangular(height: 200),
+          SizedBox(height: 24),
+          AppShimmer.rectangular(height: 32, width: 200),
+          SizedBox(height: 16),
+          AppShimmer.rectangular(height: 16, width: double.infinity),
+          SizedBox(height: 8),
+          AppShimmer.rectangular(height: 16, width: double.infinity),
+          SizedBox(height: 24),
+          AppShimmer.rectangular(height: 24, width: 150),
+          SizedBox(height: 12),
+          AppShimmer.rectangular(height: 100),
         ],
       ),
     );

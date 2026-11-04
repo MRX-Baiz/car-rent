@@ -6,7 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 /// Minimal host that owns an [AmbientController] the way a screen does.
 class _Host extends StatefulWidget {
-  const _Host({required this.onController, this.child});
+  const _Host({required this.onController}) : child = null;
   final ValueChanged<AmbientController> onController;
   final Widget? child;
 
@@ -189,7 +189,7 @@ void main() {
       await tester.pumpWidget(const MaterialApp(
         home: Reveal(index: 2, child: Text('card')),
       ));
-      final opacity = () => tester
+      double? opacity() => tester
           .widgetList<Opacity>(find.ancestor(
               of: find.text('card'), matching: find.byType(Opacity)))
           .firstOrNull

@@ -250,12 +250,15 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
           (data['cin'] ?? '').isNotEmpty;
       if (mounted) {
         setState(() {
-          if ((data['firstName'] ?? '').isNotEmpty)
+          if ((data['firstName'] ?? '').isNotEmpty) {
             _firstNameController.text = data['firstName']!;
-          if ((data['lastName'] ?? '').isNotEmpty)
+          }
+          if ((data['lastName'] ?? '').isNotEmpty) {
             _lastNameController.text = data['lastName']!;
-          if ((data['cin'] ?? '').isNotEmpty)
+          }
+          if ((data['cin'] ?? '').isNotEmpty) {
             _cinController.text = data['cin']!;
+          }
         });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

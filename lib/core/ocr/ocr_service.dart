@@ -271,8 +271,9 @@ class OcrService {
     ];
 
     bool isSkippable(String line) {
-      if (skipKeywords.any((k) => line.toUpperCase().contains(k.toUpperCase())))
+      if (skipKeywords.any((k) => line.toUpperCase().contains(k.toUpperCase()))) {
         return true;
+      }
       if (RegExp(r'\d').hasMatch(line)) return true;
       if (line.length < 3) return true;
       return false;
@@ -359,8 +360,9 @@ class OcrService {
     final madRegex = RegExp(r'(\d+(?:[.,]\d+)?)\s*(?:MAD|DH|د\.م\.ج)?',
         caseSensitive: false);
     final madMatch = madRegex.firstMatch(text);
-    if (madMatch != null)
+    if (madMatch != null) {
       result['amount'] = madMatch.group(1)!.replaceAll(',', '.');
+    }
     return result;
   }
 

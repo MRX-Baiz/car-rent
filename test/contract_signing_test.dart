@@ -202,7 +202,7 @@ void main() {
     await db.setVersion(5);
     await DatabaseHelper.instance.close();
     final upgraded = await DatabaseHelper.instance.database;
-    expect(await upgraded.getVersion(), 8);
+    expect(await upgraded.getVersion(), 10);
     expect(await upgraded.query('contracts'), hasLength(1));
     expect(await service.getDocument(contract.id!), isNull);
     expect((await service.prepare(contract.id!)).isSigned, isFalse);

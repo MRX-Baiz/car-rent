@@ -35,6 +35,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
         context.go('/license');
         return;
       }
+      licenseFeaturesSignal.value = license.data?.features ?? const {};
 
       // One-time cleanup of the token left by the old login screen, which
       // granted access without checking anything.

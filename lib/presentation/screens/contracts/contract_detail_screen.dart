@@ -8,7 +8,6 @@ import 'package:intl/intl.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/utils/contract_insights.dart';
-import '../../../core/utils/format_utils.dart';
 import '../../../data/models/contract_model.dart';
 import '../../providers/contract_payment_provider.dart';
 import '../../providers/contract_progress_provider.dart';

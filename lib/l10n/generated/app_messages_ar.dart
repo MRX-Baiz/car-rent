@@ -2729,4 +2729,121 @@ class AppMessagesAr extends AppMessages {
   String minutesUnit(String p0) {
     return '$p0 د';
   }
+
+  @override
+  String get profitability => 'الربحية';
+
+  @override
+  String get revenue => 'الإيراد';
+
+  @override
+  String get utilizationRate => 'معدل الاستخدام';
+
+  @override
+  String get netProfit => 'الربح الصافي';
+
+  @override
+  String get totalExpenses => 'المصاريف';
+
+  @override
+  String get expenseCategoryRepair => 'إصلاح';
+
+  @override
+  String get expenseCategoryInsurance => 'تأمين';
+
+  @override
+  String get expenseCategoryFine => 'غرامة';
+
+  @override
+  String get expenseCategoryOther => 'أخرى';
+
+  @override
+  String get addAnExpense => 'إضافة مصروف';
+
+  @override
+  String get expenseAmount => 'المبلغ';
+
+  @override
+  String get expenseDateLabel => 'تاريخ المصروف';
+
+  @override
+  String get expenseCategoryLabel => 'الفئة';
+
+  @override
+  String get expenseNoteOptional => 'ملاحظة (اختياري)';
+
+  @override
+  String get noExpensesRecordedForThisVehicle =>
+      'لا توجد مصاريف مسجلة لهذه المركبة.';
+
+  @override
+  String get fleetProfitability => 'ربحية الأسطول';
+
+  @override
+  String get fleetTotalRevenue => 'إجمالي الإيراد';
+
+  @override
+  String get fleetTotalExpenses => 'إجمالي المصاريف';
+
+  @override
+  String get fleetTotalNetProfit => 'إجمالي الربح الصافي';
+
+  @override
+  String get noVehiclesToRank => 'لا توجد مركبات للتصنيف.';
+
+  @override
+  String get expenseSaved => 'تم حفظ المصروف.';
+
+  @override
+  String get expenseDeleted => 'تم حذف المصروف.';
+
+  @override
+  String get notTrackedYet => 'لم يُتتبّع بعد.';
+
+  @override
+  String get deleteThisExpenseQuestion => 'حذف هذا المصروف؟';
+
+  @override
+  String get enterAValidAmount => 'أدخل مبلغًا صالحًا.';
+
+  @override
+  String get rentalDaysLabel => 'أيام الإيجار';
+
+  @override
+  String get includedFeatures => 'الميزات المضمنة';
+
+  @override
+  String get customerHistoryFeatureLabel => 'سجل العملاء المتقدم';
+
+  @override
+  String get clientHistorySectionTitle => 'سجل العميل';
+
+  @override
+  String get totalRentalsLabel => 'إجمالي الإيجارات';
+
+  @override
+  String get lateReturnsLabel => 'الإرجاعات المتأخرة';
+
+  @override
+  String get unpaidBalanceLabel => 'الرصيد غير المدفوع';
+
+  @override
+  String get damageIncidentsLabel => 'حوادث الأضرار';
+
+  @override
+  String get requiresManagerApprovalLabel => 'يتطلب موافقة المدير';
+
+  @override
+  String get requiresManagerApprovalSubtitle =>
+      'تذكير يظهر عند تأجير هذا العميل مجددًا';
+
+  @override
+  String get clientRequiresApprovalWarning =>
+      'يتطلب هذا العميل موافقة المدير قبل التأجير.';
+
+  @override
+  String get profitabilityFeatureLabel => 'ربحية كل مركبة';
+
+  @override
+  String get featureNotIncludedInLicence => 'هذه الميزة غير مدرجة في ترخيصك.';
 }

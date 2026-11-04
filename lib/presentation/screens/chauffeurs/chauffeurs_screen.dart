@@ -89,7 +89,7 @@ class _ChauffeursScreenState extends ConsumerState<ChauffeursScreen> {
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
           child: TextField(
             decoration: InputDecoration(
-              prefixIcon: Icon(Icons.search),
+              prefixIcon: const Icon(Icons.search),
               hintText: context.tr(AppCopy.nameNationalIDOrPhone),
             ),
             onChanged: (v) => setState(() => _query = v.trim()),
@@ -306,9 +306,10 @@ class _ChauffeurFormScreenState extends ConsumerState<ChauffeurFormScreen> {
           updatedAt: now));
       if (mounted) context.pop();
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: AppText(context.trError(e))));
+      }
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -342,20 +343,23 @@ class _ChauffeurFormScreenState extends ConsumerState<ChauffeurFormScreen> {
           license ? _ocr.parseLicenseData(text) : _ocr.parseCINData(text);
       if (!mounted) return;
       setState(() {
-        if ((data['firstName'] ?? '').isNotEmpty)
+        if ((data['firstName'] ?? '').isNotEmpty) {
           _first.text = data['firstName']!;
+        }
         if ((data['lastName'] ?? '').isNotEmpty) _last.text = data['lastName']!;
         if ((data['cin'] ?? '').isNotEmpty) _cin.text = data['cin']!;
-        if (license && (data['licenseNumber'] ?? '').isNotEmpty)
+        if (license && (data['licenseNumber'] ?? '').isNotEmpty) {
           _license.text = data['licenseNumber']!;
+        }
       });
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
           content:
               AppText(AppCopy.detailsFilledFromTheDocumentCheckThemBefore)));
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
             content: AppText(AppCopy.unableToReadTheDocumentEnterTheDetails)));
+      }
     } finally {
       if (mounted) setState(() => _scanning = false);
     }
@@ -489,8 +493,8 @@ class _ChauffeurFormScreenState extends ConsumerState<ChauffeurFormScreen> {
                         child: InputDecorator(
                           decoration: InputDecoration(
                             labelText: context.tr(AppCopy.licenceExpiry),
-                            prefixIcon: Icon(Icons.event_outlined),
-                            suffixIcon: Icon(Icons.edit_calendar_outlined),
+                            prefixIcon: const Icon(Icons.event_outlined),
+                            suffixIcon: const Icon(Icons.edit_calendar_outlined),
                           ),
                           child: Row(
                             children: [
@@ -526,7 +530,7 @@ class _ChauffeurFormScreenState extends ConsumerState<ChauffeurFormScreen> {
                         keyboardType: TextInputType.phone,
                         decoration: InputDecoration(
                           labelText: context.tr(AppCopy.phone),
-                          prefixIcon: Icon(Icons.phone_outlined),
+                          prefixIcon: const Icon(Icons.phone_outlined),
                         ),
                         validator: _required,
                       ),
@@ -536,8 +540,8 @@ class _ChauffeurFormScreenState extends ConsumerState<ChauffeurFormScreen> {
                             decimal: true),
                         decoration: InputDecoration(
                           labelText: context.tr(AppCopy.hourlyRate),
-                          suffixText: AppCopy.madH,
-                          prefixIcon: Icon(Icons.schedule),
+                          suffixText: context.tr(AppCopy.madH),
+                          prefixIcon: const Icon(Icons.schedule),
                         ),
                         validator: (v) => double.tryParse(v ?? '') == null
                             ? context.tr(AppCopy.invalidPrice)
@@ -600,7 +604,7 @@ class _ChauffeurFormScreenState extends ConsumerState<ChauffeurFormScreen> {
             controller: controller,
             decoration: InputDecoration(
               labelText: context.tr(label),
-              hintText: hint == null ? null : context.tr(hint!),
+              hintText: hint == null ? null : context.tr(hint),
               prefixIcon: Icon(icon),
             ),
             validator: validator,
@@ -626,10 +630,12 @@ class _ChauffeurFormScreenState extends ConsumerState<ChauffeurFormScreen> {
       : null;
 
   String? _licenseValidator(String? value) {
-    if (value == null || value.trim().isEmpty)
+    if (value == null || value.trim().isEmpty) {
       return context.tr(AppCopy.drivingLicenceIsRequired);
-    if (!RegExp(r'^\d{2}/\d{6}$').hasMatch(value.trim()))
+    }
+    if (!RegExp(r'^\d{2}/\d{6}$').hasMatch(value.trim())) {
       return context.tr(AppCopy.expectedFormat33345678);
+    }
     return null;
   }
 }

@@ -4,12 +4,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:car_rent_manager/presentation/widgets/common/app_button.dart';
 import 'package:car_rent_manager/presentation/widgets/common/empty_state_widget.dart';
 import 'package:car_rent_manager/presentation/widgets/common/status_badge.dart';
+import 'helpers/french_app.dart';
 
 void main() {
   testWidgets('Common widgets render', (WidgetTester tester) async {
     await tester.pumpWidget(
-      const MaterialApp(
-        home: Scaffold(
+      frenchApp(
+        home: const Scaffold(
           body: Column(
             children: [
               EmptyStateWidget(

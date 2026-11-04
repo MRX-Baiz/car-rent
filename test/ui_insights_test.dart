@@ -11,6 +11,7 @@ import 'package:car_rent_manager/presentation/widgets/common/status_chip.dart';
 import 'package:car_rent_manager/presentation/widgets/contracts/contract_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'helpers/french_app.dart';
 
 final _now = DateTime(2026, 9, 20, 10);
 
@@ -153,7 +154,7 @@ void main() {
     Widget host(Widget child) => MediaQuery(
           data: const MediaQueryData(
               size: Size(320, 640), textScaler: TextScaler.linear(1.5)),
-          child: MaterialApp(
+          child: frenchApp(
             home: Scaffold(body: SingleChildScrollView(child: child)),
           ),
         );

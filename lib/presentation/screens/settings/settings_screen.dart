@@ -9,6 +9,7 @@ import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../../core/constants/app_strings.dart';
+import '../../../core/license/license_features.dart';
 import '../../../core/license/license_manager.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../data/models/license_model.dart';
@@ -27,11 +28,12 @@ import '../../providers/vehicle_provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/format_utils.dart';
 import '../../widgets/common/alert_banner.dart';
+import '../../widgets/common/app_button.dart';
 import '../../widgets/common/app_card.dart';
 import '../../widgets/common/detail_row.dart';
 import '../../widgets/common/section_header.dart';
 import '../../widgets/common/status_chip.dart';
-import '../../widgets/motion/motion.dart';
+import '../../widgets/layout/app_page.dart';
 import '../../widgets/common/recovery_code_view.dart';
 import '../../providers/auth_provider.dart';
 
@@ -42,9 +44,7 @@ class SettingsScreen extends ConsumerStatefulWidget {
   ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
 }
 
-class _SettingsScreenState extends ConsumerState<SettingsScreen>
-    with SingleTickerProviderStateMixin {
-  late final AmbientController _ambient = AmbientController(vsync: this);
+class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   final _companyNameController = TextEditingController();
   final _companyAddressController = TextEditingController();
   final _companyPhoneController = TextEditingController();
@@ -205,13 +205,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
       builder: (context) => SimpleDialog(
         title: const AppText(AppCopy.notifyBeforeTheDeadline),
         children: [
-          for (final minutes in NotificationPreferences.leadChoices)
-            RadioListTile<int>(
-              value: minutes,
-              groupValue: _notifications.leadMinutes,
-              title: AppText(_leadLabel(minutes)),
-              onChanged: (value) => Navigator.pop(context, value),
+          RadioGroup<int>(
+            groupValue: _notifications.leadMinutes,
+            onChanged: (value) => Navigator.pop(context, value),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (final minutes in NotificationPreferences.leadChoices)
+                  RadioListTile<int>(
+                    value: minutes,
+                    title: AppText(_leadLabel(minutes)),
+                  ),
+              ],
             ),
+          ),
         ],
       ),
     );
@@ -420,18 +427,26 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
       builder: (context) => SimpleDialog(
         title: const AppText(AppCopy.automaticLock),
         children: [
-          for (final minutes in choices)
-            RadioListTile<int>(
-              value: minutes,
-              groupValue: _autoLockMinutes,
-              title: AppText(_autoLockLabel(minutes)),
-              // "Immédiatement" also fires when the camera or the file picker
-              // takes over the screen, which interrupts an OCR scan.
-              subtitle: minutes == 0
-                  ? const AppText(AppCopy.askForThePINAgainAfterEachDocument)
-                  : null,
-              onChanged: (value) => Navigator.pop(context, value),
+          RadioGroup<int>(
+            groupValue: _autoLockMinutes,
+            onChanged: (value) => Navigator.pop(context, value),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (final minutes in choices)
+                  RadioListTile<int>(
+                    value: minutes,
+                    title: AppText(_autoLockLabel(minutes)),
+                    // "Immédiatement" also fires when the camera or the file picker
+                    // takes over the screen, which interrupts an OCR scan.
+                    subtitle: minutes == 0
+                        ? const AppText(
+                            AppCopy.askForThePINAgainAfterEachDocument)
+                        : null,
+                  ),
+              ],
             ),
+          ),
         ],
       ),
     );
@@ -567,7 +582,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
 
   @override
   void dispose() {
-    _ambient.dispose();
     _companyNameController.dispose();
     _companyAddressController.dispose();
     _companyPhoneController.dispose();
@@ -714,8 +728,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
 
     final data = _licenseData;
     final expiry = data?.expiryDate;
-    final daysLeft =
-        expiry == null ? null : expiry.difference(DateTime.now()).inDays;
+    final daysLeft = expiry?.difference(DateTime.now()).inDays;
     // Warn while there is still time to obtain a new key.
     final expiringSoon = daysLeft != null && daysLeft <= 30;
 
@@ -740,6 +753,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
               icon: Icons.business_outlined,
               label: AppCopy.licensedTo,
               value: data.name),
+        if (data != null && data.features.isNotEmpty)
+          DetailRow(
+            icon: Icons.stars_outlined,
+            label: AppCopy.includedFeatures,
+            value: (data.features.toList()..sort())
+                .map((key) => context.tr(licenseFeatureLabel(key)))
+                .join(', '),
+          ),
         if (expiry != null)
           DetailRow(
               icon: Icons.event_outlined,
@@ -827,32 +848,44 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
     );
   }
 
+  // A bare DropdownButton was the one control on this page that didn't open
+  // the same full-width picker dialog as lead time, quiet hours and auto-lock
+  // — smaller tap target, and visually a different kind of control.
+  Future<void> _pickLanguage(AppLanguage current) async {
+    final picked = await showDialog<AppLanguage>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: const AppText(AppCopy.language),
+        children: [
+          RadioGroup<AppLanguage>(
+            groupValue: current,
+            onChanged: (value) => Navigator.pop(context, value),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (final option in AppLanguage.values)
+                  RadioListTile<AppLanguage>(
+                    value: option,
+                    title: AppText(option.label),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+    if (picked == null || picked == current) return;
+    await ref.read(appLanguageProvider.notifier).select(picked);
+  }
+
   Widget _buildLanguageSettings(AppLanguage language) {
     return AppCard(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      child: ListTile(
-        contentPadding: EdgeInsets.zero,
-        leading: const Icon(Icons.language_outlined),
-        title: const AppText(AppCopy.language),
-        subtitle: const AppText(AppCopy.chooseTheApplicationLanguage),
-        trailing: DropdownButtonHideUnderline(
-          child: DropdownButton<AppLanguage>(
-            value: language,
-            onChanged: (value) {
-              if (value != null) {
-                ref.read(appLanguageProvider.notifier).select(value);
-              }
-            },
-            items: AppLanguage.values
-                .map(
-                  (option) => DropdownMenuItem(
-                    value: option,
-                    child: AppText(option.label),
-                  ),
-                )
-                .toList(),
-          ),
-        ),
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: _navRow(
+        Icons.language_outlined,
+        AppCopy.language,
+        language.label,
+        () => _pickLanguage(language),
       ),
     );
   }
@@ -863,11 +896,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
     final language = ref.watch(appLanguageProvider);
     final companyName = _companyNameController.text.trim();
     final notificationsOk = _notificationStatus?.isFullyGranted ?? true;
-    final top = MediaQuery.paddingOf(context).top;
-    final expanded = (MediaQuery.sizeOf(context).height * 0.34)
-        .clamp(240.0, 320.0)
-        .toDouble();
-    final collapsed = top + kToolbarHeight;
 
     final items = <Widget>[
       Container(
@@ -956,17 +984,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                     _buildImagePicker(
                         AppCopy.agencySignature, _signaturePath, false),
                     const SizedBox(height: 16),
-                    FilledButton.icon(
-                      onPressed: _savingCompany ? null : _saveCompanySettings,
-                      icon: _savingCompany
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(
-                                  strokeWidth: 2, color: Colors.white),
-                            )
-                          : const Icon(Icons.save_outlined),
-                      label: const AppText(AppCopy.save),
+                    AppButton(
+                      label: AppCopy.save,
+                      icon: Icons.save_outlined,
+                      isLoading: _savingCompany,
+                      onPressed: _saveCompanySettings,
                     ),
                   ],
                 ),
@@ -985,6 +1007,58 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                   () => context.push('/assistant')),
             ],
           ),
+        ),
+      ),
+      // Right after the agency's own identity: who can get in, and the one
+      // button that locks it again. Previously this sat at the very bottom,
+      // separated from "Verrouiller maintenant" by backup and licence — two
+      // sections that have nothing to do with access.
+      _group(
+        AppCopy.security,
+        AppCard(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Column(
+            children: [
+              _navRow(
+                  Icons.pin_outlined,
+                  AppCopy.changePIN,
+                  AppCopy.requiresTheCurrentPINBeforeAnyChange,
+                  () => context.push('/settings/pin')),
+              const Divider(height: 1),
+              _navRow(
+                  Icons.vpn_key_outlined,
+                  AppCopy.recoveryCode,
+                  AppCopy.generateANewCodeTheOldOneWill,
+                  _regenerateRecoveryCode),
+              const Divider(height: 1),
+              SwitchListTile(
+                secondary: const Icon(Icons.fingerprint),
+                title: const AppText(AppCopy.biometricUnlock),
+                subtitle: AppText(
+                  _biometricAvailable
+                      ? AppCopy.useFingerprintOrFaceRecognitionInsteadOfThe
+                      : AppCopy.noFingerprintIsRegisteredOnThisDevice,
+                ),
+                value: _biometricEnabled && _biometricAvailable,
+                onChanged: _biometricAvailable ? _setBiometric : null,
+              ),
+              const Divider(height: 1),
+              _navRow(Icons.timer_outlined, AppCopy.automaticLock,
+                  _autoLockLabel(_autoLockMinutes), _pickAutoLockDelay),
+            ],
+          ),
+        ),
+      ),
+      Padding(
+        padding: const EdgeInsets.only(top: 4),
+        child: OutlinedButton.icon(
+          onPressed: () => ref.read(authProvider.notifier).lock(),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: AppTone.danger.color,
+            side: BorderSide(color: AppTone.danger.color),
+          ),
+          icon: const Icon(Icons.lock_outline),
+          label: const AppText(AppCopy.lockNow),
         ),
       ),
       _group(
@@ -1033,10 +1107,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                       ),
                     ),
                     const SizedBox(height: 12),
-                    FilledButton.icon(
+                    AppButton(
+                      label: AppCopy.applyNewKey,
+                      icon: Icons.vpn_key,
                       onPressed: _saveLicense,
-                      icon: const Icon(Icons.vpn_key),
-                      label: const AppText(AppCopy.applyNewKey),
                     ),
                   ],
                 ),
@@ -1045,148 +1119,19 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
           ],
         ),
       ),
-      _group(
-        AppCopy.security,
-        AppCard(
-          padding: const EdgeInsets.symmetric(vertical: 4),
-          child: Column(
-            children: [
-              _navRow(
-                  Icons.pin_outlined,
-                  AppCopy.changePIN,
-                  AppCopy.requiresTheCurrentPINBeforeAnyChange,
-                  () => context.push('/settings/pin')),
-              const Divider(height: 1),
-              _navRow(
-                  Icons.vpn_key_outlined,
-                  AppCopy.recoveryCode,
-                  AppCopy.generateANewCodeTheOldOneWill,
-                  _regenerateRecoveryCode),
-              const Divider(height: 1),
-              SwitchListTile(
-                secondary: const Icon(Icons.fingerprint),
-                title: const AppText(AppCopy.biometricUnlock),
-                subtitle: AppText(
-                  _biometricAvailable
-                      ? AppCopy.useFingerprintOrFaceRecognitionInsteadOfThe
-                      : AppCopy.noFingerprintIsRegisteredOnThisDevice,
-                ),
-                value: _biometricEnabled && _biometricAvailable,
-                onChanged: _biometricAvailable ? _setBiometric : null,
-              ),
-              const Divider(height: 1),
-              _navRow(Icons.timer_outlined, AppCopy.automaticLock,
-                  _autoLockLabel(_autoLockMinutes), _pickAutoLockDelay),
-            ],
-          ),
-        ),
-      ),
-      OutlinedButton.icon(
-        onPressed: () => ref.read(authProvider.notifier).lock(),
-        style: OutlinedButton.styleFrom(
-          foregroundColor: AppTone.danger.color,
-          side: BorderSide(color: AppTone.danger.color),
-        ),
-        icon: const Icon(Icons.lock_outline),
-        label: const AppText(AppCopy.lockNow),
-      ),
     ];
 
-    return Scaffold(
-      body: AmbientListener(
-        controller: _ambient,
-        child: Stack(
-          children: [
-            // The wide artwork stays behind the whole page, sliding across as
-            // you scroll, so nothing ever falls back to a flat colour.
-            Positioned.fill(
-              child: AmbientImage(
-                controller: _ambient,
-                asset: 'assets/backgrounds/bg_body.webp',
-                zoom: 1.0,
-                panFrom: const Alignment(-0.6, 0),
-                panTo: const Alignment(0.75, 0.1),
-              ),
-            ),
-            Positioned.fill(
-              child: ColoredBox(
-                color: AppColors.background.withValues(alpha: 0.22),
-              ),
-            ),
-            CustomScrollView(
-              slivers: [
-                SliverPersistentHeader(
-                  pinned: true,
-                  delegate: HeroHeaderDelegate(
-                    asset: 'assets/backgrounds/bg_settings.webp',
-                    title: AppCopy.settings,
-                    showTitle: false,
-                    expanded: expanded,
-                    collapsed: collapsed,
-                    topPadding: top,
-                    controller: _ambient,
-                    // Starts on the logo; scrolling pans down to the tagline.
-                    startAlignment: const Alignment(0, -0.05),
-                    endAlignment: const Alignment(-0.2, 0.95),
-                    foreground: AppColors.textPrimary,
-                    scrim: AppColors.background,
-                    scrimStrength: 0,
-                    fadeBottom: true,
-                    leading: IconButton(
-                      icon: const Icon(Icons.arrow_back),
-                      onPressed: () => context.canPop()
-                          ? context.pop()
-                          : context.go('/dashboard'),
-                      tooltip: context.tr(AppCopy.backToDashboard),
-                    ),
-                  ),
-                ),
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
-                    child: AnimatedTitle(
-                      eyebrow: AppCopy.yourAgency,
-                      title: AppCopy.settings,
-                      subtitle: companyName.isEmpty ? null : companyName,
-                    ),
-                  ),
-                ),
-                SliverPadding(
-                  // Pad past the system navigation bar so the last control is
-                  // not trapped under the phone's back/home buttons.
-                  padding: EdgeInsets.fromLTRB(16, 12, 16,
-                      24 + MediaQuery.viewPaddingOf(context).bottom),
-                  sliver: SliverList.builder(
-                    itemCount: items.length,
-                    itemBuilder: (context, i) => Reveal(
-                      index: i,
-                      child: Center(
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 700),
-                          child: Padding(
-                            padding: EdgeInsets.only(
-                                top: i == items.length - 1 ? 24 : 0),
-                            child: items[i],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            Positioned.fill(
-              child: AmbientGlints(controller: _ambient),
-            ),
-            Positioned(
-              right: 2,
-              top: 0,
-              bottom: 0,
-              child: Center(child: ScrollRail(controller: _ambient)),
-            ),
-          ],
-        ),
+    return AppPage.hero(
+      title: AppCopy.settings,
+      eyebrow: AppCopy.yourAgency,
+      subtitle: companyName.isEmpty ? null : companyName,
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back),
+        onPressed: () =>
+            context.canPop() ? context.pop() : context.go('/dashboard'),
+        tooltip: context.tr(AppCopy.backToDashboard),
       ),
+      children: items,
     );
   }
 }

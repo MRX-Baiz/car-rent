@@ -25,6 +25,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:car_rent_manager/core/localization/app_localizations.dart';
 
 /// Renders the real screens, on a phone-sized surface, with test-only sample
 /// data. It fails on any layout overflow or exception, and when
@@ -188,6 +189,9 @@ Future<GlobalKey> _pumpApp(
       key: key,
       child: MaterialApp.router(
         theme: buildAppTheme(),
+        locale: const Locale('fr'),
+        supportedLocales: AppMessages.supportedLocales,
+        localizationsDelegates: AppMessages.localizationsDelegates,
         routerConfig: router,
         debugShowCheckedModeBanner: false,
       ),
@@ -196,15 +200,11 @@ Future<GlobalKey> _pumpApp(
   // Decode the artwork before the first frame is judged.
   await tester.runAsync(() async {
     final ctx = tester.element(find.byType(MaterialApp));
-    for (final name in [
-      'home',
-      'vehicles',
-      'vehicles_body',
-      'settings',
-      'body'
-    ]) {
+    for (final name in ['vehicles', 'vehicles_body', 'settings', 'body']) {
       await precacheImage(AssetImage('assets/backgrounds/bg_$name.webp'), ctx);
     }
+    await precacheImage(
+        const AssetImage('assets/backgrounds/bg_home_neutral.png'), ctx);
   });
   return key;
 }
@@ -299,7 +299,8 @@ void main() {
     expect(tester.takeException(), isNull);
     await _shot(tester, key, 'dashboard_0_top');
 
-    await tester.drag(find.byType(ListView).first, const Offset(0, -520));
+    await tester.drag(
+        find.byType(CustomScrollView).first, const Offset(0, -520));
     await _frames(tester, 1.2);
     expect(tester.takeException(), isNull);
     await _shot(tester, key, 'dashboard_1_scrolled');
@@ -317,6 +318,9 @@ void main() {
       key: key,
       child: MaterialApp(
         theme: buildAppTheme(),
+        locale: const Locale('fr'),
+        supportedLocales: AppMessages.supportedLocales,
+        localizationsDelegates: AppMessages.localizationsDelegates,
         debugShowCheckedModeBanner: false,
         home: _SettingsLike(onController: (c) => ambient = c),
       ),
@@ -356,6 +360,9 @@ void main() {
       key: key,
       child: MaterialApp(
         theme: buildAppTheme(),
+        locale: const Locale('fr'),
+        supportedLocales: AppMessages.supportedLocales,
+        localizationsDelegates: AppMessages.localizationsDelegates,
         debugShowCheckedModeBanner: false,
         home: const SplashView(),
       ),
@@ -384,6 +391,9 @@ void main() {
       key: key,
       child: MaterialApp(
         theme: buildAppTheme(),
+        locale: const Locale('fr'),
+        supportedLocales: AppMessages.supportedLocales,
+        localizationsDelegates: AppMessages.localizationsDelegates,
         debugShowCheckedModeBanner: false,
         home: Scaffold(
           appBar: AppBar(title: const Text('Clients')),
@@ -437,8 +447,10 @@ void main() {
     );
     await _frames(tester, 1.5);
     expect(tester.takeException(), isNull);
-    // The full breakdown must not be on screen yet — only the summary.
-    expect(find.textContaining('Expire dans'), findsNothing);
+    // The full breakdown must not be on screen yet — only the summary. The
+    // urgent item is already surfaced once by the alert banner at the top, so
+    // exactly one match means the detail rows below are still collapsed.
+    expect(find.textContaining('Expire dans'), findsOneWidget);
     await _shot(tester, key, 'vehicle_detail_0_collapsed');
 
     // The section sits below the fold on a phone-height screen.
@@ -451,7 +463,8 @@ void main() {
     await tester.tap(find.text('Entretien et documents légaux'));
     await _frames(tester, 0.4);
     expect(tester.takeException(), isNull);
-    expect(find.textContaining('Expire dans'), findsOneWidget);
+    // Banner + the now-visible detail row.
+    expect(find.textContaining('Expire dans'), findsNWidgets(2));
     await _shot(tester, key, 'vehicle_detail_1_expanded');
   });
 }

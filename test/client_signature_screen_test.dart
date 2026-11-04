@@ -1,6 +1,7 @@
 import 'package:car_rent_manager/presentation/screens/contracts/client_signature_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'helpers/french_app.dart';
 
 void main() {
   testWidgets(
@@ -10,8 +11,8 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    await tester.pumpWidget(const MaterialApp(
-        home: ClientSignatureScreen(clientName: 'Client Exemple')));
+    await tester.pumpWidget(frenchApp(
+        home: const ClientSignatureScreen(clientName: 'Client Exemple')));
     final confirm = find.widgetWithText(FilledButton, 'Valider ma signature');
     expect(tester.widget<FilledButton>(confirm).onPressed, isNull);
     final area = find.bySemanticsLabel('Zone de dessin de la signature');

@@ -24,6 +24,7 @@ import '../../widgets/common/status_chip.dart';
 import '../../widgets/contracts/contract_card.dart';
 import '../../widgets/dashboard/revenue_chart.dart';
 import '../../widgets/dashboard/stat_card.dart';
+import '../../widgets/layout/app_page.dart';
 import '../../widgets/motion/motion.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
@@ -33,16 +34,7 @@ class DashboardScreen extends ConsumerStatefulWidget {
   ConsumerState<DashboardScreen> createState() => _DashboardScreenState();
 }
 
-class _DashboardScreenState extends ConsumerState<DashboardScreen>
-    with SingleTickerProviderStateMixin {
-  late final AmbientController _ambient = AmbientController(vsync: this);
-
-  @override
-  void dispose() {
-    _ambient.dispose();
-    super.dispose();
-  }
-
+class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   Future<void> _refresh() async {
     await Future.wait([
       ref.read(dashboardProvider.notifier).refresh(),
@@ -58,147 +50,96 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     final contractsAsync = ref.watch(contractsProvider);
     final vehicles = ref.watch(vehiclesProvider).value ?? const [];
     final lookups = ref.watch(lookupsProvider).value ?? const Lookups();
-    final top = MediaQuery.paddingOf(context).top + kToolbarHeight;
 
     return AdaptiveLayout(
-      child: Scaffold(
-        // The photograph runs under the app bar, which turns white as the page
-        // scrolls up beneath it.
-        extendBodyBehindAppBar: true,
-        appBar: PreferredSize(
-          preferredSize: const Size.fromHeight(kToolbarHeight),
-          child: AnimatedBuilder(
-            animation: _ambient,
-            builder: (context, _) {
-              final solid = (_ambient.scrollOffset / 80).clamp(0.0, 1.0);
-              return AppBar(
-                backgroundColor: Colors.white.withValues(alpha: solid),
-                scrolledUnderElevation: 0,
-                elevation: 0,
-                shape: Border(
-                  bottom: BorderSide(
-                    color: AppColors.gold.withValues(alpha: 0.5 * solid),
-                  ),
-                ),
-                leading: IconButton(
-                  icon: const Icon(Icons.arrow_back),
-                  onPressed: () => context.go('/license'),
-                  tooltip: context.tr(AppCopy.back),
-                ),
-                title: AppText(
-                    companyName.isNotEmpty ? companyName : 'CarRent Manager'),
-                actions: [
-                  IconButton(
-                    icon: const Icon(Icons.today_outlined),
-                    onPressed: () => context.push('/operations'),
-                    tooltip: context.tr(AppCopy.todaySOperations),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.search),
-                    onPressed: () => showSearch(
-                      context: context,
-                      delegate: GlobalSearchDelegate(ref),
-                    ),
-                    tooltip: context.tr(AppCopy.globalSearch),
-                  ),
-                ],
-              );
-            },
-          ),
+      child: AppPage.home(
+        title: companyName.isNotEmpty ? companyName : 'CarRent Manager',
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => context.go('/license'),
+          tooltip: context.tr(AppCopy.back),
         ),
-        body: AmbientListener(
-          controller: _ambient,
-          child: Stack(
-            children: [
-              Positioned.fill(
-                child: AmbientImage(
-                  controller: _ambient,
-                  asset: 'assets/backgrounds/bg_home_neutral.png',
-                  alignment: const Alignment(0.85, -0.15),
-                ),
-              ),
-              Positioned.fill(child: AmbientGlints(controller: _ambient)),
-              RefreshIndicator(
-                edgeOffset: top,
-                onRefresh: _refresh,
-                child: ListView(
-                  padding: EdgeInsets.fromLTRB(16, top + 8, 16, 104),
-                  children: [
-                    Reveal(
-                      child: _Header(revenue: statsAsync.value?.totalRevenue),
-                    ),
-                    const SizedBox(height: 20),
-                    contractsAsync.when(
-                      data: (contracts) => _Priorities(
-                        contracts: contracts,
-                        vehicles: vehicles,
-                        lookups: lookups,
-                      ),
-                      loading: () => const AppShimmer.rectangular(height: 140),
-                      error: (_, __) => const SizedBox.shrink(),
-                    ),
-                    const SizedBox(height: 8),
-                    const Reveal(
-                      child: SectionHeader(title: AppCopy.overview),
-                    ),
-                    statsAsync.when(
-                      data: (stats) => _StatsGrid(stats: stats),
-                      loading: () => AppShimmer.statsGrid(),
-                      error: (_, __) => const SizedBox.shrink(),
-                    ),
-                    const SizedBox(height: 12),
-                    const Reveal(
-                      child: SectionHeader(title: AppCopy.quickActions),
-                    ),
-                    const _QuickActions(),
-                    const SizedBox(height: 12),
-                    Reveal(
-                      child: SectionHeader(
-                        title: AppCopy.currentRentals,
-                        actionLabel: AppCopy.seeAll,
-                        onAction: () => context.go('/contracts'),
-                      ),
-                    ),
-                    contractsAsync.when(
-                      data: (contracts) => _ActiveRentals(
-                        contracts: contracts,
-                        lookups: lookups,
-                      ),
-                      loading: () => AppShimmer.listLayer(itemCount: 2),
-                      error: (_, __) =>
-                          const AppText(AppCopy.unableToLoadContracts),
-                    ),
-                    const SizedBox(height: 12),
-                    const Reveal(
-                      child: SectionHeader(
-                        title: AppCopy.paymentsReceived,
-                        subtitle: AppCopy.last7Days,
-                      ),
-                    ),
-                    statsAsync.when(
-                      data: (stats) => Reveal(
-                        child: RevenueChart(data: stats.weeklyRevenue),
-                      ),
-                      loading: () => const AppShimmer.rectangular(height: 200),
-                      error: (_, __) => const SizedBox.shrink(),
-                    ),
-                  ],
-                ),
-              ),
-              Positioned(
-                right: 2,
-                top: 0,
-                bottom: 0,
-                child: Center(child: ScrollRail(controller: _ambient)),
-              ),
-            ],
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.today_outlined),
+            onPressed: () => context.push('/operations'),
+            tooltip: context.tr(AppCopy.todaySOperations),
           ),
-        ),
+          IconButton(
+            icon: const Icon(Icons.search),
+            onPressed: () => showSearch(
+              context: context,
+              delegate: GlobalSearchDelegate(ref),
+            ),
+            tooltip: context.tr(AppCopy.globalSearch),
+          ),
+        ],
+        onRefresh: _refresh,
         floatingActionButton: FloatingActionButton.extended(
           onPressed: () => context.push('/contracts/new'),
           icon: const Icon(Icons.add),
           label: const AppText(AppCopy.newContract),
         ),
+        children: [
+          Reveal(
+            child: _Header(revenue: statsAsync.value?.totalRevenue),
+          ),
+          const SizedBox(height: 20),
+          contractsAsync.when(
+            data: (contracts) => _Priorities(
+              contracts: contracts,
+              vehicles: vehicles,
+              lookups: lookups,
+            ),
+            loading: () => const AppShimmer.rectangular(height: 140),
+            error: (_, __) => const SizedBox.shrink(),
+          ),
+          const SizedBox(height: 8),
+          const Reveal(
+            child: SectionHeader(title: AppCopy.overview),
+          ),
+          statsAsync.when(
+            data: (stats) => _StatsGrid(stats: stats),
+            loading: () => AppShimmer.statsGrid(),
+            error: (_, __) => const SizedBox.shrink(),
+          ),
+          const SizedBox(height: 12),
+          const Reveal(
+            child: SectionHeader(title: AppCopy.quickActions),
+          ),
+          const _QuickActions(),
+          const SizedBox(height: 12),
+          Reveal(
+            child: SectionHeader(
+              title: AppCopy.currentRentals,
+              actionLabel: AppCopy.seeAll,
+              onAction: () => context.go('/contracts'),
+            ),
+          ),
+          contractsAsync.when(
+            data: (contracts) => _ActiveRentals(
+              contracts: contracts,
+              lookups: lookups,
+            ),
+            loading: () => AppShimmer.listLayer(itemCount: 2),
+            error: (_, __) =>
+                const AppText(AppCopy.unableToLoadContracts),
+          ),
+          const SizedBox(height: 12),
+          const Reveal(
+            child: SectionHeader(
+              title: AppCopy.paymentsReceived,
+              subtitle: AppCopy.last7Days,
+            ),
+          ),
+          statsAsync.when(
+            data: (stats) => Reveal(
+              child: RevenueChart(data: stats.weeklyRevenue),
+            ),
+            loading: () => const AppShimmer.rectangular(height: 200),
+            error: (_, __) => const SizedBox.shrink(),
+          ),
+        ],
       ),
     );
   }

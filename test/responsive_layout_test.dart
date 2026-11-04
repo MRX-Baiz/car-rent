@@ -181,32 +181,28 @@ void main() {
               spacing: 8,
               runSpacing: 4,
               children: [
-                Wrap(
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Radio<bool>(
-                          value: false,
-                          groupValue: true,
-                          onChanged: (_) {},
-                        ),
-                        const Text('Client existant'),
-                      ],
-                    ),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Radio<bool>(
-                          value: true,
-                          groupValue: true,
-                          onChanged: (_) {},
-                        ),
-                        const Text('Nouveau client'),
-                      ],
-                    ),
-                  ],
+                RadioGroup<bool>(
+                  groupValue: true,
+                  onChanged: (_) {},
+                  child: const Wrap(
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Radio<bool>(value: false),
+                          Text('Client existant'),
+                        ],
+                      ),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Radio<bool>(value: true),
+                          Text('Nouveau client'),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
                 Row(
                   mainAxisSize: MainAxisSize.min,

@@ -3,13 +3,14 @@ import 'package:car_rent_manager/presentation/widgets/common/collapsible_section
 import 'package:car_rent_manager/presentation/widgets/common/status_chip.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'helpers/french_app.dart';
 
 /// The vehicle and contract detail pages used to show every maintenance
 /// date/payment row expanded, all the time, which is exactly the "fills the
 /// whole page" complaint this widget exists to fix: collapsed by default,
 /// full detail only once the operator asks for it.
 void main() {
-  Widget host(Widget child) => MaterialApp(
+  Widget host(Widget child) => frenchApp(
         home: Scaffold(body: SingleChildScrollView(child: child)),
       );
 
@@ -62,10 +63,10 @@ void main() {
 
   testWidgets('opens instantly under reduced motion, no dangling animation',
       (tester) async {
-    await tester.pumpWidget(MaterialApp(
-      home: MediaQuery(
-        data: const MediaQueryData(disableAnimations: true),
-        child: const Scaffold(
+    await tester.pumpWidget(frenchApp(
+      home: const MediaQuery(
+        data: MediaQueryData(disableAnimations: true),
+        child: Scaffold(
           body: CollapsibleSection(
             title: 'Entretien et documents légaux',
             children: [Text('Vidange : dans 500 km')],

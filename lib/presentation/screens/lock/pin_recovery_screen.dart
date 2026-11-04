@@ -177,7 +177,7 @@ class _PinRecoveryScreenState extends ConsumerState<PinRecoveryScreen> {
                     decoration: InputDecoration(
                       labelText: context.tr(AppCopy.recoveryCode),
                       hintText: context.tr('4821 9037 5566'),
-                      prefixIcon: Icon(Icons.vpn_key_outlined),
+                      prefixIcon: const Icon(Icons.vpn_key_outlined),
                       counterText: '',
                     ),
                     onSubmitted: (_) => _submitRecoveryCode(),

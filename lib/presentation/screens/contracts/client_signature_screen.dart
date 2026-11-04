@@ -45,8 +45,8 @@ class _ClientSignatureScreenState extends State<ClientSignatureScreen> {
       }
     } catch (_) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: AppText(AppCopy.unableToSaveTryAgain)));
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: AppText(AppCopy.unableToSaveTryAgain)));
       }
     } finally {
       if (mounted) setState(() => _exporting = false);
@@ -74,7 +74,7 @@ class _ClientSignatureScreenState extends State<ClientSignatureScreen> {
                       (position.dx / box.maxWidth).clamp(0, 1),
                       (position.dy / box.maxHeight).clamp(0, 1));
                   return Semantics(
-                      label: AppCopy.signatureDrawingArea,
+                      label: context.tr(AppCopy.signatureDrawingArea),
                       child: DecoratedBox(
                         decoration: BoxDecoration(
                             color: Colors.white,
@@ -109,8 +109,9 @@ class _ClientSignatureScreenState extends State<ClientSignatureScreen> {
             FilledButton.icon(
                 onPressed: _hasSignature && !_exporting ? _confirm : null,
                 icon: const Icon(Icons.check),
-                label: AppText(
-                    _exporting ? 'Enregistrement…' : AppCopy.confirmMySignature)),
+                label: AppText(_exporting
+                    ? 'Enregistrement…'
+                    : AppCopy.confirmMySignature)),
           ]),
         ))),
       );

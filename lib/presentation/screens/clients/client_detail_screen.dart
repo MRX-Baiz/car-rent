@@ -9,13 +9,17 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
+import '../../../core/license/license_features.dart';
+import '../../../core/license/license_manager.dart';
 import '../../../core/storage/media_store.dart';
 import '../../../core/utils/format_utils.dart';
 import '../../../data/models/client_model.dart';
+import '../../providers/client_history_provider.dart';
 import '../../providers/client_provider.dart';
 import '../../providers/lookup_provider.dart';
 import '../../widgets/common/app_card.dart';
 import '../../widgets/common/app_shimmer.dart';
+import '../../widgets/common/collapsible_section.dart';
 import '../../widgets/common/detail_row.dart';
 import '../../widgets/common/document_viewer.dart';
 import '../../widgets/common/empty_state_widget.dart';
@@ -289,6 +293,53 @@ class _Body extends ConsumerWidget {
                   ),
                 ],
               ),
+              if (id != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 20),
+                  child: AppCard(
+                    padding: EdgeInsets.zero,
+                    child: SwitchListTile(
+                      secondary: Icon(
+                        Icons.flag_outlined,
+                        color: client.requiresManagerApproval
+                            ? AppTone.warning.color
+                            : null,
+                      ),
+                      title:
+                          const AppText(AppCopy.requiresManagerApprovalLabel),
+                      subtitle: const AppText(
+                          AppCopy.requiresManagerApprovalSubtitle),
+                      value: client.requiresManagerApproval,
+                      onChanged: (value) async {
+                        try {
+                          await ref
+                              .read(clientsProvider.notifier)
+                              .setRequiresManagerApproval(id, value);
+                        } catch (error) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                  content: AppText(context.trError(error))),
+                            );
+                          }
+                        }
+                      },
+                    ),
+                  ),
+                ),
+              if (id != null)
+                ValueListenableBuilder<Set<String>>(
+                  valueListenable: licenseFeaturesSignal,
+                  builder: (context, features, _) {
+                    if (!features.contains(LicenseFeature.customerHistory)) {
+                      return const SizedBox.shrink();
+                    }
+                    return Padding(
+                      padding: const EdgeInsets.only(top: 20),
+                      child: _ClientHistorySection(clientId: id),
+                    );
+                  },
+                ),
               SectionHeader(
                 title: AppCopy.contractHistory,
                 padding: const EdgeInsets.fromLTRB(4, 20, 4, 10),
@@ -352,6 +403,79 @@ class _Body extends ConsumerWidget {
 }
 
 /// Tappable document thumbnail that opens the full-screen zoomable viewer.
+/// Previous rentals, late returns, unpaid balance and damage incidents for
+/// this client — gated behind the licence's `customer_history` feature, so
+/// it's the caller's responsibility to only build this when that's included.
+class _ClientHistorySection extends ConsumerWidget {
+  const _ClientHistorySection({required this.clientId});
+  final int clientId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final history = ref.watch(clientHistoryProvider(clientId));
+    return history.when(
+      data: (summary) {
+        final hasIssues =
+            summary.lateReturnCount > 0 || summary.damageIncidentCount > 0;
+        return CollapsibleSection(
+          icon: Icons.history_outlined,
+          title: AppCopy.clientHistorySectionTitle,
+          badge: StatusChip(
+            label: '${summary.totalRentals}',
+            tone: hasIssues ? AppTone.warning : AppTone.neutral,
+            dense: true,
+          ),
+          children: [
+            DetailRow(
+              icon: Icons.receipt_long_outlined,
+              label: AppCopy.totalRentalsLabel,
+              value: '${summary.totalRentals}',
+            ),
+            DetailRow(
+              icon: Icons.schedule_outlined,
+              label: AppCopy.lateReturnsLabel,
+              value: '${summary.lateReturnCount}',
+              trailing: summary.lateReturnCount == 0
+                  ? null
+                  : StatusChip(
+                      label: '${summary.lateReturnCount}',
+                      tone: AppTone.warning,
+                      dense: true,
+                    ),
+            ),
+            DetailRow(
+              icon: Icons.payments_outlined,
+              label: AppCopy.unpaidBalanceLabel,
+              value: context.money(summary.totalUnpaidBalance),
+              trailing: summary.totalUnpaidBalance <= 0.009
+                  ? null
+                  : StatusChip(
+                      label: context.money(summary.totalUnpaidBalance),
+                      tone: AppTone.danger,
+                      dense: true,
+                    ),
+            ),
+            DetailRow(
+              icon: Icons.car_crash_outlined,
+              label: AppCopy.damageIncidentsLabel,
+              value: '${summary.damageIncidentCount}',
+              trailing: summary.damageIncidentCount == 0
+                  ? null
+                  : StatusChip(
+                      label: '${summary.damageIncidentCount}',
+                      tone: AppTone.danger,
+                      dense: true,
+                    ),
+            ),
+          ],
+        );
+      },
+      loading: () => const AppShimmer.rectangular(height: 64),
+      error: (error, _) => AppText(context.trError(error)),
+    );
+  }
+}
+
 class _DocumentThumbnail extends StatelessWidget {
   const _DocumentThumbnail({
     required this.imagePath,

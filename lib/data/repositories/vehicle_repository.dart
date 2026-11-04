@@ -1,6 +1,5 @@
 import 'package:sqflite/sqflite.dart';
 
-import '../../core/database/database_exception_extension.dart';
 import '../../core/database/database_helper.dart';
 import '../models/vehicle_model.dart';
 
@@ -20,9 +19,8 @@ class VehicleRepository {
       );
       return result.map((e) => VehicleModel.fromMap(e)).toList();
     } catch (e, stackTrace) {
-      print('DB_ERROR: Error loading vehicles: $e');
-      print('DB_ERROR: Stacktrace: $stackTrace');
-      throw Exception('Failed to load vehicles: $e');
+      Error.throwWithStackTrace(
+          Exception('Failed to load vehicles: $e'), stackTrace);
     }
   }
 

@@ -12,11 +12,11 @@ import '../../providers/contract_provider.dart';
 import '../../providers/lookup_provider.dart';
 import '../../providers/today_operations_provider.dart';
 import '../../providers/vehicle_provider.dart';
-import '../../widgets/common/adaptive_layout.dart';
 import '../../widgets/common/app_card.dart';
 import '../../widgets/common/app_shimmer.dart';
 import '../../widgets/common/section_header.dart';
 import '../../widgets/common/status_chip.dart';
+import '../../widgets/layout/app_page.dart';
 
 class TodayOperationsScreen extends ConsumerWidget {
   const TodayOperationsScreen({super.key});
@@ -27,166 +27,144 @@ class TodayOperationsScreen extends ConsumerWidget {
     final vehicles = ref.watch(vehiclesProvider);
     final lookups = ref.watch(lookupsProvider);
 
-    return AdaptiveLayout(
-      child: Scaffold(
-        appBar: AppBar(
-          title: const AppText(AppCopy.todaySOperations),
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
-            onPressed: () =>
-                context.canPop() ? context.pop() : context.go('/dashboard'),
-            tooltip: context.tr(AppCopy.back),
+    return AppPage(
+      title: AppCopy.todaySOperations,
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back),
+        onPressed: () =>
+            context.canPop() ? context.pop() : context.go('/dashboard'),
+        tooltip: context.tr(AppCopy.back),
+      ),
+      onRefresh: () async {
+        await Future.wait([
+          ref.read(contractsProvider.notifier).loadContracts(),
+          ref.read(vehiclesProvider.notifier).loadVehicles(),
+        ]);
+      },
+      children: operations.when(
+        loading: () => [AppShimmer.listLayer(itemCount: 5)],
+        error: (_, __) => const [
+          Padding(
+            padding: EdgeInsets.only(top: 40),
+            child: Center(child: AppText(AppCopy.unableToLoadTodaySOperations)),
           ),
-        ),
-        body: operations.when(
-          loading: () => Padding(
-            padding: EdgeInsets.all(16),
-            child: AppShimmer.listLayer(itemCount: 5),
-          ),
-          error: (_, __) => const Center(
-            child: AppText(AppCopy.unableToLoadTodaySOperations),
-          ),
-          data: (queue) {
-            final vehicleList = vehicles.value ?? const <VehicleModel>[];
-            final names = lookups.value ?? const Lookups();
-            final vehiclesById = {
-              for (final vehicle in vehicleList)
-                if (vehicle.id != null) vehicle.id!: vehicle,
-            };
-            return RefreshIndicator(
-              onRefresh: () async {
-                await Future.wait([
-                  ref.read(contractsProvider.notifier).loadContracts(),
-                  ref.read(vehiclesProvider.notifier).loadVehicles(),
-                ]);
-              },
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-                children: [
-                  _Summary(queue: queue),
-                  const SizedBox(height: 20),
-                  const SectionHeader(
-                    title: AppCopy.todaySPriorities,
-                    subtitle: AppCopy.handleReturnsAndBlockedVehiclesFirst,
+        ],
+        data: (queue) {
+          final vehicleList = vehicles.value ?? const <VehicleModel>[];
+          final names = lookups.value ?? const Lookups();
+          final vehiclesById = {
+            for (final vehicle in vehicleList)
+              if (vehicle.id != null) vehicle.id!: vehicle,
+          };
+          return [
+            _Summary(queue: queue),
+            const SizedBox(height: 20),
+            const SectionHeader(
+              title: AppCopy.todaySPriorities,
+              subtitle: AppCopy.handleReturnsAndBlockedVehiclesFirst,
+            ),
+            _OperationCard(
+              title: AppCopy.pickupsToday,
+              empty: AppCopy.noPickupsScheduledToday,
+              icon: Icons.key_outlined,
+              tone: AppTone.info,
+              rows: [
+                for (final contract in queue.pickups)
+                  _OperationRow(
+                    title: names.vehicleNameFor(context, contract.vehicleId),
+                    subtitle: names.clientNameFor(context, contract.clientId),
+                    trailing: context.money(contract.remainingAmount),
+                    onTap: () => context.push('/contracts/${contract.id}'),
                   ),
-                  _OperationCard(
-                    title: AppCopy.pickupsToday,
-                    empty: AppCopy.noPickupsScheduledToday,
-                    icon: Icons.key_outlined,
-                    tone: AppTone.info,
-                    rows: [
-                      for (final contract in queue.pickups)
-                        _OperationRow(
-                          title:
-                              names.vehicleNameFor(context, contract.vehicleId),
-                          subtitle:
-                              names.clientNameFor(context, contract.clientId),
-                          trailing: context.money(contract.remainingAmount),
-                          onTap: () =>
-                              context.push('/contracts/${contract.id}'),
-                        ),
-                    ],
+              ],
+            ),
+            _OperationCard(
+              title: AppCopy.returnsToday,
+              empty: AppCopy.noReturnsScheduledToday,
+              icon: Icons.assignment_return_outlined,
+              tone: AppTone.warning,
+              rows: [
+                for (final contract in queue.returns)
+                  _OperationRow(
+                    title: names.vehicleNameFor(context, contract.vehicleId),
+                    subtitle: names.clientNameFor(context, contract.clientId),
+                    trailing: contract.remainingAmount > 0.009
+                        ? context.money(contract.remainingAmount)
+                        : AppCopy.paid,
+                    onTap: () => context.push('/contracts/${contract.id}'),
                   ),
-                  _OperationCard(
-                    title: AppCopy.returnsToday,
-                    empty: AppCopy.noReturnsScheduledToday,
-                    icon: Icons.assignment_return_outlined,
-                    tone: AppTone.warning,
-                    rows: [
-                      for (final contract in queue.returns)
-                        _OperationRow(
-                          title:
-                              names.vehicleNameFor(context, contract.vehicleId),
-                          subtitle:
-                              names.clientNameFor(context, contract.clientId),
-                          trailing: contract.remainingAmount > 0.009
-                              ? context.money(contract.remainingAmount)
-                              : AppCopy.paid,
-                          onTap: () =>
-                              context.push('/contracts/${contract.id}'),
-                        ),
-                    ],
+              ],
+            ),
+            _OperationCard(
+              title: AppCopy.lateReturns,
+              empty: AppCopy.noLateReturns,
+              icon: Icons.schedule_outlined,
+              tone: AppTone.danger,
+              rows: [
+                for (final contract in queue.lateReturns)
+                  _OperationRow(
+                    title: names.vehicleNameFor(context, contract.vehicleId),
+                    subtitle: names.clientNameFor(context, contract.clientId),
+                    trailing:
+                        '${context.tr(AppCopy.since)} ${formatDate(contract.expectedReturnDate)}',
+                    onTap: () => context.push('/contracts/${contract.id}'),
                   ),
-                  _OperationCard(
-                    title: AppCopy.lateReturns,
-                    empty: AppCopy.noLateReturns,
-                    icon: Icons.schedule_outlined,
-                    tone: AppTone.danger,
-                    rows: [
-                      for (final contract in queue.lateReturns)
-                        _OperationRow(
-                          title:
-                              names.vehicleNameFor(context, contract.vehicleId),
-                          subtitle:
-                              names.clientNameFor(context, contract.clientId),
-                          trailing:
-                              '${context.tr(AppCopy.since)} ${formatDate(contract.expectedReturnDate)}',
-                          onTap: () =>
-                              context.push('/contracts/${contract.id}'),
-                        ),
-                    ],
+              ],
+            ),
+            _OperationCard(
+              title: AppCopy.amountsToCollect,
+              empty: AppCopy.noOutstandingAmounts,
+              icon: Icons.payments_outlined,
+              tone: AppTone.warning,
+              rows: [
+                for (final contract in queue.unpaid)
+                  _OperationRow(
+                    title: names.vehicleNameFor(context, contract.vehicleId),
+                    subtitle: names.clientNameFor(context, contract.clientId),
+                    trailing: context.money(contract.remainingAmount),
+                    onTap: () => context.push('/contracts/${contract.id}'),
                   ),
-                  _OperationCard(
-                    title: AppCopy.amountsToCollect,
-                    empty: AppCopy.noOutstandingAmounts,
-                    icon: Icons.payments_outlined,
-                    tone: AppTone.warning,
-                    rows: [
-                      for (final contract in queue.unpaid)
-                        _OperationRow(
-                          title:
-                              names.vehicleNameFor(context, contract.vehicleId),
-                          subtitle:
-                              names.clientNameFor(context, contract.clientId),
-                          trailing: context.money(contract.remainingAmount),
-                          onTap: () =>
-                              context.push('/contracts/${contract.id}'),
-                        ),
-                    ],
-                  ),
-                  _OperationCard(
-                    title: AppCopy.carsBlockedForMaintenance,
-                    empty: AppCopy.noCarsAreBlockedForMaintenance,
-                    icon: Icons.build_outlined,
-                    tone: AppTone.danger,
-                    rows: [
-                      for (final vehicleId in queue.blockedVehicleIds)
-                        if (vehiclesById[vehicleId] case final vehicle?)
-                          _OperationRow(
-                            title: '${vehicle.brand} ${vehicle.model}',
-                            subtitle: vehicle.registrationNumber,
-                            trailing: AppCopy.blocked,
-                            onTap: () => context.push('/vehicles/$vehicleId'),
-                          ),
-                    ],
-                  ),
-                  _OperationCard(
-                    title: AppCopy.expiringDocuments,
-                    empty: AppCopy.noDocumentsNeedRenewal,
-                    icon: Icons.folder_shared_outlined,
-                    tone: AppTone.warning,
-                    rows: [
-                      for (final document in queue.expiringDocuments)
-                        if (vehiclesById[document.vehicleId]
-                            case final vehicle?)
-                          _OperationRow(
-                            title: '${vehicle.brand} ${vehicle.model}',
-                            subtitle:
-                                '${context.tr(_documentLabel(document.type))} · ${vehicle.registrationNumber}',
-                            trailing: _documentStatus(
-                              context,
-                              document.daysUntilDue,
-                            ),
-                            onTap: () =>
-                                context.push('/vehicles/${document.vehicleId}'),
-                          ),
-                    ],
-                  ),
-                ],
-              ),
-            );
-          },
-        ),
+              ],
+            ),
+            _OperationCard(
+              title: AppCopy.carsBlockedForMaintenance,
+              empty: AppCopy.noCarsAreBlockedForMaintenance,
+              icon: Icons.build_outlined,
+              tone: AppTone.danger,
+              rows: [
+                for (final vehicleId in queue.blockedVehicleIds)
+                  if (vehiclesById[vehicleId] case final vehicle?)
+                    _OperationRow(
+                      title: '${vehicle.brand} ${vehicle.model}',
+                      subtitle: vehicle.registrationNumber,
+                      trailing: AppCopy.blocked,
+                      onTap: () => context.push('/vehicles/$vehicleId'),
+                    ),
+              ],
+            ),
+            _OperationCard(
+              title: AppCopy.expiringDocuments,
+              empty: AppCopy.noDocumentsNeedRenewal,
+              icon: Icons.folder_shared_outlined,
+              tone: AppTone.warning,
+              rows: [
+                for (final document in queue.expiringDocuments)
+                  if (vehiclesById[document.vehicleId] case final vehicle?)
+                    _OperationRow(
+                      title: '${vehicle.brand} ${vehicle.model}',
+                      subtitle:
+                          '${context.tr(_documentLabel(document.type))} · ${vehicle.registrationNumber}',
+                      trailing: _documentStatus(
+                        context,
+                        document.daysUntilDue,
+                      ),
+                      onTap: () =>
+                          context.push('/vehicles/${document.vehicleId}'),
+                    ),
+              ],
+            ),
+          ];
+        },
       ),
     );
   }

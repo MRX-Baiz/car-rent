@@ -8,7 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   test('company-profile use cases need only the settings contract', () async {
     final store = _FakeSettingsStore();
-    final profile = const CompanyProfile(
+    const profile = CompanyProfile(
       name: 'Atlas Cars',
       address: 'Casablanca',
       phone: '+212600000000',

@@ -78,8 +78,9 @@ class MediaStore {
   Future<String> saveBytes(Uint8List bytes,
       {required String prefix, String extension = 'png'}) async {
     final directory = _directory;
-    if (directory == null)
+    if (directory == null) {
       throw StateError('MediaStore.init() must run before saving attachments');
+    }
     final name =
         '${prefix}_${DateTime.now().millisecondsSinceEpoch}_${Random().nextInt(0xFFFF).toRadixString(16)}.$extension';
     await File(p.join(directory.path, name)).writeAsBytes(bytes, flush: true);

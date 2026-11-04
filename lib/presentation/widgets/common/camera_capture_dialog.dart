@@ -182,10 +182,10 @@ class _CameraCaptureDialogState extends State<CameraCaptureDialog> {
         fit: BoxFit.cover,
         cameraMode: CameraMacOSMode.photo,
         isVideoMirrored: false,
-        onCameraInizialized: (CameraMacOSController MacOSController) {
+        onCameraInizialized: (CameraMacOSController macOSController) {
           if (mounted) {
             setState(() {
-              _macOSController = MacOSController;
+              _macOSController = macOSController;
             });
           }
         },

@@ -171,7 +171,7 @@ class _LicenseScreenState extends ConsumerState<LicenseScreen> {
                       labelText: context.tr(AppCopy.licenceKey),
                       hintText: context
                           .tr(AppCopy.pasteYourBase64LicenceKeyHere),
-                      border: OutlineInputBorder(),
+                      border: const OutlineInputBorder(),
                     ),
                     textInputAction: TextInputAction.done,
                     onFieldSubmitted: (_) => _submit(),

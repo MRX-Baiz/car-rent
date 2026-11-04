@@ -6,13 +6,20 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
+import '../../../core/license/license_features.dart';
+import '../../../core/license/license_manager.dart';
 import '../../../core/utils/format_utils.dart';
+import '../../../core/utils/vehicle_expense_labels.dart';
 import '../../../core/utils/vehicle_labels.dart';
 import '../../../core/utils/vehicle_maintenance.dart';
 import '../../../data/models/vehicle_model.dart';
+import '../../../domain/entities/vehicle_expense.dart';
+import '../../../domain/entities/vehicle_profitability.dart';
 import '../../providers/lookup_provider.dart';
+import '../../providers/vehicle_profitability_provider.dart';
 import '../../providers/vehicle_provider.dart';
 import '../../widgets/common/alert_banner.dart';
+import '../../widgets/common/app_button.dart';
 import '../../widgets/common/app_card.dart';
 import '../../widgets/common/app_shimmer.dart';
 import '../../widgets/common/collapsible_section.dart';
@@ -195,7 +202,9 @@ class _Body extends ConsumerWidget {
                           crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
                             PlateBadge(vehicle.registrationNumber),
-                            AppText(context.messages.vehicleYear((vehicle.year).toString()),
+                            AppText(
+                                context.messages
+                                    .vehicleYear((vehicle.year).toString()),
                                 style: theme.textTheme.bodyMedium
                                     ?.copyWith(color: AppColors.textSecondary)),
                           ],
@@ -215,9 +224,11 @@ class _Body extends ConsumerWidget {
                       : AppTone.warning,
                   title: alerts.length == 1
                       ? AppCopy.message1ItemNeedsAttention
-                      : context.messages.attentionCount((alerts.length).toString()),
+                      : context.messages
+                          .attentionCount((alerts.length).toString()),
                   message: alerts
-                      .map((a) => '${context.tr(a.label)} : ${context.tr(a.status)}')
+                      .map((a) =>
+                          '${context.tr(a.label)} : ${context.tr(a.status)}')
                       .join('\n'),
                 ),
               ],
@@ -236,7 +247,9 @@ class _Body extends ConsumerWidget {
                           fuelTypeName(vehicle.fuelType)),
                       MetricItem(Icons.local_gas_station_outlined,
                           AppCopy.fuelLevel, '${vehicle.fuelLevel} %'),
-                      MetricItem(Icons.settings_outlined, AppCopy.transmissioncbe91c,
+                      MetricItem(
+                          Icons.settings_outlined,
+                          AppCopy.transmissioncbe91c,
                           transmissionName(vehicle.transmission)),
                     ]),
                     const SizedBox(height: 12),
@@ -305,9 +318,11 @@ class _Body extends ConsumerWidget {
                   title: AppCopy.maintenanceAndLegalDocuments,
                   subtitle: alerts.isEmpty
                       ? AppCopy.upToDate
-                      : context.messages.monitorCount((alerts.length).toString()),
+                      : context.messages
+                          .monitorCount((alerts.length).toString()),
                   badge: StatusChip(
-                    label: alerts.isEmpty ? AppCopy.upToDate : '${alerts.length}',
+                    label:
+                        alerts.isEmpty ? AppCopy.upToDate : '${alerts.length}',
                     tone: alerts.isEmpty
                         ? AppTone.success
                         : (alerts.any((a) => a.tone == AppTone.danger)
@@ -332,6 +347,19 @@ class _Body extends ConsumerWidget {
                   ],
                 ),
               ),
+              if (vehicleId != null)
+                ValueListenableBuilder<Set<String>>(
+                  valueListenable: licenseFeaturesSignal,
+                  builder: (context, features, _) {
+                    if (!features.contains(LicenseFeature.profitability)) {
+                      return const SizedBox.shrink();
+                    }
+                    return Padding(
+                      padding: const EdgeInsets.fromLTRB(4, 20, 4, 0),
+                      child: _ProfitabilitySection(vehicleId: vehicleId),
+                    );
+                  },
+                ),
               SectionHeader(
                 title: AppCopy.rentalHistory,
                 padding: const EdgeInsets.fromLTRB(4, 20, 4, 10),
@@ -370,7 +398,9 @@ class _Body extends ConsumerWidget {
                 ),
               const SizedBox(height: 16),
               AppText(
-                context.messages.recordDates((formatDate(vehicle.createdAt)).toString(), (formatDate(vehicle.updatedAt)).toString()),
+                context.messages.recordDates(
+                    (formatDate(vehicle.createdAt)).toString(),
+                    (formatDate(vehicle.updatedAt)).toString()),
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodySmall
                     ?.copyWith(color: AppColors.textSecondary),
@@ -391,4 +421,301 @@ class _Body extends ConsumerWidget {
       ),
     );
   }
+}
+
+/// Revenue, rental days, utilization and expenses for this vehicle — the
+/// numbers that say whether it's worth buying again or selling. Collapsed by
+/// default, same as the maintenance section above it; the net profit stays
+/// visible in the badge either way.
+class _ProfitabilitySection extends ConsumerWidget {
+  const _ProfitabilitySection({required this.vehicleId});
+  final int vehicleId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final profitability = ref.watch(vehicleProfitabilityProvider(vehicleId));
+    final expenses = ref.watch(vehicleExpensesProvider(vehicleId));
+
+    return profitability.when(
+      data: (value) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _buildCollapsible(context, value),
+          const SizedBox(height: 10),
+          OutlinedButton.icon(
+            onPressed: () => _showAddExpenseSheet(context, ref, vehicleId),
+            icon: const Icon(Icons.add),
+            label: const AppText(AppCopy.addAnExpense),
+          ),
+          expenses.when(
+            data: (items) => items.isEmpty
+                ? const SizedBox.shrink()
+                : Padding(
+                    padding: const EdgeInsets.only(top: 10),
+                    child: AppCard(
+                      padding: EdgeInsets.zero,
+                      child: Column(
+                        children: [
+                          for (final expense in items)
+                            _ExpenseRow(
+                              expense: expense,
+                              onDelete: () async {
+                                await ref.read(deleteVehicleExpenseProvider)(
+                                    expense.id!);
+                                ref.invalidate(
+                                    vehicleExpensesProvider(vehicleId));
+                              },
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+            loading: () => const SizedBox.shrink(),
+            error: (_, __) => const SizedBox.shrink(),
+          ),
+        ],
+      ),
+      loading: () => const AppShimmer.rectangular(height: 64),
+      error: (error, _) => AppText(context.trError(error)),
+    );
+  }
+
+  Widget _buildCollapsible(BuildContext context, VehicleProfitability value) {
+    final netTone = value.netProfit >= 0 ? AppTone.success : AppTone.danger;
+    final utilization = value.utilizationPercent;
+    return CollapsibleSection(
+      icon: Icons.trending_up,
+      title: AppCopy.profitability,
+      badge: StatusChip(
+        label: context.money(value.netProfit),
+        tone: netTone,
+        icon: value.netProfit >= 0 ? Icons.trending_up : Icons.trending_down,
+        dense: true,
+      ),
+      children: [
+        DetailRow(
+          icon: Icons.payments_outlined,
+          label: AppCopy.revenue,
+          value: context.money(value.revenue),
+        ),
+        DetailRow(
+          icon: Icons.event_available_outlined,
+          label: AppCopy.rentalDaysLabel,
+          value: context.messages.rentalDays(value.rentalDays.toString()),
+        ),
+        DetailRow(
+          icon: Icons.donut_large_outlined,
+          label: AppCopy.utilizationRate,
+          value: utilization == null
+              ? context.tr(AppCopy.notTrackedYet)
+              : '${utilization.round()} %',
+        ),
+        for (final entry in value.expensesByCategory.entries)
+          if (entry.value > 0)
+            DetailRow(
+              icon: expenseCategoryIcon(entry.key),
+              label: expenseCategoryLabel(entry.key),
+              value: context.money(entry.value),
+            ),
+        DetailRow(
+          icon: Icons.summarize_outlined,
+          label: AppCopy.totalExpenses,
+          value: context.money(value.totalExpenses),
+        ),
+        DetailRow(
+          icon: Icons.account_balance_wallet_outlined,
+          label: AppCopy.netProfit,
+          value: context.money(value.netProfit),
+        ),
+      ],
+    );
+  }
+}
+
+class _ExpenseRow extends StatelessWidget {
+  const _ExpenseRow({required this.expense, required this.onDelete});
+  final VehicleExpense expense;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    return Dismissible(
+      key: ValueKey(expense.id),
+      direction: DismissDirection.endToStart,
+      background: Container(
+        color: AppTone.danger.soft,
+        alignment: AlignmentDirectional.centerEnd,
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        child: const Icon(Icons.delete_outline, color: AppColors.textSecondary),
+      ),
+      confirmDismiss: (_) => showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const AppText(AppCopy.deleteThisExpenseQuestion),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const AppText(AppCopy.cancel),
+            ),
+            FilledButton(
+              style:
+                  FilledButton.styleFrom(backgroundColor: AppTone.danger.color),
+              onPressed: () => Navigator.pop(context, true),
+              child: const AppText(AppCopy.delete),
+            ),
+          ],
+        ),
+      ).then((confirmed) => confirmed ?? false),
+      onDismissed: (_) => onDelete(),
+      child: DetailRow(
+        icon: expenseCategoryIcon(expense.category),
+        label: expenseCategoryLabel(expense.category),
+        value: '${context.money(expense.amount)} · ${formatDate(expense.date)}',
+      ),
+    );
+  }
+}
+
+Future<void> _showAddExpenseSheet(
+    BuildContext outerContext, WidgetRef ref, int vehicleId) async {
+  var category = VehicleExpenseCategory.repair;
+  var date = DateTime.now();
+  final amountController = TextEditingController();
+  final noteController = TextEditingController();
+
+  await showModalBottomSheet<void>(
+    context: outerContext,
+    isScrollControlled: true,
+    builder: (sheetContext) => StatefulBuilder(
+      builder: (context, setSheetState) {
+        return SafeArea(
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(
+              20,
+              16,
+              20,
+              MediaQuery.viewInsetsOf(context).bottom + 20,
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  AppText(AppCopy.addAnExpense,
+                      style: Theme.of(context).textTheme.headlineSmall),
+                  const SizedBox(height: 16),
+                  AppText(AppCopy.expenseCategoryLabel,
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodySmall
+                          ?.copyWith(color: AppColors.textSecondary)),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final option in VehicleExpenseCategory.values)
+                        ChoiceChip(
+                          avatar: Icon(expenseCategoryIcon(option), size: 18),
+                          label:
+                              AppText(context.tr(expenseCategoryLabel(option))),
+                          selected: category == option,
+                          onSelected: (_) =>
+                              setSheetState(() => category = option),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: amountController,
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    decoration: InputDecoration(
+                      labelText: context.tr(AppCopy.expenseAmount),
+                      suffixText: 'MAD',
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  OutlinedButton(
+                    onPressed: () async {
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: date,
+                        firstDate: DateTime(2015),
+                        lastDate: DateTime.now(),
+                      );
+                      if (picked != null) setSheetState(() => date = picked);
+                    },
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.event_outlined, size: 18),
+                        const SizedBox(width: 8),
+                        AppText(
+                            '${context.tr(AppCopy.expenseDateLabel)} : ${formatDate(date)}'),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: noteController,
+                    maxLines: 2,
+                    decoration: InputDecoration(
+                        labelText: context.tr(AppCopy.expenseNoteOptional)),
+                  ),
+                  const SizedBox(height: 16),
+                  AppButton(
+                    label: AppCopy.save,
+                    icon: Icons.save_outlined,
+                    onPressed: () async {
+                      final amount = double.tryParse(
+                              amountController.text.replaceAll(',', '.')) ??
+                          0;
+                      if (amount <= 0) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                              content: AppText(AppCopy.enterAValidAmount)),
+                        );
+                        return;
+                      }
+                      try {
+                        await ref.read(recordVehicleExpenseProvider)(
+                          VehicleExpense(
+                            id: null,
+                            vehicleId: vehicleId,
+                            category: category,
+                            amount: amount,
+                            date: date,
+                            notes: noteController.text.trim().isEmpty
+                                ? null
+                                : noteController.text.trim(),
+                          ),
+                        );
+                        ref.invalidate(vehicleExpensesProvider(vehicleId));
+                        if (sheetContext.mounted) Navigator.pop(sheetContext);
+                        if (outerContext.mounted) {
+                          ScaffoldMessenger.of(outerContext).showSnackBar(
+                            const SnackBar(
+                                content: AppText(AppCopy.expenseSaved)),
+                          );
+                        }
+                      } catch (error) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: AppText(context.trError(error))),
+                          );
+                        }
+                      }
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    ),
+  );
+  amountController.dispose();
+  noteController.dispose();
 }

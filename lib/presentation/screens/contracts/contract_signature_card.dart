@@ -121,6 +121,7 @@ class _ContractSignatureCardState extends State<ContractSignatureCard> {
   Future<void> _share({bool original = false}) async {
     final doc = await _service.prepare(widget.contractId);
     final file = await _service.documentFile(doc, original: original);
+    if (!mounted) return;
     await Share.shareXFiles([XFile(file.path, mimeType: 'application/pdf')],
         text: original || !doc.isSigned
             ? context.tr(AppCopy.pleaseReadThisContractSignItWithA)

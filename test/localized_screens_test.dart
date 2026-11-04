@@ -61,7 +61,10 @@ void main() {
         lookupsProvider.overrideWith((_) async=>lookups),
       ],child:MaterialApp.router(theme:buildAppTheme(),locale:Locale(code),supportedLocales:AppMessages.supportedLocales,localizationsDelegates:AppMessages.localizationsDelegates,routerConfig:router)));
       await tester.pumpAndSettle();
-      expect(find.text(AppLocalizations.translate(Locale(code),AppCopy.todaySOperations)), findsOneWidget);
+      // AppPage shows the page title twice: once in the title block, once
+      // (opacity-faded in from the app bar) once scrolled — the same
+      // two-tier title Settings' hero already has.
+      expect(find.text(AppLocalizations.translate(Locale(code),AppCopy.todaySOperations)), findsWidgets);
       expect(find.text('Bonjour 2026'), findsWidgets);
       expect(find.text(client.fullName), findsWidgets);
       expect(tester.takeException(),isNull);

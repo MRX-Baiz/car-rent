@@ -168,8 +168,9 @@ class ContractRepository {
             where: 'id = ?',
             whereArgs: [contract.chauffeurId],
             limit: 1);
-        if (driver.isEmpty || driver.single['status'] != 'available')
+        if (driver.isEmpty || driver.single['status'] != 'available') {
           throw Exception('Ce chauffeur n’est pas disponible.');
+        }
       }
 
       try {
@@ -417,7 +418,7 @@ class ContractRepository {
           whereArgs: [rows.first['vehicle_id']],
         );
         final chauffeurId = rows.first['chauffeur_id'] as int?;
-        if (chauffeurId != null)
+        if (chauffeurId != null) {
           await txn.update(
               'chauffeurs',
               {
@@ -426,6 +427,7 @@ class ContractRepository {
               },
               where: 'id = ?',
               whereArgs: [chauffeurId]);
+        }
       }
     });
   }
@@ -456,7 +458,7 @@ class ContractRepository {
         where: 'id = ?',
         whereArgs: [id],
       );
-      if (contract.chauffeurId != null)
+      if (contract.chauffeurId != null) {
         await txn.update(
             'chauffeurs',
             {
@@ -465,6 +467,7 @@ class ContractRepository {
             },
             where: 'id = ?',
             whereArgs: [contract.chauffeurId]);
+      }
 
       // Update vehicle status back to 'available'
       await txn.update(

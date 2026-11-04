@@ -9,7 +9,6 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 
-import '../../../core/document/document_text_service.dart';
 import '../../../core/ocr/ocr_service.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../widgets/common/camera_capture_dialog.dart';
@@ -101,7 +100,6 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
   String _secondaryClientSearchQuery = '';
 
   final OcrService _ocrService = OcrService();
-  final DocumentTextService _documentService = DocumentTextService.instance;
   static const _tmpPrefix = 'carrent_import_';
   static const List<int> _allowedDurations = [1, 2, 3, 4, 5, 6, 7, 10, 15, 30];
 
@@ -216,7 +214,7 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
         .where(
           (c) =>
               c.fullName.toLowerCase().contains(q) ||
-              (c.cin ?? '').toLowerCase().contains(q),
+              c.cin.toLowerCase().contains(q),
         )
         .toList();
   }
@@ -276,7 +274,7 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
         ),
       ),
     );
-    if (useCamera == null) return null;
+    if (useCamera == null || !mounted) return null;
 
     if (useCamera == true) {
       if (Platform.isMacOS || Platform.isWindows) {
@@ -323,7 +321,7 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
               ? pickedFile.name.split('.').last
               : 'jpg');
       final tmp = File(
-        '${Directory.systemTemp.path}/${_tmpPrefix}${DateTime.now().millisecondsSinceEpoch}.$ext',
+        '${Directory.systemTemp.path}/$_tmpPrefix${DateTime.now().millisecondsSinceEpoch}.$ext',
       );
       await tmp.writeAsBytes(bytes, flush: true);
       return tmp;
@@ -368,27 +366,37 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
           final expiry = data['expiryDate'] ?? '';
 
           if (isPrimary) {
-            if (fn.isNotEmpty && _newPrimaryFirstName.text.isEmpty)
+            if (fn.isNotEmpty && _newPrimaryFirstName.text.isEmpty) {
               _newPrimaryFirstName.text = fn;
-            if (ln.isNotEmpty && _newPrimaryLastName.text.isEmpty)
+            }
+            if (ln.isNotEmpty && _newPrimaryLastName.text.isEmpty) {
               _newPrimaryLastName.text = ln;
-            if (cn.isNotEmpty && _newPrimaryCin.text.isEmpty)
+            }
+            if (cn.isNotEmpty && _newPrimaryCin.text.isEmpty) {
               _newPrimaryCin.text = cn;
-            if (lic.isNotEmpty && _newPrimaryLicense.text.isEmpty)
+            }
+            if (lic.isNotEmpty && _newPrimaryLicense.text.isEmpty) {
               _newPrimaryLicense.text = lic;
-            if (expiry.isNotEmpty)
+            }
+            if (expiry.isNotEmpty) {
               _newPrimaryLicenseExpiry = _parseDate(expiry);
+            }
           } else {
-            if (fn.isNotEmpty && _newSecondaryFirstName.text.isEmpty)
+            if (fn.isNotEmpty && _newSecondaryFirstName.text.isEmpty) {
               _newSecondaryFirstName.text = fn;
-            if (ln.isNotEmpty && _newSecondaryLastName.text.isEmpty)
+            }
+            if (ln.isNotEmpty && _newSecondaryLastName.text.isEmpty) {
               _newSecondaryLastName.text = ln;
-            if (cn.isNotEmpty && _newSecondaryCin.text.isEmpty)
+            }
+            if (cn.isNotEmpty && _newSecondaryCin.text.isEmpty) {
               _newSecondaryCin.text = cn;
-            if (lic.isNotEmpty && _newSecondaryLicense.text.isEmpty)
+            }
+            if (lic.isNotEmpty && _newSecondaryLicense.text.isEmpty) {
               _newSecondaryLicense.text = lic;
-            if (expiry.isNotEmpty)
+            }
+            if (expiry.isNotEmpty) {
               _newSecondaryLicenseExpiry = _parseDate(expiry);
+            }
           }
         });
         if (mounted) {
@@ -398,15 +406,16 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
       } else {
         final cin = (data['cin'] ?? '').trim();
         if (cin.isEmpty && !isPermis) {
-          if (mounted)
+          if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
                 content: AppText(AppCopy.nationalIDNotRecognised)));
+          }
           return;
         }
         ClientModel? matched;
         try {
           matched = clients.firstWhere(
-              (c) => (c.cin ?? '').toUpperCase() == cin.toUpperCase());
+              (c) => c.cin.toUpperCase() == cin.toUpperCase());
         } catch (_) {}
         if (!mounted) return;
         setState(() {
@@ -429,9 +438,10 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
         }
       }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: AppText(context.trError(e))));
+      }
     } finally {
       if (mounted) setState(() => _isImportingOcr = false);
     }
@@ -465,104 +475,6 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
           _startDate.difference(_expectedReturnDate).inDays.abs());
       _updateTotalPrice();
     });
-  }
-
-  Future<void> _importDocument(List<ClientModel> clients) async {
-    if (_isImportingOcr) return;
-    final pickedResult = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: _documentService.allowedExtensions,
-      allowMultiple: false,
-      withData: true,
-    );
-    if (pickedResult == null || pickedResult.files.isEmpty) return;
-    final picked = pickedResult.files.single;
-
-    File? file;
-    String ext = '';
-    if (picked.bytes != null && picked.bytes!.isNotEmpty) {
-      ext = (picked.extension ?? '').isNotEmpty
-          ? picked.extension!.toLowerCase()
-          : (picked.name.contains('.')
-              ? picked.name.split('.').last.toLowerCase()
-              : '');
-      final tmp = File(
-        '${Directory.systemTemp.path}/$_tmpPrefix${DateTime.now().millisecondsSinceEpoch}.${ext.isEmpty ? 'bin' : ext}',
-      );
-      await tmp.writeAsBytes(picked.bytes!, flush: true);
-      file = tmp;
-    } else if (picked.path != null) {
-      file = File(picked.path!);
-      if (!await file.exists()) return;
-      ext = picked.path!.split('.').last.toLowerCase();
-    }
-    if (file == null) return;
-
-    setState(() => _isImportingOcr = true);
-    try {
-      String text;
-      try {
-        text = await _ocrService.extractText(file.path);
-      } catch (_) {
-        text = '';
-      }
-      if (!mounted) return;
-      if (text.trim().isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: AppText(AppCopy.noTextExtractedTryAnotherFile)),
-        );
-        return;
-      }
-      final data = _ocrService.parseContractDocument(text);
-      final cin = (data['cin'] ?? '').trim();
-      final amountStr = (data['amount'] ?? '').trim();
-      final startStr = (data['startDate'] ?? '').trim();
-      final endStr = (data['endDate'] ?? '').trim();
-      ClientModel? matched;
-      if (cin.isNotEmpty) {
-        try {
-          matched = clients.firstWhere((c) => c.cin == cin);
-        } catch (_) {
-          matched = null;
-        }
-      }
-      setState(() {
-        if (matched != null) _primaryDriver = matched;
-        if (amountStr.isNotEmpty) {
-          final a = double.tryParse(amountStr);
-          if (a != null && a >= 0) {
-            _amountPaid = a;
-            _amountPaidController.text = _amountPaid.toStringAsFixed(2);
-          }
-        }
-        final start = _parseDate(startStr);
-        if (start != null) _startDate = start;
-        final end = _parseDate(endStr);
-        if (end != null && end.isAfter(_startDate)) _expectedReturnDate = end;
-        _durationDays = _normalizeDurationDays(_rentalDays);
-        _updateTotalPrice();
-      });
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: AppText(
-              matched != null
-                  ? AppCopy.clientAndDetailsFilledFromTheDocument
-                  : AppCopy.dataExtractedVerifyItAndSelectTheClient,
-            ),
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: AppText(context.trError(e))),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isImportingOcr = false);
-    }
   }
 
   DateTime? _parseDate(String s) {
@@ -1011,7 +923,7 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
                   children: [
                     DropdownButtonFormField<VehicleModel>(
                       isExpanded: true,
-                      value: vehicle,
+                      initialValue: vehicle,
                       items: availableVehicles
                           .map(
                             (v) => DropdownMenuItem(
@@ -1026,7 +938,7 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
                       onChanged: (v) => setState(() => _selectedVehicle = v),
                       decoration: InputDecoration(
                         labelText: context.tr(AppCopy.chooseAVehicle),
-                        prefixIcon: Icon(Icons.directions_car_outlined),
+                        prefixIcon: const Icon(Icons.directions_car_outlined),
                       ),
                     ),
                     if (vehicle != null) _VehicleSummary(vehicle: vehicle),
@@ -1059,10 +971,10 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
                   children: [
                     DropdownButtonFormField<ChauffeurModel?>(
                       isExpanded: true,
-                      value: _chauffeur,
+                      initialValue: _chauffeur,
                       decoration: InputDecoration(
                         labelText: context.tr(AppCopy.driver),
-                        prefixIcon: Icon(Icons.badge_outlined),
+                        prefixIcon: const Icon(Icons.badge_outlined),
                       ),
                       items: [
                         const DropdownMenuItem<ChauffeurModel?>(
@@ -1088,7 +1000,7 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
                         decoration: InputDecoration(
                           labelText: context.tr(AppCopy.numberOfDriverHours),
                           suffixText: 'h',
-                          prefixIcon: Icon(Icons.schedule),
+                          prefixIcon: const Icon(Icons.schedule),
                         ),
                         keyboardType: const TextInputType.numberWithOptions(
                             decimal: true),
@@ -1153,7 +1065,7 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
                       decoration: InputDecoration(
                         labelText: context.tr(AppCopy.dailyPrice),
                         suffixText: 'MAD',
-                        prefixIcon: Icon(Icons.sell_outlined),
+                        prefixIcon: const Icon(Icons.sell_outlined),
                       ),
                       keyboardType:
                           const TextInputType.numberWithOptions(decimal: true),
@@ -1169,7 +1081,7 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
                       decoration: InputDecoration(
                         labelText: context.tr(AppCopy.contractTotal),
                         suffixText: 'MAD',
-                        prefixIcon: Icon(Icons.calculate_outlined),
+                        prefixIcon: const Icon(Icons.calculate_outlined),
                         helperText: context.tr(AppCopy
                             .calculatedAutomaticallyYouCanEditItManually),
                       ),
@@ -1192,7 +1104,7 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
                       decoration: InputDecoration(
                         labelText: context.tr(AppCopy.amountPaidNow),
                         suffixText: 'MAD',
-                        prefixIcon: Icon(Icons.payments_outlined),
+                        prefixIcon: const Icon(Icons.payments_outlined),
                       ),
                       keyboardType:
                           const TextInputType.numberWithOptions(decimal: true),
@@ -1325,14 +1237,14 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
           textCapitalization: TextCapitalization.characters,
           decoration: InputDecoration(
             labelText: context.tr('CIN'),
-            prefixIcon: Icon(Icons.badge_outlined),
+            prefixIcon: const Icon(Icons.badge_outlined),
           ),
         ),
         TextFormField(
           controller: license,
           decoration: InputDecoration(
             labelText: context.tr(AppCopy.drivingLicenceNumber),
-            prefixIcon: Icon(Icons.credit_card),
+            prefixIcon: const Icon(Icons.credit_card),
           ),
         ),
         TextFormField(
@@ -1340,7 +1252,7 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
           keyboardType: TextInputType.phone,
           decoration: InputDecoration(
             labelText: context.tr(AppCopy.phoneOptional),
-            prefixIcon: Icon(Icons.phone_outlined),
+            prefixIcon: const Icon(Icons.phone_outlined),
           ),
         ),
       ] else ...[
@@ -1372,7 +1284,7 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
         if (isPrimary)
           DropdownButtonFormField<ClientModel>(
             isExpanded: true,
-            value: _clientWithId(
+            initialValue: _clientWithId(
               _uniqueClients(clients, _clientSearchQuery),
               _primaryDriver?.id,
             ),
@@ -1396,7 +1308,7 @@ class _ContractFormScreenState extends ConsumerState<ContractFormScreen> {
         else
           DropdownButtonFormField<ClientModel?>(
             isExpanded: true,
-            value: _secondaryDropdownValue(clients),
+            initialValue: _secondaryDropdownValue(clients),
             items: [
               const DropdownMenuItem<ClientModel?>(
                   value: null, child: AppText(AppCopy.none)),
@@ -1489,6 +1401,12 @@ class _ClientHint extends StatelessWidget {
             tone: licence.tone,
             icon: Icons.credit_card,
             dense: true,
+          ),
+        if (client.requiresManagerApproval)
+          StatusChip(
+            label: context.tr(AppCopy.clientRequiresApprovalWarning),
+            tone: AppTone.warning,
+            icon: Icons.flag_outlined,
           ),
       ],
     );

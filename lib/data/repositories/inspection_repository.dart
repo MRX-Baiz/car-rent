@@ -16,6 +16,18 @@ class InspectionRepository {
     return rows.isEmpty ? null : InspectionModel.fromMap(rows.first);
   }
 
+  /// Every inspection recorded against any of [contractIds] — one query for
+  /// a client's whole rental history, instead of one per contract.
+  Future<List<InspectionModel>> listByContractIds(
+      List<int> contractIds) async {
+    if (contractIds.isEmpty) return const [];
+    final db = await DatabaseHelper.instance.database;
+    final placeholders = List.filled(contractIds.length, '?').join(',');
+    final rows = await db.query('contract_inspections',
+        where: 'contract_id IN ($placeholders)', whereArgs: contractIds);
+    return rows.map(InspectionModel.fromMap).toList();
+  }
+
   Future<List<String>> photos(int inspectionId) async {
     final db = await DatabaseHelper.instance.database;
     final rows = await db.query('inspection_photos',

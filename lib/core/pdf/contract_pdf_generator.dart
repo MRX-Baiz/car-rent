@@ -130,8 +130,9 @@ class ContractPdfGenerator {
   Future<String> downloadContract(File pdfFile) async {
     final docsDir = await getApplicationDocumentsDirectory();
     final contractsDir = Directory(p.join(docsDir.path, 'CarRent_Contracts'));
-    if (!await contractsDir.exists())
+    if (!await contractsDir.exists()) {
       await contractsDir.create(recursive: true);
+    }
     final dest = File(p.join(contractsDir.path, p.basename(pdfFile.path)));
     if (p.normalize(pdfFile.path) != p.normalize(dest.path)) {
       await pdfFile.copy(dest.path);
@@ -181,7 +182,7 @@ class ContractPdfGenerator {
                   style: pw.TextStyle(
                     fontSize: 14,
                     fontWeight: pw.FontWeight.bold,
-                    color: PdfColor.fromInt(0xFF1A237E),
+                    color: const PdfColor.fromInt(0xFF1A237E),
                   ),
                 ),
               ],
@@ -217,8 +218,8 @@ class ContractPdfGenerator {
         pw.Table(
           border: pw.TableBorder.all(color: PdfColors.grey300),
           columnWidths: {
-            0: pw.FlexColumnWidth(1),
-            1: pw.FlexColumnWidth(2),
+            0: const pw.FlexColumnWidth(1),
+            1: const pw.FlexColumnWidth(2),
           },
           children: [
             _tableRow(_t('Marque'), vehicle.brand, compact: true),
@@ -258,8 +259,8 @@ class ContractPdfGenerator {
         pw.Table(
           border: pw.TableBorder.all(color: PdfColors.grey300),
           columnWidths: {
-            0: pw.FlexColumnWidth(1),
-            1: pw.FlexColumnWidth(2),
+            0: const pw.FlexColumnWidth(1),
+            1: const pw.FlexColumnWidth(2),
           },
           children: rows,
         ),
@@ -285,8 +286,8 @@ class ContractPdfGenerator {
         pw.Table(
           border: pw.TableBorder.all(color: PdfColors.grey300),
           columnWidths: {
-            0: pw.FlexColumnWidth(1),
-            1: pw.FlexColumnWidth(2),
+            0: const pw.FlexColumnWidth(1),
+            1: const pw.FlexColumnWidth(2),
           },
           children: [
             _tableRow(_t('Début'), start, compact: true),
@@ -298,20 +299,20 @@ class ContractPdfGenerator {
         pw.Table(
           border: pw.TableBorder.all(color: PdfColors.grey300),
           columnWidths: {
-            0: pw.FlexColumnWidth(3),
-            1: pw.FlexColumnWidth(1),
+            0: const pw.FlexColumnWidth(3),
+            1: const pw.FlexColumnWidth(1),
           },
           children: [
             pw.TableRow(
-              decoration: pw.BoxDecoration(color: PdfColors.grey200),
+              decoration: const pw.BoxDecoration(color: PdfColors.grey200),
               children: [
                 pw.Padding(
-                  padding: pw.EdgeInsets.all(6),
+                  padding: const pw.EdgeInsets.all(6),
                   child: pw.Text(_t('Description'),
                       style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
                 ),
                 pw.Padding(
-                  padding: pw.EdgeInsets.all(6),
+                  padding: const pw.EdgeInsets.all(6),
                   child: pw.Text(_t('Jours'),
                       style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
                 ),
@@ -437,7 +438,7 @@ class ContractPdfGenerator {
             ),
             pw.Container(
               width: 230,
-              decoration: pw.BoxDecoration(
+              decoration: const pw.BoxDecoration(
                 border: pw.Border(
                   top: pw.BorderSide(color: PdfColors.grey),
                 ),
@@ -462,7 +463,7 @@ class ContractPdfGenerator {
               pw.SizedBox(height: 35),
             pw.Container(
               width: 140,
-              decoration: pw.BoxDecoration(
+              decoration: const pw.BoxDecoration(
                 border: pw.Border(
                   top: pw.BorderSide(color: PdfColors.grey),
                 ),
@@ -480,7 +481,7 @@ class ContractPdfGenerator {
       style: pw.TextStyle(
         fontSize: 10.5,
         fontWeight: pw.FontWeight.bold,
-        color: PdfColor.fromInt(0xFF1A237E),
+        color: const PdfColor.fromInt(0xFF1A237E),
       ),
     );
   }

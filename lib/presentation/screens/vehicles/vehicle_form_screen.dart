@@ -289,7 +289,7 @@ class _VehicleFormScreenState extends ConsumerState<VehicleFormScreen> {
                           ?.copyWith(fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
                   DropdownButtonFormField<String>(
-                      value: _transmission,
+                      initialValue: _transmission,
                       decoration: InputDecoration(
                           labelText: context.tr(AppCopy.transmission)),
                       items: const [
@@ -301,7 +301,7 @@ class _VehicleFormScreenState extends ConsumerState<VehicleFormScreen> {
                       onChanged: (v) => setState(() => _transmission = v!)),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
-                      value: _fuelType,
+                      initialValue: _fuelType,
                       decoration:
                           InputDecoration(labelText: context.tr(AppCopy.fuel)),
                       items: const [
@@ -318,7 +318,7 @@ class _VehicleFormScreenState extends ConsumerState<VehicleFormScreen> {
                       onChanged: (v) => setState(() => _fuelType = v!)),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
-                      value: _condition,
+                      initialValue: _condition,
                       decoration: InputDecoration(
                           labelText: context.tr(AppCopy.generalCondition)),
                       items: const [
@@ -332,7 +332,7 @@ class _VehicleFormScreenState extends ConsumerState<VehicleFormScreen> {
                       onChanged: (v) => setState(() => _condition = v!)),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<int>(
-                      value: _fuelLevel,
+                      initialValue: _fuelLevel,
                       decoration: InputDecoration(
                           labelText: context.tr(AppCopy.fuelLevel)),
                       items: const [0, 25, 50, 75, 100]
@@ -419,7 +419,7 @@ class _VehicleFormScreenState extends ConsumerState<VehicleFormScreen> {
                   ),
                   const SizedBox(height: 16),
                   DropdownButtonFormField<String>(
-                    value: _status,
+                    initialValue: _status,
                     items: const [
                       DropdownMenuItem(
                         value: 'available',

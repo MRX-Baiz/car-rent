@@ -2761,4 +2761,123 @@ class AppMessagesFr extends AppMessages {
   String minutesUnit(String p0) {
     return '$p0 min';
   }
+
+  @override
+  String get profitability => 'Rentabilité';
+
+  @override
+  String get revenue => 'Revenu';
+
+  @override
+  String get utilizationRate => 'Taux d\'utilisation';
+
+  @override
+  String get netProfit => 'Bénéfice net';
+
+  @override
+  String get totalExpenses => 'Dépenses';
+
+  @override
+  String get expenseCategoryRepair => 'Réparation';
+
+  @override
+  String get expenseCategoryInsurance => 'Assurance';
+
+  @override
+  String get expenseCategoryFine => 'Amende';
+
+  @override
+  String get expenseCategoryOther => 'Autre';
+
+  @override
+  String get addAnExpense => 'Ajouter une dépense';
+
+  @override
+  String get expenseAmount => 'Montant';
+
+  @override
+  String get expenseDateLabel => 'Date de la dépense';
+
+  @override
+  String get expenseCategoryLabel => 'Catégorie';
+
+  @override
+  String get expenseNoteOptional => 'Note (optionnel)';
+
+  @override
+  String get noExpensesRecordedForThisVehicle =>
+      'Aucune dépense enregistrée pour ce véhicule.';
+
+  @override
+  String get fleetProfitability => 'Rentabilité de la flotte';
+
+  @override
+  String get fleetTotalRevenue => 'Revenu total';
+
+  @override
+  String get fleetTotalExpenses => 'Dépenses totales';
+
+  @override
+  String get fleetTotalNetProfit => 'Bénéfice net total';
+
+  @override
+  String get noVehiclesToRank => 'Aucun véhicule à classer.';
+
+  @override
+  String get expenseSaved => 'Dépense enregistrée.';
+
+  @override
+  String get expenseDeleted => 'Dépense supprimée.';
+
+  @override
+  String get notTrackedYet => 'Pas encore suivi.';
+
+  @override
+  String get deleteThisExpenseQuestion => 'Supprimer cette dépense ?';
+
+  @override
+  String get enterAValidAmount => 'Indiquez un montant valide.';
+
+  @override
+  String get rentalDaysLabel => 'Jours loués';
+
+  @override
+  String get includedFeatures => 'Fonctionnalités incluses';
+
+  @override
+  String get customerHistoryFeatureLabel => 'Historique client avancé';
+
+  @override
+  String get clientHistorySectionTitle => 'Historique client';
+
+  @override
+  String get totalRentalsLabel => 'Locations totales';
+
+  @override
+  String get lateReturnsLabel => 'Retours en retard';
+
+  @override
+  String get unpaidBalanceLabel => 'Solde impayé';
+
+  @override
+  String get damageIncidentsLabel => 'Incidents de dommages';
+
+  @override
+  String get requiresManagerApprovalLabel =>
+      'Nécessite l\'approbation du gérant';
+
+  @override
+  String get requiresManagerApprovalSubtitle =>
+      'Un rappel affiché à la prochaine location de ce client';
+
+  @override
+  String get clientRequiresApprovalWarning =>
+      'Ce client nécessite une validation du gérant avant la location.';
+
+  @override
+  String get profitabilityFeatureLabel => 'Rentabilité par véhicule';
+
+  @override
+  String get featureNotIncludedInLicence =>
+      'Cette fonctionnalité n\'est pas incluse dans votre licence.';
 }

@@ -4889,6 +4889,234 @@ abstract class AppMessages {
   /// In fr, this message translates to:
   /// **'{p0} min'**
   String minutesUnit(String p0);
+
+  /// No description provided for @profitability.
+  ///
+  /// In fr, this message translates to:
+  /// **'Rentabilité'**
+  String get profitability;
+
+  /// No description provided for @revenue.
+  ///
+  /// In fr, this message translates to:
+  /// **'Revenu'**
+  String get revenue;
+
+  /// No description provided for @utilizationRate.
+  ///
+  /// In fr, this message translates to:
+  /// **'Taux d\'utilisation'**
+  String get utilizationRate;
+
+  /// No description provided for @netProfit.
+  ///
+  /// In fr, this message translates to:
+  /// **'Bénéfice net'**
+  String get netProfit;
+
+  /// No description provided for @totalExpenses.
+  ///
+  /// In fr, this message translates to:
+  /// **'Dépenses'**
+  String get totalExpenses;
+
+  /// No description provided for @expenseCategoryRepair.
+  ///
+  /// In fr, this message translates to:
+  /// **'Réparation'**
+  String get expenseCategoryRepair;
+
+  /// No description provided for @expenseCategoryInsurance.
+  ///
+  /// In fr, this message translates to:
+  /// **'Assurance'**
+  String get expenseCategoryInsurance;
+
+  /// No description provided for @expenseCategoryFine.
+  ///
+  /// In fr, this message translates to:
+  /// **'Amende'**
+  String get expenseCategoryFine;
+
+  /// No description provided for @expenseCategoryOther.
+  ///
+  /// In fr, this message translates to:
+  /// **'Autre'**
+  String get expenseCategoryOther;
+
+  /// No description provided for @addAnExpense.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ajouter une dépense'**
+  String get addAnExpense;
+
+  /// No description provided for @expenseAmount.
+  ///
+  /// In fr, this message translates to:
+  /// **'Montant'**
+  String get expenseAmount;
+
+  /// No description provided for @expenseDateLabel.
+  ///
+  /// In fr, this message translates to:
+  /// **'Date de la dépense'**
+  String get expenseDateLabel;
+
+  /// No description provided for @expenseCategoryLabel.
+  ///
+  /// In fr, this message translates to:
+  /// **'Catégorie'**
+  String get expenseCategoryLabel;
+
+  /// No description provided for @expenseNoteOptional.
+  ///
+  /// In fr, this message translates to:
+  /// **'Note (optionnel)'**
+  String get expenseNoteOptional;
+
+  /// No description provided for @noExpensesRecordedForThisVehicle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucune dépense enregistrée pour ce véhicule.'**
+  String get noExpensesRecordedForThisVehicle;
+
+  /// No description provided for @fleetProfitability.
+  ///
+  /// In fr, this message translates to:
+  /// **'Rentabilité de la flotte'**
+  String get fleetProfitability;
+
+  /// No description provided for @fleetTotalRevenue.
+  ///
+  /// In fr, this message translates to:
+  /// **'Revenu total'**
+  String get fleetTotalRevenue;
+
+  /// No description provided for @fleetTotalExpenses.
+  ///
+  /// In fr, this message translates to:
+  /// **'Dépenses totales'**
+  String get fleetTotalExpenses;
+
+  /// No description provided for @fleetTotalNetProfit.
+  ///
+  /// In fr, this message translates to:
+  /// **'Bénéfice net total'**
+  String get fleetTotalNetProfit;
+
+  /// No description provided for @noVehiclesToRank.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucun véhicule à classer.'**
+  String get noVehiclesToRank;
+
+  /// No description provided for @expenseSaved.
+  ///
+  /// In fr, this message translates to:
+  /// **'Dépense enregistrée.'**
+  String get expenseSaved;
+
+  /// No description provided for @expenseDeleted.
+  ///
+  /// In fr, this message translates to:
+  /// **'Dépense supprimée.'**
+  String get expenseDeleted;
+
+  /// No description provided for @notTrackedYet.
+  ///
+  /// In fr, this message translates to:
+  /// **'Pas encore suivi.'**
+  String get notTrackedYet;
+
+  /// No description provided for @deleteThisExpenseQuestion.
+  ///
+  /// In fr, this message translates to:
+  /// **'Supprimer cette dépense ?'**
+  String get deleteThisExpenseQuestion;
+
+  /// No description provided for @enterAValidAmount.
+  ///
+  /// In fr, this message translates to:
+  /// **'Indiquez un montant valide.'**
+  String get enterAValidAmount;
+
+  /// No description provided for @rentalDaysLabel.
+  ///
+  /// In fr, this message translates to:
+  /// **'Jours loués'**
+  String get rentalDaysLabel;
+
+  /// No description provided for @includedFeatures.
+  ///
+  /// In fr, this message translates to:
+  /// **'Fonctionnalités incluses'**
+  String get includedFeatures;
+
+  /// No description provided for @customerHistoryFeatureLabel.
+  ///
+  /// In fr, this message translates to:
+  /// **'Historique client avancé'**
+  String get customerHistoryFeatureLabel;
+
+  /// No description provided for @clientHistorySectionTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Historique client'**
+  String get clientHistorySectionTitle;
+
+  /// No description provided for @totalRentalsLabel.
+  ///
+  /// In fr, this message translates to:
+  /// **'Locations totales'**
+  String get totalRentalsLabel;
+
+  /// No description provided for @lateReturnsLabel.
+  ///
+  /// In fr, this message translates to:
+  /// **'Retours en retard'**
+  String get lateReturnsLabel;
+
+  /// No description provided for @unpaidBalanceLabel.
+  ///
+  /// In fr, this message translates to:
+  /// **'Solde impayé'**
+  String get unpaidBalanceLabel;
+
+  /// No description provided for @damageIncidentsLabel.
+  ///
+  /// In fr, this message translates to:
+  /// **'Incidents de dommages'**
+  String get damageIncidentsLabel;
+
+  /// No description provided for @requiresManagerApprovalLabel.
+  ///
+  /// In fr, this message translates to:
+  /// **'Nécessite l\'approbation du gérant'**
+  String get requiresManagerApprovalLabel;
+
+  /// No description provided for @requiresManagerApprovalSubtitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Un rappel affiché à la prochaine location de ce client'**
+  String get requiresManagerApprovalSubtitle;
+
+  /// No description provided for @clientRequiresApprovalWarning.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ce client nécessite une validation du gérant avant la location.'**
+  String get clientRequiresApprovalWarning;
+
+  /// No description provided for @profitabilityFeatureLabel.
+  ///
+  /// In fr, this message translates to:
+  /// **'Rentabilité par véhicule'**
+  String get profitabilityFeatureLabel;
+
+  /// No description provided for @featureNotIncludedInLicence.
+  ///
+  /// In fr, this message translates to:
+  /// **'Cette fonctionnalité n\'est pas incluse dans votre licence.'**
+  String get featureNotIncludedInLicence;
 }
 
 class _AppMessagesDelegate extends LocalizationsDelegate<AppMessages> {

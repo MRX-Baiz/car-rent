@@ -100,7 +100,7 @@ class _ClientsListScreenState extends ConsumerState<ClientsListScreen> {
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
               child: TextField(
                 decoration: InputDecoration(
-                  prefixIcon: Icon(Icons.search),
+                  prefixIcon: const Icon(Icons.search),
                   hintText: context.tr(AppCopy.searchByNameOrNationalID),
                 ),
                 onChanged: (value) {

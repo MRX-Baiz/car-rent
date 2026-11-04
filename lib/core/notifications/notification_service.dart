@@ -34,7 +34,7 @@ class NotificationService {
   NotificationPreferencesRepository _preferencesRepository =
       NotificationPreferencesRepository.instance;
 
-  KeyValueStore _store = AppSettingsRepository.instance;
+  final KeyValueStore _store = AppSettingsRepository.instance;
 
   bool _initialized = false;
   bool _available = false;

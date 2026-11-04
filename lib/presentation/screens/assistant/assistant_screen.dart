@@ -17,7 +17,7 @@ class AssistantScreen extends StatefulWidget {
 class _AssistantScreenState extends State<AssistantScreen> {
   final _input = TextEditingController();
   final _messages = <_ChatLine>[
-     _ChatLine(
+     const _ChatLine(
       text:
           AppCopy.helloISearchThisAgencySDataDirectly,
       isUser: false,
@@ -174,7 +174,7 @@ class _AssistantScreenState extends State<AssistantScreen> {
                       decoration: InputDecoration(
                         hintText:
                             context.tr(AppCopy.eGWhichContractsAreOverdue),
-                        border: OutlineInputBorder(),
+                        border: const OutlineInputBorder(),
                       ),
                     ),
                   ),

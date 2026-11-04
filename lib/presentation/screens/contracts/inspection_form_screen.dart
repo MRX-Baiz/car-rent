@@ -7,9 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/constants/app_colors.dart';
-import '../../../core/utils/format_utils.dart';
 import '../../../core/utils/vehicle_labels.dart';
-import '../../../core/storage/media_store.dart';
 import '../../../domain/entities/inspection.dart';
 import '../../widgets/common/alert_banner.dart';
 import '../../widgets/common/app_card.dart';
@@ -95,14 +93,16 @@ class _InspectionFormScreenState extends ConsumerState<InspectionFormScreen> {
   Future<void> _sign() async {
     final value = await Navigator.of(context).push<Uint8List>(MaterialPageRoute(
         builder: (_) =>
-            ClientSignatureScreen(clientName: AppCopy.signatureForInspection)));
+            const ClientSignatureScreen(clientName: AppCopy.signatureForInspection)));
     if (value != null && mounted) setState(() => _signature = value);
   }
 
   Future<void> _save() async {
     if (!_form.currentState!.validate() ||
         _saving ||
-        _inspectionContext == null) return;
+        _inspectionContext == null) {
+      return;
+    }
     if (_departure && _signature == null) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
           content: AppText(AppCopy.theClientSignatureIsRequiredAtPickup)));
@@ -133,9 +133,10 @@ class _InspectionFormScreenState extends ConsumerState<InspectionFormScreen> {
         context.pop();
       }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: AppText(context.trError(e))));
+      }
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -388,7 +389,7 @@ class _InspectionFormScreenState extends ConsumerState<InspectionFormScreen> {
                       decoration: InputDecoration(
                         labelText: context.tr(AppCopy.additionalFees),
                         suffixText: 'MAD',
-                        prefixIcon: Icon(Icons.payments_outlined),
+                        prefixIcon: const Icon(Icons.payments_outlined),
                         helperText:
                             context.tr(AppCopy.missingFuelCleaningRepair),
                       ),

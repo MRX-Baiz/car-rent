@@ -148,7 +148,7 @@ class _ContractsListScreenState extends ConsumerState<ContractsListScreen>
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
               child: TextField(
                 decoration: InputDecoration(
-                  prefixIcon: Icon(Icons.search),
+                  prefixIcon: const Icon(Icons.search),
                   hintText: context.tr(AppCopy.contractNoVehicleOrClient),
                 ),
                 onChanged: (v) =>

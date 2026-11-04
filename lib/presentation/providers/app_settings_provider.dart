@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/localization/app_localizations.dart';
 import '../../data/repositories/app_settings_repository.dart';
-import '../../domain/entities/company_profile.dart';
 import '../../domain/repositories/app_settings_store.dart';
 import '../../domain/usecases/clear_legacy_auth_session.dart';
 import '../../domain/usecases/load_company_profile.dart';
